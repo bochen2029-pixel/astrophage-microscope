@@ -35,3 +35,6 @@ One line per `scripts/audit.ps1` run. Append-only.
 2026-08-02 05:37  d00ded1-dirty  AUDIT PASS  (7 checks)
 2026-08-02 05:45  d00ded1-dirty  AUDIT PASS  (10 checks)
 2026-08-02 06:12  6eab1e6-dirty  AUDIT PASS  (10 checks)
+2026-08-02 06:34  8620345-dirty  AUDIT FAIL  A3 (ctest green); A8 (module inventory matches ARCHITECTURE.md (Iron Rule 7))
+2026-08-02 06:43  8620345-dirty  AUDIT PASS  (10 checks)
+2026-08-02 06:51  8620345-dirty  AUDIT PASS  (7 checks)

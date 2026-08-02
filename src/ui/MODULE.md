@@ -20,7 +20,7 @@ Dear ImGui panels: the HUD, instrument controls, the cell inspector, the paramet
 
 ## Contracts
 
-Consumes `telemetry_v1.h`, `render_view_v1.h`, `scenario_v1.h`.
+Consumes `telemetry_v1.h`, `render_view_v2.h`, `scenario_v1.h`.
 
 ## Things that will bite you
 

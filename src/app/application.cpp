@@ -201,11 +201,13 @@ int app_run(Application& a) {
         }
 
         render::cells_pass_draw(a.cells_pass, a.camera, a.gl.fb_width, a.gl.fb_height,
-                                a.world.cells.count, a.hud.mode, a.hud.channel);
+                                a.world.cells.count, a.hud.mode, a.hud.channel,
+                                a.options.morphology);
         // The condenser affects the field as well as the cells, so it goes after
         // them. Brightfield only: a darkfield or Petrovascope field is not lamp-lit.
         if (a.hud.mode == contract::ViewMode::Brightfield)
-            render::post_pass_draw(a.post_pass, a.gl.fb_width, a.gl.fb_height, 0.22f, 0.6f);
+            render::post_pass_draw(a.post_pass, a.gl.fb_width, a.gl.fb_height, 0.22f, 0.6f,
+                                   a.options.aperture);
 
         if (!a.options.no_ui) {
             const contract::Stats stats = sim::world_stats(a.world);

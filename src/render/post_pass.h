@@ -15,14 +15,17 @@ struct PostPass {
     int u_strength = -1;
     int u_warmth = -1;
     int u_aspect = -1;
+    int u_aperture = -1;
 };
 
 Error post_pass_create(PostPass& p);
 void  post_pass_destroy(PostPass& p);
 
-// strength 0 disables. warmth tints the falloff toward the lamp colour, which is
-// what a real condenser does at the field edge.
+// strength 0 disables the vignette. warmth tints the falloff toward the lamp
+// colour, which is what a real condenser does at the field edge. `aperture` is the
+// field-diaphragm radius as a fraction of the half-height; 0 disables it and
+// leaves the old full-rectangle field.
 void  post_pass_draw(const PostPass& p, int fb_w, int fb_h,
-                     float strength, float warmth);
+                     float strength, float warmth, float aperture);
 
 } // namespace astro::render

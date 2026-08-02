@@ -4,7 +4,7 @@
 // so panning the stage is a primary interaction, not a convenience.
 #pragma once
 
-#include "contracts/render_view_v1.h"
+#include "contracts/render_view_v2.h"
 #include "core/canon_generated.h"
 #include "core/units.h"     // astro::clamp
 

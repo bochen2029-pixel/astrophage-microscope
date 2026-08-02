@@ -52,10 +52,18 @@ $cases = @(
     @{ name = 'm3_detail_focus0';   args = @('--objective','2','--focus','0')    }
     @{ name = 'm3_detail_focusp2';  args = @('--objective','2','--focus','2')    }
     @{ name = 'm3_detail_focusm2';  args = @('--objective','2','--focus','-2')   }
+    # M8b. The only case that leaves the sphere: proves morphology reaches pixels.
+    @{ name = 'm8b_working_irregular';
+       args = @('--objective','1','--focus','0','--morphology','irregular')      }
 )
 
+# EVERY measurement golden pins --morphology sphere and --aperture 0, so the M3
+# optics gate keeps measuring exactly what it has measured since M3. Appearance
+# work must never be able to move an oracle (ADR-023); the one irregular case
+# above overrides this deliberately.
 $common = @('--headless','--no-ui','--cells','25000','--seed','20260802',
-            '--frames','8','--ticks-per-frame','50','--width','1024','--height','768')
+            '--frames','8','--ticks-per-frame','50','--width','1024','--height','768',
+            '--morphology','sphere','--aperture','0')
 
 New-Item -ItemType Directory -Force $goldens | Out-Null
 $candDir = Join-Path $env:TEMP 'astro_goldens'
@@ -102,6 +110,11 @@ $mustDiffer = @(
     @{ a = 'm3_detail_focusp2';  b = 'm3_detail_focusm2';  why = 'defocus polarity inverts across focus' }
     @{ a = 'm3_working_focus0';  b = 'm3_working_focusp8'; why = 'racking focus changes the image' }
     @{ a = 'm3_working_focusp8'; b = 'm3_working_focusp25';why = 'defocus keeps increasing with distance' }
+    # Same scene, same seed, same optics -- only the silhouette differs. If these
+    # ever match, morphology has stopped reaching pixels and the shader mirror of
+    # morphology.h has silently died (ADR-017 has no compiler check across GLSL).
+    @{ a = 'm3_working_focus0';  b = 'm8b_working_irregular';
+       why = 'irregular morphology changes the silhouette' }
 )
 foreach ($pair in $mustDiffer) {
     $pa = Join-Path $goldens "$($pair.a).ppm"

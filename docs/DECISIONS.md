@@ -132,6 +132,46 @@ Append-only. Every contradiction in the source material and every non-obvious en
 
 ---
 
+## ADR-023 — Cell morphology: irregular by default, and provably unable to move a measurement
+
+**Status:** accepted, 2026-08-02 (M8b). Supersedes `render_view_v1.h` with `render_view_v2.h`.
+
+**Context.** Cells rendered as perfect circles — `RENDERING.md` §2 said so outright. Reference photography of Astrophage under a lab scope shows irregular, faceted grains, each one different. Circles read as *notation*; irregular silhouettes read as *organisms*, and this is a visualisation as much as a simulator.
+
+The novel describes small black spheres. That is a source contradiction of the kind this file exists to adjudicate, and the house answer (ADR-002, ADR-003) is to ship both readings rather than silently pick one.
+
+**Decision.** A `Morphology` setting: `Sphere` (novel-faithful) or `Irregular` (reference-faithful, the application default). The silhouette is a sum of radial harmonics k = 3..8 with amplitudes falling as 1/k, phased from a per-cell seed.
+
+### The invariant that makes this safe
+
+**Morphology is appearance only, and it is now provable rather than promised.** The physics body remains a sphere of `CELL_RADIUS` everywhere in `sim/`. Two mechanisms enforce it:
+
+- **Every measurement golden pins `--morphology sphere --aperture 0`.** After this change all eight M3 captures verify against the pre-existing goldens at **mean difference 0.0000** — the optics oracle measures exactly what it measured at M3. A ninth capture on `--morphology irregular` is a must-differ pair against `m3_working_focus0`, so if the shader mirror of `morphology.h` ever dies silently, the suite says so.
+- `sim/` cannot see morphology at all; A5 already grep-gates presentation code out of `sim/` and `fields/`.
+
+### Area preservation is the load-bearing property
+
+An irregular cell stands for a sphere and must absorb **exactly** as much light as that sphere, or the renderer stops agreeing with the physics that computed the charge. For `r(t) = a(1 + w·Σ A_k cos(kt + φ_k))` the enclosed area is `π a² (1 + ½ w² Σ A_k²)`, so the radius is divided by `sqrt(1 + ½ w² Σ A_k²)`. Measured worst-case error over 200 seeds × 11 blur weights: **1.6 × 10⁻¹⁴** — machine precision, not a tolerance.
+
+`w` is how much silhouette survives the optics, `a / r_eff`: 1 in focus, → 0 under heavy defocus. Blur genuinely destroys shape detail, so a badly defocused cell *should* image as a featureless disc. The normalisation carries the same `w`, or the area drifts back off as the cell defocuses.
+
+### The trap, recorded because it cost a render cycle
+
+**Do not ruffle the rim by modulating the edge softness per angle.** It is the obvious way to get the reference's frilled skirt and it is wrong: a radially-varying *falloff distance* renders as radial spokes, and cells come out as **starbursts**. The first implementation did exactly this and looked like a field of snowflakes. Crinkle belongs in `shape_radius`, where it perturbs where the outline is, not how fast it fades.
+
+### Consequences
+
+- **`render_view_v2.h`.** `CellInstance` gains `shape_seed` and grows 32 → 36 bytes (200k cells: 6.4 → 7.2 MB, immaterial). Nothing already in the struct was usable: position, charge, flags and the emission axis all vary over a cell's life. The seed is hashed from the cell's **monotonic id, never its slot** — a slot-derived seed would reshape every cell the instant M9's compaction moves it, the same class of mistake INV-1 forbids for the RNG. `scenario_v1.h` now includes v2 purely because v1 and v2 declare the same names in the same namespace and no translation unit may see both.
+- **Q8 landed with it, and had to.** Irregular silhouettes need a slightly larger bounding quad, and defocus fill rate was already the first budget crisis (`RENDERING.md` §7). Cells whose peak opacity cannot clear the fragment discard threshold now degenerate their quad in the vertex stage. It is exactly equivalent — such a cell's Becke ring is also zero, so nothing was being drawn — which the byte-identical goldens confirm.
+- **The field diaphragm** is a separate small win in `post_pass.cpp`: a real iris in the illumination path, and the reason every photograph down a microscope is a bright disc on black rather than a full rectangle.
+- **ADR-017 got worse before it gets better.** `shape_radius` is now the fifth formula duplicated across the GLSL boundary with no compiler check. Q7's trigger has been met: the next consumer should **generate the GLSL from the header** rather than hand-keeping a sixth copy.
+
+### What was deliberately not done
+
+Lateral chromatic aberration and procedural medium texture, both specified in `RENDERING.md` §8 and both carrying honesty caveats — aberration displaces pixels and must never reach a measurement golden, and a debris speck that could be miscounted as a cell is a bug in a simulator whose purpose is counting cells. Faceting is a refinement: the current outlines are lobed rather than angular. **Clumping remains physics** — cell–cell adhesion does not exist, and faking clusters in the shader would be the special-casing `ARCHITECTURE.md` §1 forbids.
+
+---
+
 ## ADR-022 — Taxis: what the controller climbs, and four things canon does not pin down
 
 **Status:** accepted, 2026-08-02 (M8).

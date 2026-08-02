@@ -18,6 +18,8 @@ void print_usage() {
         "  --zoom F           digital zoom on top of the objective\n"
         "  --focus F          focal plane in micrometres from chamber centre\n"
         "  --no-ui            suppress all ImGui drawing (for golden captures)\n"
+        "  --morphology M     sphere | irregular  (appearance only; goldens pin sphere)\n"
+        "  --aperture F       field diaphragm radius, 0 = full rectangle\n"
         "  --ticks-per-frame N  fixed ticks per frame, ignoring wall clock;\n"
         "                       makes a capture reproducible on any machine\n"
         "  --width N          window width\n"
@@ -56,6 +58,23 @@ Options parse_args(int argc, char** argv) {
             else o.zoom = static_cast<float>(std::atof(argv[++i]));
         }
         else if (want("--no-ui"))      o.no_ui     = true;
+        else if (want("--morphology")) {
+            if (i + 1 >= argc) { o.bad = true; }
+            else {
+                const char* m = argv[++i];
+                if (std::strcmp(m, "sphere") == 0)         o.morphology = contract::Morphology::Sphere;
+                else if (std::strcmp(m, "irregular") == 0) o.morphology = contract::Morphology::Irregular;
+                else                                       o.bad = true;
+            }
+        }
+        else if (want("--aperture")) {
+            if (i + 1 >= argc) o.bad = true;
+            else {
+                const double v = std::atof(argv[++i]);
+                if (v < 0.0 || v > 2.0) o.bad = true;
+                else o.aperture = static_cast<float>(v);
+            }
+        }
         else if (want("--focus")) {
             if (i + 1 >= argc) o.bad = true;
             else o.focus_um = static_cast<float>(std::atof(argv[++i]));

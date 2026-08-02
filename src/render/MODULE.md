@@ -1,6 +1,6 @@
 # MODULE: render
 
-**Depends on: `core`, `contracts`.** Reads `contracts/render_view_v1.h` — **never `src/sim/`**.
+**Depends on: `core`, `contracts`.** Reads `contracts/render_view_v2.h` — **never `src/sim/`**.
 
 ## Purpose
 
@@ -15,6 +15,7 @@ Everything that produces pixels: GL context, CUDA-GL interop, the single instanc
 | `cells_pass.cpp` | ✅ instanced disc draw, SDF fragment shader | M1 |
 | `camera.h` | ✅ scope pan/zoom/focal plane, objective presets (header-only, so it is host-testable) | M1 |
 | `optics.h` | ✅ circle of confusion, energy-conserving opacity, Becke amplitude, DOF — header-only, host-testable | M3 |
+| `morphology.h` | ✅ area-preserving irregular silhouettes, core/rim profile — header-only, host-testable (ADR-023) | M8b |
 | `post_pass.cpp` | ✅ condenser vignette (multiply-blended fullscreen triangle, no FBO) | M3 |
 | `field_pass.cpp` | grid → R32F texture, LUT mapping, overlays | M5 |
 | `luts.cpp` | the five colour tables | M5 |
@@ -22,11 +23,11 @@ Everything that produces pixels: GL context, CUDA-GL interop, the single instanc
 
 ## Contracts
 
-Consumes `render_view_v1.h`, `fields_v1.h`, `telemetry_v1.h`. Produces none.
+Consumes `render_view_v2.h`, `fields_v1.h`, `telemetry_v1.h`. Produces none.
 
 ## Things that will bite you
 
-- **`CellInstance` is a GL vertex-attribute contract**, `static_assert`ed at 32 bytes. Changing it means changing the attribute bindings in `cells_pass.cpp` in the same commit.
+- **`CellInstance` is a GL vertex-attribute contract**, `static_assert`ed at 36 bytes. Changing it means changing the attribute bindings in `cells_pass.cpp` in the same commit.
 - **It is the one place outside `ui/` that uses micrometres.** fp32 metres would lose the sub-micron structure the optics depend on.
 - **Defocus is per-instance, not screen-space.** Cells overlap in projection and a screen-space depth-of-field pass gets overlapping depths wrong. Expand the quad by `r_coc` and convolve the SDF analytically.
 - **No size fudge, ever.** Cells render at true relative size — a 10 μm cell in a 550 μm field is the entire point. `audit.ps1` A10 greps for `radius * 2`, `VISUAL_SCALE`, and similar. Sub-pixel cells clamp to 0.75 px radius with alpha modulated by area ratio so density stays honest.

@@ -7,7 +7,7 @@
 
 #include "contracts/cell_store_v1.h"
 #include "contracts/fields_v1.h"
-#include "contracts/render_view_v1.h"
+#include "contracts/render_view_v2.h"
 #include "contracts/scenario_v1.h"
 #include "contracts/snapshot_v1.h"
 #include "contracts/telemetry_v1.h"
@@ -31,7 +31,7 @@ static_assert(std::is_trivially_copyable_v<Scenario>);
 
 // The GL vertex-attribute contract. Changing this means changing the bindings in
 // render/cells_pass.cpp in the same commit.
-static_assert(sizeof(CellInstance) == 32);
+static_assert(sizeof(CellInstance) == 36);
 static_assert(std::is_standard_layout_v<CellInstance>);
 
 // Snapshots are written to disk; the header must be layout-stable.
@@ -40,7 +40,7 @@ static_assert(std::is_standard_layout_v<SnapshotHeader>);
 int main() {
     CHECK(CELL_STORE_CONTRACT_VERSION == 1);
     CHECK(FIELDS_CONTRACT_VERSION == 1);
-    CHECK(RENDER_VIEW_CONTRACT_VERSION == 1);
+    CHECK(RENDER_VIEW_CONTRACT_VERSION == 2);
     CHECK(TELEMETRY_CONTRACT_VERSION == 1);
     CHECK(SNAPSHOT_CONTRACT_VERSION == 1);
     CHECK(SCENARIO_CONTRACT_VERSION == 1);

@@ -26,6 +26,7 @@ in vec2 v_uv;
 uniform float u_strength;
 uniform float u_warmth;
 uniform float u_aspect;
+uniform float u_aperture;   // field-diaphragm radius, fraction of the half-height
 out vec4 frag;
 
 void main() {
@@ -36,6 +37,15 @@ void main() {
 
     // Gentle cos^4-ish falloff, which is roughly what real illumination does.
     float v = 1.0 - u_strength * pow(clamp(r, 0.0, 1.0), 2.5);
+
+    // The field diaphragm: a real iris in the illumination path, and the reason
+    // every photograph down a microscope is a bright disc on black rather than a
+    // full rectangle. Measured against the half-HEIGHT so the disc stays round and
+    // fully visible on any aspect ratio.
+    if (u_aperture > 0.0) {
+        float rh = length(d) / 0.5;
+        v *= 1.0 - smoothstep(u_aperture, u_aperture * 1.035, rh);
+    }
 
     // The lamp is warm, so the falloff cools: blue drops fastest.
     vec3 tint = vec3(1.0, 1.0 - 0.25 * u_warmth * (1.0 - v),
@@ -80,6 +90,7 @@ Error post_pass_create(PostPass& p) {
     p.u_strength = glGetUniformLocation(p.program, "u_strength");
     p.u_warmth   = glGetUniformLocation(p.program, "u_warmth");
     p.u_aspect   = glGetUniformLocation(p.program, "u_aspect");
+    p.u_aperture = glGetUniformLocation(p.program, "u_aperture");
     glGenVertexArrays(1, &p.vao);
     return ok();
 }
@@ -90,14 +101,16 @@ void post_pass_destroy(PostPass& p) {
     p = PostPass{};
 }
 
-void post_pass_draw(const PostPass& p, int fb_w, int fb_h, float strength, float warmth) {
-    if (strength <= 0.0f || p.program == 0) return;
+void post_pass_draw(const PostPass& p, int fb_w, int fb_h, float strength, float warmth,
+                    float aperture) {
+    if ((strength <= 0.0f && aperture <= 0.0f) || p.program == 0) return;
     glEnable(GL_BLEND);
     glBlendFunc(GL_ZERO, GL_SRC_COLOR);        // multiply
     glUseProgram(p.program);
     glUniform1f(p.u_strength, strength);
     glUniform1f(p.u_warmth, warmth);
     glUniform1f(p.u_aspect, fb_h > 0 ? static_cast<float>(fb_w) / fb_h : 1.0f);
+    glUniform1f(p.u_aperture, aperture);
     glBindVertexArray(p.vao);
     glDrawArrays(GL_TRIANGLES, 0, 3);
     glBindVertexArray(0);

@@ -11,9 +11,9 @@
 
 ## Where the build stands
 
-**Last green: `m8-green`. Next milestone: M9 — Life.**
+**Last green: `m8b-green`. Next milestone: M9 — Life.**
 
-**All five signature phenomena are live, and cells now behave.** 17 tests green, 8 goldens, 10 audit checks.
+**All five signature phenomena are live, cells behave, and they look like organisms.** 18 tests green, 9 goldens, 10 audit checks.
 
 | | measured |
 |---|---|
@@ -23,12 +23,13 @@
 | **P4** | motility ratio 4.357, matching the oracle |
 | **P5** | adjacent collinear pair: rear cell at bitwise `0.0`; 8000 cells: charge-vs-depth r = −0.879 |
 | **M8** | migration −262.6 μm = **20.3σ**; darkness **bit-identical** to the taxis-off null |
+| **M8b** | silhouette area-preserving to **1.6e-14**; all 8 measurement goldens unchanged at mean **0.0000** |
 
 ## Start here
 
 ```bash
 git -C C:\Astrophage tag --list
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/gate.ps1 -Milestone M8
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/gate.ps1 -Milestone M8b
 ```
 
 Read: `CLAUDE.md` → `docs/ARCHITECTURE.md` → **the M9 section only** of `docs/MILESTONES.md` → `docs/PHYSICS.md` **§10 and §12 only** → `src/sim/MODULE.md` → **ADR-022, ADR-011, ADR-004, ADR-014**.
@@ -89,11 +90,10 @@ Not done at M8 because it is a constants decision touching **ADR-005** (why 50 m
 ## Deferred, with reasons
 
 - **Bloom and the Petrovascope/Thermal-IR view modes** were in M7's scope and are **not done**. The enum values and `u_mode` are plumbed; `cells_pass.cpp` renders modes 1–4 through the Analysis branch. `RENDERING.md` §4 has the spec. The constraint that matters: Thermal IR and Petrovascope must read *differently* (7.841 μm blackbody vs a 25.984 μm quantum line — a live idle cell glows in one and is dark in the other). Do it at M11 or as a standalone M7b.
+- **DONE at M8b: Q8 and Q17.** Vertex-stage defocus culling and irregular morphology both shipped (ADR-023). What is left of `RENDERING.md` §8: lateral chromatic aberration and procedural medium texture (both carry honesty caveats — aberration displaces pixels and must never reach a measurement golden; a debris speck miscounted as a cell is a bug in a simulator built to count cells), and faceting, since the outlines are lobed rather than angular.
 - **Q9** — the neighbour walk visits **27 buckets when 8 would do** (`cell_size` 22 μm ≥ 2 × 10 μm range). Used by contact *and* occlusion, so the win has doubled. Still the single best performance lever.
-- **Q8** — defocus overdraw: cull cells below the fragment discard threshold in the vertex stage.
 - **Q10** — contact cannot hold a fully charged cell at `dt` = 1 ms (ADR-018 §3); needs substepping if M9 makes dense charged cultures.
 - **Q11** — the SoA is not reordered by bucket, contrary to M4's stated scope. Revisit only with profiling evidence.
 - **Q12** — `shell_conductance` is kept but deliberately unused; read ADR-020 before reaching for it.
 - **Q13** — light is axis-aligned only (ADR-021). A sheared sweep needs atomics or a rotated buffer.
 - **Test suite cost.** `ctest` is now 3m43s; `test_taxis` alone is 41.5 s (two 10⁴-tick 8000-cell runs). Kept deliberately — it is the specified gate and it passes at 20σ. If the suite becomes a problem, that is an ADR, not a quiet trim.
-- **Q17 — cells are drawn as perfect circles and should not be.** Reference photography shows irregular, faceted, crumpled silhouettes with a black core and a ruffled rim; perfect circles read as notation rather than as organisms. **Full design is `RENDERING.md` §8** — jittered polygon plus radial harmonics for the silhouette, two-zone core/rim opacity, a circular field aperture with vignette (probably the best look-per-line in the whole list), lateral chromatic aberration, and the honesty constraints on medium texture. Three things to carry out of it: **morphology is appearance only** and the gate is that any morphology setting leaves the snapshot hash identical (INV-8); **do not add size variation** — the apparent spread is defocus, which §3 already models; and **clumping is physics, not rendering** — cell–cell adhesion does not exist and faking clusters in the shader would be exactly the special-casing `ARCHITECTURE.md` §1 forbids. Do **Q8** first (overdraw gets worse), and expect **Q7/ADR-017** to bite — a shape function needed by both the shader and a host test is the third consumer that should trigger generating the GLSL from the header. Belongs with M7b or M11. Needs an ADR: novel says spheres, reference says grains, and the house rule (ADR-002, ADR-003) is to ship both.

@@ -6,7 +6,7 @@
 #include <cstdint>
 
 #include "fields_v1.h"
-#include "render_view_v1.h"
+#include "render_view_v2.h"
 #include "snapshot_v1.h"    // ParamOverride
 #include "telemetry_v1.h"
 

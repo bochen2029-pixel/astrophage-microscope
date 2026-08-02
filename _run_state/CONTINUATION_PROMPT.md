@@ -34,16 +34,16 @@ git -C C:\Astrophage tag --list
 **The last `m<N>-green` tag is the ground truth.** Not a doc, not a log, not this
 file. If anything here disagrees with the tags, believe the tags and fix the doc.
 
-As of writing: **`m0-green` … `m8-green`**. Eight of twelve milestones done.
+As of writing: **`m0-green` … `m8b-green`**. Eight of twelve milestones done, plus the M8b presentation split.
 **Next up: M9 — Life.**
 
 Then verify the baseline before changing anything:
 
 ```bash
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/gate.ps1 -Milestone M8
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/gate.ps1 -Milestone M8b
 ```
 
-That does a clean rebuild and re-runs every gate M0–M7 plus the golden images. It
+That does a clean rebuild and re-runs every gate M0–M8b plus the golden images. It
 takes ~12 minutes. **Run it in the background** and read while it goes.
 
 Then look at the thing:
@@ -70,7 +70,7 @@ on code. **Never load the whole repo.**
 2. **`docs/ARCHITECTURE.md`** — module map, invariants INV-1…INV-8, the mandatory
    glossary, the tick sequence, the anti-drift machinery. Always.
 3. **`docs/MILESTONES.md` — the active milestone section only.** Not the file.
-4. **`docs/DECISIONS.md`** — 21 ADRs. Skim the index; read any ADR a task touches.
+4. **`docs/DECISIONS.md`** — 23 ADRs. Skim the index; read any ADR a task touches.
    **Every contradiction in the source material has already been adjudicated here,
    with reasoning and an escape hatch.** Re-litigating costs a session.
 5. **`docs/PHYSICS.md`** — only if touching `src/sim/` or `src/fields/`, and only
@@ -91,7 +91,7 @@ repeats.
 
 ## Step 3 — the state, in numbers
 
-**17 tests green, 8 golden images, 10 audit invariant checks.**
+**18 tests green, 9 golden images, 10 audit invariant checks.**
 
 ```
 test_canon ......... generated constants consistent; the right params carry the canon lock
@@ -111,6 +111,7 @@ test_thermal ....... P2 thermostat, P3 latch, P4 motility, T5/T7/T9/T10/T12/T19
 test_emission ...... P5 exact + statistical, Komorov T15, band separation T16/T17/T20
 test_taxis ......... T26: run-and-tumble, the state machine, the emission ledger,
                      migration at 20.3 sigma, darkness bit-identical to the null
+test_morphology .... T27: area-preserving silhouettes to 1.6e-14, bounded, distinct
 determinism_replay . real World, seed- and population-sensitive (INV-8)
 ```
 
@@ -328,10 +329,6 @@ Do it as a standalone M7b, or fold it into M11 with the rest of the UI.
   2×2×2 walk is correct whenever `cell_size ≥ 2 × range`, which holds. ~3.4× on the
   dominant cost — and it is now used by **both** contact and occlusion, so the win
   has doubled since it was first identified.
-- **Q8** — defocus is fill rate, not shader complexity. A cell 30 μm out of focus
-  covers 64× the area and every fragment is shaded and blended (795 → 426 fps at
-  M3). Cull cells whose peak opacity is below the fragment discard threshold, in
-  the vertex stage. **Bloom will land on top of this.**
 
 ### Open questions
 
@@ -365,15 +362,12 @@ Do it as a standalone M7b, or fold it into M11 with the rest of the UI.
   `cell_store_v1.h` has no such field — a v2 bump. Error direction is known:
   instantaneous re-aim makes taxis *strictly more effective*, so M8's 20.3σ is an
   upper bound.
-- **Q17 — cells are perfect circles and should not be.** Reference photography of
-  Astrophage under a scope shows irregular, faceted, crumpled silhouettes with a
-  black core and a ruffled rim. **Design is `RENDERING.md` §8.** The invariant that
-  keeps it honest: **morphology is appearance only**, and the gate is that any
-  morphology setting leaves the snapshot hash identical (INV-8). Do **Q8** first —
-  overdraw worsens — and expect **Q7/ADR-017** to bite. Do *not* add size variation
-  (the spread is defocus, already modelled) and do *not* fake clumping in the
-  shader (that is cell–cell adhesion, a `sim/` change with its own ADR). Novel says
-  spheres, reference says grains; house rule is to ship both (ADR-002, ADR-003).
+- **Q17 is DONE (M8b), and so is Q8.** Irregular morphology and vertex-stage
+  defocus culling both shipped; see ADR-023. The invariant to preserve: every
+  measurement golden pins `--morphology sphere --aperture 0`, and all eight verify
+  at mean difference **0.0000**, so appearance provably cannot move an oracle.
+  Still open from `RENDERING.md` Sec 8: chromatic aberration and medium texture
+  (both carry honesty caveats), and faceting -- the outlines are lobed, not angular.
 - **Q16 — the taxis controller is mistuned, with numbers.** An awake cell swims at
   6105 μm/s and crosses the whole 4 mm chamber in **0.66 s**, but
   `TAXIS_MEMORY_TIME` is **2 s** — 3.1× a full crossing. Measured consequence:

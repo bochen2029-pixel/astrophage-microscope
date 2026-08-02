@@ -6,6 +6,25 @@ Format: milestone · what landed · what is pending · open questions · gotchas
 
 ---
 
+## 2026-08-02 — M8b (Presentation) — GREEN · **cells look like organisms**
+
+**Landed.** Irregular cell silhouettes (Q17), the field diaphragm, and Q8's vertex-stage culling that pays for the extra fill. `render_view_v2.h` adds a per-cell `shape_seed`; 18 tests green, 9 goldens.
+
+Prompted by reference photography of Astrophage under a lab scope: the renderer drew perfect circles — `RENDERING.md` §2 said so outright — and circles read as *notation* where irregular grains read as *organisms*.
+
+**The claim that mattered was provable, not promised.** Appearance must never be able to move a measurement. Every M3 golden now pins `--morphology sphere --aperture 0`, and after the change all eight verify against the **pre-existing** goldens at **mean difference 0.0000**. So the contract bump and the Q8 cull are demonstrably neutral to the optics oracle rather than argued to be. A ninth capture on `--morphology irregular` is a must-differ pair, so if the shader mirror of `morphology.h` ever dies silently the suite says so.
+
+**Area preservation is the load-bearing property.** An irregular cell stands for a sphere and must absorb *exactly* as much light, or the renderer stops agreeing with the physics that computed the charge. Dividing by `sqrt(1 + ½w²ΣA_k²)` — carrying the same blur weight `w`, or the area drifts back off as the cell defocuses — gives a worst-case error of **1.6e-14** over 200 seeds × 11 blur weights. Machine precision, not a tolerance.
+
+**Gotchas.**
+- **Do not ruffle the rim by modulating edge softness per angle.** It is the obvious route to the reference's frilled skirt and it renders as **starbursts** — a field of snowflakes. A radially-varying *falloff distance* is exactly what makes radial spokes. Crinkle belongs in the outline, not in the fade. Caught by looking at the output; the tests were all green.
+- **Plot the pure function before blaming the pipeline.** Rendering `shape_radius` directly in 20 lines of Python showed the silhouette was already correct, which localised the bug to the rim treatment immediately instead of a hunt through the shader.
+- **`git status` disagreed with `imgdiff`** after `-Generate`: all 8 goldens showed as modified while imgdiff reported mean 0.0000, max 1. That is 1-LSB raster noise. Reverted them and kept only the new golden — committing churn would make a future real change invisible in the diff.
+- **`gate.ps1` rejected `M8b` twice** — first the `[int]"8b"` parse, then a `ValidatePattern` I had not noticed. Split milestones are an Iron Rule 9 affordance the gate never supported; it does now.
+- ADR-017 got worse before it gets better: `shape_radius` is the **fifth** formula mirrored across the GLSL boundary. Q7's trigger is met — the next one should generate the GLSL from the header.
+
+---
+
 ## 2026-08-02 — M8 (Taxis) — GREEN · **cells behave**
 
 **Landed.** Run-and-tumble taxis on the culture's own self-shadowing gradient, the FEED/BREED/IDLE machine, and the emission discharge that was missing (`dE/dt = −emit_power` — nothing debited the store before M8 because nothing ever set `emit_power` nonzero). 17 tests green. **No contract change:** `taxis_memory`, `run_timer` and `co2_local` were already in `cell_store_v1.h`.

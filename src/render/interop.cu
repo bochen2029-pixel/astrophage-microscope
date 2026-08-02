@@ -11,6 +11,7 @@
 
 #include "core/canon_generated.h"
 #include "core/octahedral.cuh"
+#include "core/rng.cuh"
 #include "core/units.h"
 
 namespace astro::render {
@@ -37,6 +38,13 @@ __global__ void fill_instances(CellInstance* out, CellStoreView v, int32_t count
     const uint32_t flags = v.flags[i];
     inst.flags_packed = (flags & 0xFFFFu) | (static_cast<uint32_t>(v.death_cause[i]) << 16);
     inst.dir_packed = oct_encode(Vec3{v.dir_x[i], v.dir_y[i], v.dir_z[i]});
+
+    // Silhouette seed from the cell's MONOTONIC ID, never from `i`. A slot-derived
+    // seed would reshape every cell the moment M9's compaction moves it -- the same
+    // class of mistake INV-1 forbids for the RNG (ADR-023). Never zero: zero is the
+    // sentinel the shader reads as "perfectly circular".
+    const uint32_t seed = static_cast<uint32_t>(splitmix64(v.id[i]) >> 32);
+    inst.shape_seed = seed | 1u;
 
     out[i] = inst;
 }

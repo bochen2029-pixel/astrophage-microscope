@@ -1,6 +1,6 @@
 // src/core/octahedral.cuh -- unit vector <-> 32 bits.
 //
-// contracts/render_view_v1.h packs a cell's emission axis into CellInstance::
+// contracts/render_view_v2.h packs a cell's emission axis into CellInstance::
 // dir_packed so the instance stays at 32 bytes. Octahedral mapping gives ~0.01
 // degree accuracy from two 16-bit snorm channels, which is far more than a
 // visual emission lobe needs.

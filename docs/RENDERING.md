@@ -1,6 +1,6 @@
 # RENDERING — the scope
 
-**Load only when touching `src/render/` or `src/ui/`.** Interfaces are frozen in `contracts/render_view_v1.h`; that header, not this document, is the authority on struct layout.
+**Load only when touching `src/render/` or `src/ui/`.** Interfaces are frozen in `contracts/render_view_v2.h`; that header, not this document, is the authority on struct layout.
 
 ---
 
@@ -20,9 +20,9 @@ This must read as **microscopy**, not as a particle toy, and the entire differen
 [petrova emission lobes, additive] ──────────────────────────┘
 ```
 
-**One instanced draw for all cells.** A CUDA kernel writes per-instance attributes directly into a GL buffer registered with `cudaGraphicsGLRegisterBuffer` — positions never touch host memory. Instance payload is two `vec4`s in **micrometres, fp32**: `(x, y, z, radius)` and `(charge, flags_packed, emit_power, dir_packed)`.
+**One instanced draw for all cells.** A CUDA kernel writes per-instance attributes directly into a GL buffer registered with `cudaGraphicsGLRegisterBuffer` — positions never touch host memory. Instance payload is 36 bytes in **micrometres, fp32**: `(x, y, z, radius)`, `(charge, emit_power_norm)`, `(flags_packed, dir_packed)`, and a `shape_seed` (ADR-023).
 
-The disc is an **SDF in the fragment shader**, so cells are perfect circles at any zoom and cost nothing extra when small.
+The silhouette is an **SDF in the fragment shader**, so it stays crisp at any zoom and costs nothing extra when small. Under `Morphology::Sphere` it is a circle; under `Irregular` it is the area-preserving harmonic outline of §8 (ADR-023).
 
 ---
 
@@ -122,9 +122,9 @@ Reference machine: RTX 4070 Ti SUPER (sm_89, 16 GB), 200,000 cells, `TARGET_FPS`
 
 ---
 
-## 8. Cell morphology — **specified, not implemented** (Q17)
+## 8. Cell morphology — **implemented at M8b** (ADR-023)
 
-§2 says the disc is an SDF, so "cells are perfect circles at any zoom". Reference photography of Astrophage under a lab scope shows something quite different: **irregular, faceted, crumpled silhouettes**, each one unique, with a dense black core and a soft ruffled rim — closer to torn foil or a crushed mineral grain than to a dot. Perfect circles read as *notation*; the irregular shapes read as *organisms*. This section is the design; none of it is built.
+§2 says the disc is an SDF, so "cells are perfect circles at any zoom". Reference photography of Astrophage under a lab scope shows something quite different: **irregular, faceted, crumpled silhouettes**, each one unique, with a dense black core and a soft ruffled rim — closer to torn foil or a crushed mineral grain than to a dot. Perfect circles read as *notation*; the irregular shapes read as *organisms*. **§8.1–§8.4 shipped at M8b**; §8.5 and §8.6 are still design, and §8.7 is physics rather than rendering.
 
 ### 8.1 The invariant that keeps this honest
 

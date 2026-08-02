@@ -179,13 +179,13 @@ src/fields   grid.cuh, diffuse.cu, irradiance.cu
 src/sim      cell_store.cu, integrator.cu, thermal.cu, emission.cu, taxis.cu,
              contact.cu, lifecycle.cu, predation.cu, hash.cu, snapshot.cpp, step.cu
 src/render   gl_context.cpp, interop.cu, cells_pass.cpp, field_pass.cpp,
-             optics.cpp, bloom.cpp, luts.cpp, camera.cpp
+             optics.cpp, morphology.h, post_pass.cpp, bloom.cpp, luts.cpp, camera.cpp
 src/ui       hud.cpp, inspector_panel.cpp, params_panel.cpp, instrument_panel.cpp,
              chart_panel.cpp, scenario_panel.cpp
 src/app      main.cpp, application.cpp, cli.cpp
 tools        headless.cpp, goldgen.cpp
-contracts    cell_store_v1.h, fields_v1.h, render_view_v1.h, scenario_v1.h,
-             telemetry_v1.h, snapshot_v1.h
+contracts    cell_store_v1.h, fields_v1.h, render_view_v1.h, render_view_v2.h,
+             scenario_v1.h, telemetry_v1.h, snapshot_v1.h
 ```
 
 Each `src/<module>/MODULE.md` states: purpose, owned files, contracts consumed and produced, invariants it is responsible for, current milestone status, and known gaps.

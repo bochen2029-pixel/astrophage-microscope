@@ -157,6 +157,18 @@ Three findings, all in ADR-018:
 
 ---
 
+## M8b — Presentation: morphology, aperture, and the culling that pays for it
+
+**Split from the deferred render work before starting, per Iron Rule 9.** M7b (bloom, Petrovascope and Thermal IR) keeps its own name and its own later slot; this is the silhouette work only.
+
+**Scope.** `RENDERING.md` §8. `render_view_v2.h` adds a per-cell `shape_seed`; irregular cell silhouettes from area-preserving radial harmonics with a dense core and a ruffled rim; the circular field aperture; Q8 vertex-stage culling of sub-threshold cells, which pays for the extra fill.
+
+**Out of scope**, deliberately: lateral chromatic aberration and medium texture (both optional in §8 and both carry honesty caveats), bloom, and the two missing view modes.
+
+**Gate.** M8 gate + T27: the shape function is area-preserving to 0.1 % (an irregular cell absorbs exactly as much light as the disc it replaces — otherwise the render stops matching the physics), bounded, periodic, and deterministic in the seed; `Sphere` morphology reproduces the circular profile exactly. Existing goldens are pinned to `--morphology sphere` and must be **unchanged**, so the M3 optics gate keeps measuring what it always measured; one new golden on `--morphology irregular` plus a must-differ pair proves morphology does something.
+
+---
+
 ## M9 — Life
 
 **Scope.** `PHYSICS.md` §10 and §12. Biomass, CO₂ uptake, mitosis with energy halving and RNG splitting, death paths, corpse rendering, store-disposition toggle, the multi-rate clock with the four presets, population/energy/temperature charts.

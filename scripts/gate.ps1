@@ -15,7 +15,8 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)]
-    [ValidatePattern('^M(1[0-2]|[0-9])$')]
+    # Trailing letter accepts split milestones (M5a/M5b, M8b) -- Iron Rule 9.
+    [ValidatePattern('^M(1[0-2]|[0-9])[a-z]?$')]
     [string]$Milestone,
     [switch]$SkipBuild
 )
@@ -49,7 +50,14 @@ function Run-Test([string]$testName) {
     return ($LASTEXITCODE -eq 0)
 }
 
-$n = [int]$Milestone.Substring(1)
+# Milestones may be split (M5a/M5b, M8b). The trailing letter selects the extra
+# checks; the number selects which earlier gates re-run.
+if ($Milestone -notmatch '^[Mm](\d+)([a-z]?)$') {
+    Write-Host "[gate] unrecognised milestone '$Milestone' (expected e.g. M7 or M8b)" -ForegroundColor Red
+    exit 2
+}
+$n = [int]$Matches[1]
+$suffix = $Matches[2]
 Write-Host "[gate] $Milestone (re-running gates M0..$Milestone)" -ForegroundColor Cyan
 
 # ---------------------------------------------------------------- M0: harness
@@ -158,6 +166,16 @@ if ($n -ge 7) {
 
 # ---------------------------------------------------------------- M8: taxis
 if ($n -ge 8) { Gate 'M8.1' 'gradient migration + darkness rule' { return (Run-Test 'test_taxis') } }
+
+# ------------------------------------------------- M8b: cell morphology (T27)
+# The goldens step above already proves the measurement oracles are untouched:
+# every m3_* capture pins --morphology sphere, and the one irregular capture is a
+# must-differ pair against m3_working_focus0. Appearance can never move an oracle.
+if (($n -gt 8) -or ($n -eq 8 -and $suffix -ge 'b')) {
+    Gate 'M8b.1' 'morphology: area-preserving, bounded, distinct (T27)' {
+        return (Run-Test 'test_morphology')
+    }
+}
 
 # ----------------------------------------------------------------- M9: life
 if ($n -ge 9) {

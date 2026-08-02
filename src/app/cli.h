@@ -3,6 +3,8 @@
 
 #include <cstdint>
 
+#include "contracts/render_view_v2.h"
+
 namespace astro::app {
 
 struct Options {
@@ -31,6 +33,11 @@ struct Options {
     // panel layout -- otherwise every HUD tweak invalidates every golden.
     bool     no_ui      = false;
     float    focus_um   = 0.0f;      // focal plane, micrometres
+
+    // Appearance only -- neither can reach sim/ (ADR-023). Goldens used as
+    // measurement oracles pin morphology to Sphere and the aperture to 0.
+    contract::Morphology morphology = contract::Morphology::Irregular;
+    float    aperture   = 0.92f;     // field diaphragm radius; 0 = full rectangle
     bool     help       = false;
     bool     bad        = false;
 };

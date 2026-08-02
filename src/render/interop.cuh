@@ -8,7 +8,7 @@
 #include <cstdint>
 
 #include "contracts/cell_store_v1.h"
-#include "contracts/render_view_v1.h"
+#include "contracts/render_view_v2.h"
 #include "core/result.h"
 
 struct cudaGraphicsResource;

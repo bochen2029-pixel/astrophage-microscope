@@ -26,11 +26,11 @@ namespace {
 // The optics below MIRROR src/render/optics.h. Change one, change both -- the
 // golden images are the only thing that catches a divergence across the GLSL
 // boundary.
-const char* kVert = R"GLSL(
-#version 460 core
+const char* kVertBody = R"GLSL(
 layout(location = 0) in vec4  a_pos_radius;   // x, y, z, radius   [um]
 layout(location = 1) in vec2  a_state;        // charge, emit_power_norm
 layout(location = 2) in uvec2 a_flags;        // flags_packed, dir_packed
+layout(location = 3) in uint  a_shape_seed;   // stable per-cell silhouette seed
 
 uniform vec2  u_center_um;
 uniform vec2  u_half_extent_um;
@@ -38,6 +38,7 @@ uniform float u_px_per_um;
 uniform float u_focal_plane_um;
 uniform float u_na;
 uniform float u_immersion;
+uniform int   u_morphology;   // contract::Morphology
 
 out vec2  v_local;        // [-1,1] across the quad
 out float v_draw_um;      // half-extent of the quad, um
@@ -50,7 +51,9 @@ out float v_polarity;     // +1 above focus, -1 below -- inverts the ring
 out float v_alpha_scale;  // sub-pixel compensation
 out float v_charge;
 out float v_emit;
+out float v_shape_w;      // how much silhouette survives the blur, [0,1]
 flat out uint v_flags;
+flat out uint v_seed;
 
 void main() {
     float a  = a_pos_radius.w;                                   // true radius
@@ -62,8 +65,26 @@ void main() {
     float px_um = 1.0 / u_px_per_um;
     float edge  = max(r_coc, px_um);          // in focus, soften by one pixel only
 
-    // Where the profile has essentially reached zero.
-    float extent_um = r_eff + edge;
+    // Q8: cull cells whose peak opacity can never clear the fragment discard
+    // threshold. A cell 40 um out of focus contributes under 2 % opacity while
+    // covering ~64x the in-focus area, so this is the cheapest attack on the
+    // dominant fill-rate cost (RENDERING.md Sec 7). Degenerate the quad rather
+    // than branch: no fragments, no work.
+    if (peak <= 0.002) {
+        gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+        return;
+    }
+
+    // Silhouette survives only as far as geometry dominates blur (morphology.h).
+    // In focus w = 1 and the full shape shows; heavily defocused w -> 0 and the
+    // cell images as a featureless disc, which is what blur actually does.
+    v_seed    = (u_morphology == 0) ? 0u : a_shape_seed;
+    v_shape_w = (u_morphology == 0) ? 0.0 : a / r_eff;
+
+    // Where the profile has essentially reached zero. The quad must bound the
+    // widest the silhouette can reach, or a cell gets clipped by its own quad and
+    // renders with a razor-straight cut edge.
+    float extent_um = r_eff * shape_radius_max(v_seed, v_shape_w) + edge;
 
     // Sub-pixel objects must still register. Clamp the DRAWN extent to 0.75 px
     // and pay for it in alpha by area ratio, so density stays honest instead of
@@ -94,8 +115,55 @@ void main() {
 }
 )GLSL";
 
-const char* kFrag = R"GLSL(
-#version 460 core
+// MIRRORS src/render/morphology.h shape_radius(). Change one, change both --
+// this is the fifth formula duplicated across the GLSL boundary with no compiler
+// check (ADR-017, Q7). test_morphology guards the C++ side; the irregular golden
+// guards this side.
+const char* kShapeGLSL = R"GLSL(
+uint morph_hash(uint x) {
+    x ^= x >> 16; x *= 0x7FEB352Du;
+    x ^= x >> 15; x *= 0x846CA68Bu;
+    x ^= x >> 16;
+    return x;
+}
+
+float morph_phase(uint seed, uint k) {
+    return 6.283185307179586 * float(morph_hash(seed + k * 0x9E3779B9u)) * (1.0 / 4294967296.0);
+}
+
+float shape_radius(float theta, uint seed, float w) {
+    if (seed == 0u || w <= 0.0) return 1.0;
+    w = min(w, 1.0);
+    float sum = 0.0;
+    float sq  = 0.0;
+    for (uint k = 3u; k <= 8u; ++k) {
+        float A = 0.28 / float(k);
+        sum += A * cos(float(k) * theta + morph_phase(seed, k));
+        sq  += A * A;
+    }
+    float r = (1.0 + w * sum) * inversesqrt(1.0 + 0.5 * w * w * sq);
+    return max(r, 0.05);
+}
+
+// The bound the vertex stage sizes its quad from. Same constants as above, so it
+// lives beside them rather than being spelled out a third time in the vertex body.
+float shape_radius_max(uint seed, float w) {
+    if (seed == 0u || w <= 0.0) return 1.0;
+    w = min(w, 1.0);
+    float sum = 0.0;
+    float sq  = 0.0;
+    for (uint k = 3u; k <= 8u; ++k) {
+        float A = 0.28 / float(k);
+        sum += A;
+        sq  += A * A;
+    }
+    return (1.0 + w * sum) * inversesqrt(1.0 + 0.5 * w * w * sq);
+}
+)GLSL";
+
+const char* kVersion = "#version 460 core\n";
+
+const char* kFragBody = R"GLSL(
 in vec2  v_local;
 in float v_draw_um;
 in float v_radius_um;
@@ -107,7 +175,9 @@ in float v_polarity;
 in float v_alpha_scale;
 in float v_charge;
 in float v_emit;
+in float v_shape_w;
 flat in uint v_flags;
+flat in uint v_seed;
 
 uniform int u_mode;      // contract::ViewMode
 uniform int u_channel;   // contract::AnalysisChannel
@@ -132,19 +202,34 @@ vec3 ramp(float t) {
 }
 
 void main() {
-    float d = length(v_local) * v_draw_um;      // distance from centre, um
+    vec2  p = v_local * v_draw_um;              // offset from centre, um
+    float d = length(p);
+
+    // The silhouette. Sphere morphology and the heavily-defocused limit both give
+    // shape == 1 and this collapses to the original circular profile exactly
+    // (RENDERING.md Sec 8, ADR-023). The shape is AREA-PRESERVING, so an irregular
+    // cell absorbs precisely as much light as the sphere it stands for.
+    float theta = atan(p.y, p.x);
+    float shape = shape_radius(theta, v_seed, v_shape_w);
+
+    // The rim is ruffled by the SILHOUETTE, never by the falloff width. Modulating
+    // the softness per angle looks like an obvious way to frill the edge and is a
+    // trap: a radially-varying falloff distance renders as radial spokes, and cells
+    // come out as starbursts rather than grains. The crinkle belongs in
+    // shape_radius, where it perturbs where the outline is (ADR-023).
 
     // The blurred disc: a uniform disc convolved with the defocus kernel,
     // approximated as a soft-edged profile of radius r_eff and softness edge.
-    float cov = 1.0 - smoothstep(v_r_eff - v_edge_um, v_r_eff + v_edge_um, d);
+    float r_edge = v_r_eff * shape;
+    float cov = 1.0 - smoothstep(r_edge - v_edge_um, r_edge + v_edge_um, d);
 
     // Becke line. A real diffraction artefact at the edge of an opaque object in
     // brightfield: a narrow band just outside the geometric edge that is BRIGHT
     // on one side of focus and DARK on the other. That inversion is how a viewer
-    // knows which way to rack the focus.
+    // knows which way to rack the focus. It follows the silhouette, not a circle.
     float band = 0.0;
     if (v_ring > 0.0) {
-        float t = (d - v_radius_um * 1.06) / (v_radius_um * 0.16);
+        float t = (d - v_radius_um * shape * 1.06) / (v_radius_um * 0.16);
         band = exp(-t * t) * v_ring;
     }
 
@@ -178,9 +263,11 @@ void main() {
 }
 )GLSL";
 
-unsigned int compile(unsigned int type, const char* src, const char* label) {
+// Multi-source so the shared shape function can be spliced between the #version
+// line and each stage's body without duplicating it in two raw strings.
+unsigned int compile(unsigned int type, const char* const* srcs, int n, const char* label) {
     const unsigned int s = glCreateShader(type);
-    glShaderSource(s, 1, &src, nullptr);
+    glShaderSource(s, n, srcs, nullptr);
     glCompileShader(s);
     int okFlag = 0;
     glGetShaderiv(s, GL_COMPILE_STATUS, &okFlag);
@@ -197,8 +284,10 @@ unsigned int compile(unsigned int type, const char* src, const char* label) {
 } // namespace
 
 Error cells_pass_create(CellsPass& p, int32_t instance_capacity) {
-    const unsigned int vs = compile(GL_VERTEX_SHADER, kVert, "cells.vert");
-    const unsigned int fs = compile(GL_FRAGMENT_SHADER, kFrag, "cells.frag");
+    const char* vsrc[] = {kVersion, kShapeGLSL, kVertBody};
+    const char* fsrc[] = {kVersion, kShapeGLSL, kFragBody};
+    const unsigned int vs = compile(GL_VERTEX_SHADER, vsrc, 3, "cells.vert");
+    const unsigned int fs = compile(GL_FRAGMENT_SHADER, fsrc, 3, "cells.frag");
     if (!vs || !fs) return fail(Status::Unsupported, "cell shader compile failed");
 
     p.program = glCreateProgram();
@@ -224,6 +313,7 @@ Error cells_pass_create(CellsPass& p, int32_t instance_capacity) {
     p.u_focal_plane_um = glGetUniformLocation(p.program, "u_focal_plane_um");
     p.u_na             = glGetUniformLocation(p.program, "u_na");
     p.u_immersion      = glGetUniformLocation(p.program, "u_immersion");
+    p.u_morphology     = glGetUniformLocation(p.program, "u_morphology");
 
     glGenVertexArrays(1, &p.vao);
     glGenBuffers(1, &p.instance_vbo);
@@ -233,7 +323,7 @@ Error cells_pass_create(CellsPass& p, int32_t instance_capacity) {
                  static_cast<GLsizeiptr>(sizeof(CellInstance)) * instance_capacity,
                  nullptr, GL_DYNAMIC_DRAW);
 
-    // Layout must match contracts/render_view_v1.h CellInstance exactly.
+    // Layout must match contracts/render_view_v2.h CellInstance exactly.
     const GLsizei stride = static_cast<GLsizei>(sizeof(CellInstance));
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, stride, reinterpret_cast<void*>(0));
@@ -244,6 +334,9 @@ Error cells_pass_create(CellsPass& p, int32_t instance_capacity) {
     glEnableVertexAttribArray(2);
     glVertexAttribIPointer(2, 2, GL_UNSIGNED_INT, stride, reinterpret_cast<void*>(24));
     glVertexAttribDivisor(2, 1);
+    glEnableVertexAttribArray(3);
+    glVertexAttribIPointer(3, 1, GL_UNSIGNED_INT, stride, reinterpret_cast<void*>(32));
+    glVertexAttribDivisor(3, 1);
     glBindVertexArray(0);
 
     p.capacity = instance_capacity;
@@ -261,7 +354,8 @@ void cells_pass_destroy(CellsPass& p) {
 }
 
 void cells_pass_draw(const CellsPass& p, const Camera& cam, int fb_w, int fb_h,
-                     int32_t count, ViewMode mode, AnalysisChannel channel) {
+                     int32_t count, ViewMode mode, AnalysisChannel channel,
+                     contract::Morphology morphology) {
     if (mode == ViewMode::Brightfield) glClearColor(0.961f, 0.941f, 0.902f, 1.0f);
     else                               glClearColor(0.055f, 0.055f, 0.070f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
@@ -285,6 +379,7 @@ void cells_pass_draw(const CellsPass& p, const Camera& cam, int fb_w, int fb_h,
     const auto& obj = canon::OBJECTIVES[cam.objective];
     glUniform1f(p.u_na, static_cast<float>(obj.na));
     glUniform1f(p.u_immersion, static_cast<float>(obj.immersion));
+    glUniform1i(p.u_morphology, static_cast<int>(morphology));
 
     glBindVertexArray(p.vao);
     glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, count);
