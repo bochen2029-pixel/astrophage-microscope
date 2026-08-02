@@ -40,8 +40,13 @@ struct CellStore {
     int32_t  capacity    = 0;
     int32_t  count       = 0;              // host mirror of view.count
     uint64_t next_id     = 1;              // 0 is reserved as "no cell"
-    int32_t* d_free_list = nullptr;        // unused until M9 (lifecycle)
-    int32_t* d_free_count = nullptr;
+    // Exclusive prefix sum over "divides this tick", one entry per slot. NOT a
+    // free list: daughter slots are ALLOCATED by this scan rather than reclaimed,
+    // because the snapshot hash is taken over the SoA in slot order and an
+    // order-dependent assignment would vary it run to run (ADR-025). Slot reuse
+    // and compaction arrive with M9b.
+    int32_t* d_birth_prefix = nullptr;
+    int32_t* d_birth_count = nullptr;
 };
 
 Error cell_store_create(CellStore& s, int32_t capacity);

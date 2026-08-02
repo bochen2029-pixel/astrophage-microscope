@@ -10,7 +10,7 @@ The simulation itself: the cell and Taumoeba stores, the integrator, and every p
 
 | File | Owns | Milestone |
 |---|---|---|
-| `cell_store.{cuh,cu}` | ✅ SoA allocation, spawn, free list (compaction at M9) | M1 |
+| `cell_store.{cuh,cu}` | ✅ SoA allocation, spawn, birth-prefix buffer (compaction at M9b) | M1 |
 | `world.cuh` + `step.cu` | ✅ world lifetime, the tick sequence, `Stats` | M1 |
 | `integrator.{cuh,cu}` | ✅ exact joint position–velocity OU propagator, buoyancy, boundaries (PHYSICS.md §3, ADR-016) | M2 |
 | `hash.cu` | spatial hash by counting sort; SoA reorder | M4 |
@@ -18,7 +18,8 @@ The simulation itself: the cell and Taumoeba stores, the integrator, and every p
 | `thermal.cu` | ignition latch, thermostat, conduction (PHYSICS.md §5) | M6 |
 | `emission.cu` | Petrova emission, directionality, photon thrust | M7 |
 | `taxis.{cuh,cu}` | ✅ run-and-tumble FEED/BREED/IDLE controller, emission discharge (PHYSICS.md §8, ADR-022) | M8 |
-| `lifecycle.cu` | mitosis, death, corpses, store disposition | M9 |
+| `lifecycle.{cuh,cu}` | ✅ CO₂ uptake, mitosis, prefix-sum daughter slots (PHYSICS.md §10, ADR-025) | M9a |
+| | corpses, store disposition, compaction | M9b |
 | `predation.cu` | Taumoeba store, engulfment, N₂ lethality, evolution | M10 |
 | `snapshot.cpp` | serialise/restore, FNV-1a state hash | M12 |
 
@@ -40,20 +41,29 @@ Produces `cell_store_v1.h`, `snapshot_v1.h`. Consumes `fields_v1.h`, `scenario_v
 
 ## Status
 
-**M8 complete.** All five signature phenomena are live (M2–M7), and cells now behave:
-run-and-tumble taxis climbs the culture's own self-shadowing gradient, and emission
-finally debits the store.
+**M9a complete.** All five signature phenomena are live (M2–M7), and cells now behave:
+run-and-tumble taxis climbs the culture's own self-shadowing gradient, emission debits
+the store, and cells divide — bit-reproducibly, which is the claim ADR-014 was made for.
 
 `world_stats` still returns only tick, time, and counts. The means and the energy ledger
 need a deterministic device reduction (INV-2: tree or fixed-point, never `atomicAdd` on
-float) and land with **M9**, whose charts are their first real consumer. The HUD hides
+float) and land with **M9b**, whose charts are their first real consumer. The HUD hides
 what is not yet computed rather than displaying a plausible-looking zero.
+
+Before touching `lifecycle.{cuh,cu}`, read ADR-025:
+- **Daughter slots come from an exclusive prefix sum, never `atomicAdd`.** The snapshot
+  hash is over the SoA in slot order, so order-dependent allocation breaks T22.
+- **CO₂ uptake rations collectively.** A per-cell clamp still lets N cells in one grid
+  cell take N times its contents; and demand must be booked in the field's own units,
+  or fixed point rounds it to zero and the ration silently never fires.
+- **`biology_rate` does not scale diffusion** (Q19), so at high rates growth becomes
+  locally diffusion-limited. That is the clock, not a growth bug.
 
 Two things to know before touching `taxis.{cuh,cu}` — both are in ADR-022:
 - **The IDLE path must never draw a random number.** That is what makes a dark chamber
   *bit-identical* to a taxis-disabled run (T26.8) instead of merely similar to it.
 - **`TAXIS_RUN_MAX` is not decoration.** It is what stops a cell that outruns its own
-  depletion halo from running forever once M9 adds CO₂ uptake.
+  depletion halo from running forever. M9a added that uptake, so it is live now.
 
 **Before you touch `integrator.cuh`, read ADR-016.** The obvious scheme — propagate
 velocity exactly, then `r += v·dt` — is wrong by 47× in diffusion for an empty cell,

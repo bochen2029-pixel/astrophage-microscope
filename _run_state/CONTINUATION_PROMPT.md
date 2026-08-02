@@ -34,13 +34,13 @@ git -C C:\Astrophage tag --list
 **The last `m<N>-green` tag is the ground truth.** Not a doc, not a log, not this
 file. If anything here disagrees with the tags, believe the tags and fix the doc.
 
-As of writing: **`m0-green` … `m8b-green`**. Eight of twelve milestones done, plus the M8b presentation split.
-**Next up: M9 — Life.**
+As of writing: **`m0-green` … `m9a-green`**. Nine of twelve milestones done (M8b and M9a are splits).
+**Next up: M9b — Life: disposition, clock, charts.**
 
 Then verify the baseline before changing anything:
 
 ```bash
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/gate.ps1 -Milestone M8b
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/gate.ps1 -Milestone M9a
 ```
 
 That does a clean rebuild and re-runs every gate M0–M8b plus the golden images. It
@@ -70,7 +70,7 @@ on code. **Never load the whole repo.**
 2. **`docs/ARCHITECTURE.md`** — module map, invariants INV-1…INV-8, the mandatory
    glossary, the tick sequence, the anti-drift machinery. Always.
 3. **`docs/MILESTONES.md` — the active milestone section only.** Not the file.
-4. **`docs/DECISIONS.md`** — 24 ADRs. Skim the index; read any ADR a task touches.
+4. **`docs/DECISIONS.md`** — 25 ADRs. Skim the index; read any ADR a task touches.
    **Every contradiction in the source material has already been adjudicated here,
    with reasoning and an escape hatch.** Re-litigating costs a session.
 5. **`docs/PHYSICS.md`** — only if touching `src/sim/` or `src/fields/`, and only
@@ -91,7 +91,7 @@ repeats.
 
 ## Step 3 — the state, in numbers
 
-**18 tests green, 9 golden images, 10 audit invariant checks.**
+**19 tests green, 9 golden images, 10 audit invariant checks.**
 
 ```
 test_canon ......... generated constants consistent; the right params carry the canon lock
@@ -112,6 +112,7 @@ test_emission ...... P5 exact + statistical, Komorov T15, band separation T16/T1
 test_taxis ......... T26: run-and-tumble, the state machine, the emission ledger,
                      migration at 20.3 sigma, darkness bit-identical to the null
 test_morphology .... T27: area-preserving silhouettes to 1.6e-14, bounded, distinct
+test_lifecycle ..... T18 doubling 1.996, CO2 exhaustion, T22 bit-reproducible division
 determinism_replay . real World, seed- and population-sensitive (INV-8)
 ```
 
@@ -256,7 +257,7 @@ network access beyond dependency fetch, Windows settings, spending money.
 
 ## Step 6 — what is next
 
-### M9 — Life (the immediate milestone)
+### M9b — Life: disposition, clock, charts (the immediate milestone)
 
 `docs/PHYSICS.md` §10 and §12. Biomass, CO₂ uptake, mitosis with energy halving and
 RNG splitting, death paths, corpse rendering, the store-disposition toggle (ADR-004),

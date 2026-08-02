@@ -11,9 +11,9 @@
 
 ## Where the build stands
 
-**Last green: `m8b-green`. Next milestone: M9 — Life.**
+**Last green: `m9a-green`. Next milestone: M9b — Life: disposition, clock, charts.**
 
-**All five signature phenomena are live, cells behave, and they look like organisms.** 18 tests green, 9 goldens, 10 audit checks.
+**All five phenomena live; cells behave, look like organisms, and divide reproducibly.** 19 tests green, 9 goldens, 10 audit checks.
 
 | | measured |
 |---|---|
@@ -24,29 +24,28 @@
 | **P5** | adjacent collinear pair: rear cell at bitwise `0.0`; 8000 cells: charge-vs-depth r = −0.879 |
 | **M8** | migration −262.6 μm = **20.3σ**; darkness **bit-identical** to the taxis-off null |
 | **M8b** | silhouette area-preserving to **1.6e-14**; all 8 measurement goldens unchanged at mean **0.0000** |
+| **M9a** | T18 doubling **1.996**; T22 bit-identical across a 2,000 → **50,508** cell run |
 
 ## Start here
 
 ```bash
 git -C C:\Astrophage tag --list
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/gate.ps1 -Milestone M8b
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/gate.ps1 -Milestone M9a
 ```
 
-Read: `CLAUDE.md` → `docs/ARCHITECTURE.md` → **the M9 section only** of `docs/MILESTONES.md` → `docs/PHYSICS.md` **§10 and §12 only** → `src/sim/MODULE.md` → **ADR-022, ADR-011, ADR-004, ADR-014**.
+Read: `CLAUDE.md` → `docs/ARCHITECTURE.md` → **the M9b section only** of `docs/MILESTONES.md` → `docs/PHYSICS.md` **§10 death half and §12** → `src/sim/MODULE.md` → **ADR-025, ADR-011, ADR-004**.
 
-## What M9 is
+## What M9b is
 
-Biomass, CO₂ uptake, mitosis with energy halving and RNG splitting, death paths, corpse rendering, the store-disposition toggle (ADR-004), the multi-rate clock (ADR-011), charts.
+Corpse rendering, the three-way store-disposition toggle (ADR-004), the multi-rate clock with its four presets (ADR-011), **tick stage 11 (`stats`) which has never shipped**, slot reuse and compaction, and the population/energy/temperature charts.
 
-**Gate:** M8 gate + T18 (doubling matches `LIFE_DOUBLING_TIME` within 2 % under non-limiting CO₂); growth halts within one doubling of CO₂ exhaustion; **T22 — a run in which cells divide is bit-reproducible**, which is the real test of ADR-014.
+**Gate:** M9a gate + the stats reduction is deterministic across block sizes (INV-2: tree or fixed-point, never `atomicAdd` on float); each clock preset advances biology and physics at its stated ratio; `retain` disposition leaves corpses at ~32,000 kg/m³ and `void` does not.
 
-**Three things M9 inherits, all in ADR-022:**
+**Three things M9b inherits:**
 
-1. **CO₂ uptake is the depletion halo M8 guarded against.** Two protections exist and must survive: taxis samples at stage 3 *before* the cell's own deposit at stage 7, and temporal comparison is blind to a roughly-constant self-offset. `TAXIS_RUN_MAX` is the backstop for a cell that outruns its own halo — **it is not decoration, do not remove it for looking arbitrary.**
-2. **Stage 2 (`field_sample`) is fused into `motion_step`**, so taxis reads a `co2_local` one tick old. Negligible at M8; re-examine when uptake lands. Unfusing a stage is a correctness change in *both* directions (ADR-018).
-3. **Stage 11 (`stats`) has never shipped.** `world_stats` returns only tick, time and counts. M9's charts are its first real consumer. It needs a deterministic device reduction — tree or fixed-point, **never `atomicAdd` on float** (INV-2).
-
-Also confirm `spawn_kernel` clears `vx/vy/vz` when M9 adds slot reuse (Q5). It does today, but only incidentally.
+1. **Q19 — `biology_rate` does not scale diffusion, and M9b owns the clock.** ADR-011 assumed biology clocks are local and non-stiff; CO₂ uptake is an exchange with a field that diffuses on *physics* time. At `biology_rate` = 2e7 a cell eats 2e4 s of CO₂ per tick while the medium diffuses 1e-3 s worth, so growth goes locally diffusion-limited at 25 % consumption — and even a *saturating* control slows once dense. Decide whether the fast presets scale CO₂ diffusion alongside, or whether the HUD simply says so. **Do not read the slowdown as a growth bug.**
+2. **Compaction was deliberately deferred out of M9a.** Reordering the SoA reorders contact-force summation, which is ADR-018's hazard, and it must not ride along with mitosis. It needs its own determinism argument and T22 re-run.
+3. **Stage 11 stats.** `world_stats` still returns only tick, time and counts; `contract::Stats` has every field and none is filled.
 
 ## Q18 — the tumble rule has no refractory period (Q16 is resolved)
 

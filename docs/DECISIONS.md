@@ -132,6 +132,48 @@ Append-only. Every contradiction in the source material and every non-obvious en
 
 ---
 
+## ADR-025 — Division: prefix-sum slots, and two unit bugs in one exchange
+
+**Status:** accepted, 2026-08-02 (M9a).
+
+### Daughter slots come from a prefix sum, never `atomicAdd`
+
+The snapshot hash is taken over the SoA **in slot order**, so if a daughter's slot depended on the order blocks happened to retire, the hash would vary run to run and T22 could never pass. Slots are therefore allocated by an **exclusive prefix sum over the "divides this tick" flags**: the mapping from parent to daughter slot is a pure function of the population, not of execution order.
+
+This is INV-2's reasoning one level up. INV-2 says the *arithmetic* must be associative; here it is the *allocation* that must be order-independent.
+
+Supporting rules, all of which T22 would catch:
+- The daughter's `id` is `first_id + prefix[i]` — likewise order-free.
+- Its RNG stream is `pcg_split(parent_state, daughter_id)`, depending on nothing but those two (ADR-014).
+- Its division axis is hashed from the daughter id, so it consumes **no draw** from either cell's stream. Consuming one would make a parent's later trajectory depend on whether it happened to divide, which is exactly the coupling per-cell streams exist to prevent.
+
+**Allocation is append-only.** Corpses keep their slots, so nothing needs reclaiming until `MAX_CELLS`. Compaction reorders the SoA, which reorders contact-force summation — ADR-018's hazard — and deserves its own determinism argument rather than riding along with mitosis. It is M9b's.
+
+### The uptake rate is derived, not tuned
+
+`LIFE_CO2_UPTAKE_MAX = CO2_MASS_PER_DIVISION / LIFE_DOUBLING_TIME`, so T18 asserts that the implementation reproduces its own definition rather than that a tuned number happens to land. Measured: 4000 → 7986 in one doubling time, a ratio of **1.996**.
+
+`LIFE_CO2_HALF_SATURATION` is `INVENTED`, not `REAL` — informed by measured algal half-saturation constants but describing fictional machinery, the same reasoning as `TAXIS_TUMBLE_ANGLE_MEAN` (ADR-022 §4).
+
+### A per-cell clamp is not enough, and then the units were wrong twice
+
+Uptake drove the CO₂ field to **−0.128 kg/m³**. Two distinct bugs, and the second was hiding behind the first:
+
+1. **Rationing has to be collective.** Clamping each cell to what its grid cell holds still lets N cells sharing that grid cell take N times its contents. Fixed by a two-pass demand/scale: book every cell's demand in fixed point, then take `demand × min(1, available/asked)`. Michaelis-Menten limits the *rate*; this failure is about the *step*.
+2. **Demand must be booked in the field's own units.** The first version booked a demand in *kilograms* against `deposit_scale`, which is calibrated for *concentration*. A 6e-16 kg demand rounds to zero in fixed point, so `asked` came back ~0, the ration never triggered, and every cell took its full draw anyway. The field still went negative with the ration in place, which is what made this one hard to see.
+
+**The test was also wrong.** It asserted the *total* CO₂ stayed positive, which negative pockets pass easily by hiding behind positive ones elsewhere. It now asserts the **minimum**. A gate that passes while the thing it guards is broken is worse than no gate.
+
+### Q19 — biology_rate decouples uptake from diffusion
+
+ADR-011 scales biology clocks and leaves physics alone, on the grounds that biology is "local and non-stiff". **CO₂ uptake is not purely local**: it is an exchange with a field that diffuses on *physics* time. At `biology_rate` = 2e7 a cell consumes 2×10⁴ s worth of CO₂ per tick while the medium diffuses 10⁻³ s worth, so a cell strips its own grid cell and then waits on resupply.
+
+Consequences, both measured: growth becomes locally diffusion-limited long before the medium is globally exhausted (25 % consumed at a full stall), and even a *saturating* control slows once it is dense. It is why T18.3 compares against a control rather than asserting "growth proceeds then halts" — that shape is not constructible at a high biology rate.
+
+T18's one-doubling claim is unaffected and exact. But M9b owns the clock presets and should decide whether high `biology_rate` presets need CO₂ diffusion scaled alongside, or whether this limitation is simply documented in the HUD. Do not treat the slowdown as a growth bug; it is the clock.
+
+---
+
 ## ADR-024 — The taxis memory window, and a diagnosis that was half wrong
 
 **Status:** accepted, 2026-08-02. Resolves Q16, and replaces it with a better-posed Q18.

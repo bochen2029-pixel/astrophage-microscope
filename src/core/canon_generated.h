@@ -38,6 +38,7 @@ inline constexpr double CO2_SAT_CONC_1ATM = 1.5; // [kg/m^3] REAL -- CO2-saturat
 inline constexpr double LIFE_DOUBLING_TIME = 691200; // [s] CANON -- ~8 days.
 inline constexpr double LIFE_DIVISION_ENERGY_COST = 0; // [J] INVENTED -- Canon silent; default free.
 inline constexpr double LIFE_MITOSIS_DURATION = 900; // [s] INVENTED -- 15 min visual division event.
+inline constexpr double LIFE_CO2_HALF_SATURATION = 0.001; // [kg/m^3] INVENTED -- Michaelis-Menten half-saturation for CO2 uptake. Informed by measured algal half-saturation constants for dissolved CO2 (~10-50 uM, i.e. 4e-4 to 2e-3 kg/m^3), but Astrophage's uptake machinery is fictional, so this is analogy and NOT a measurement -- INVENTED, not REAL, on the same reasoning as TAXIS_TUMBLE_ANGLE_MEAN. See ADR-025.
 inline constexpr double TAU_DIAMETER = 4.0000000000000003e-05; // [m] INVENTED -- 40 um. Must exceed Astrophage to engulf; size unstated.
 inline constexpr double TAU_CRAWL_SPEED = 5.0000000000000004e-06; // [m/s] INVENTED -- Amoeboid crawl; real range 1-10 um/s.
 inline constexpr double TAU_DIGEST_TIME = 120; // [s] INVENTED -- Per engulfed cell.
@@ -103,6 +104,7 @@ inline constexpr double TAXIS_MEMORY_CHAMBER_RATIO = 0.15263326178194561; // [-]
 inline constexpr double TAXIS_RUN_MAX = 0.40000000000000002; // [s] DERIVED = 4 x TAXIS_MEMORY_TIME -- a run must outlast the comparison window to carry information, and must terminate so that a cell which outruns its own depletion halo still tumbles (ADR-022). Derived rather than invented so it cannot drift independently of the memory window
 inline constexpr double TAXIS_TUMBLE_SLEW_TIME = 1.1868238913561442; // [s] DERIVED = mean tumble angle / PETROVA_SLEW_RATE -- how long a cell would spend mis-aimed if re-aiming were rate-limited. Not yet exercised: see ADR-022 Q15
 inline constexpr double LIFE_GROWTH_RATE = 1.0028171015045505e-06; // [1/s] DERIVED = ln2 / doubling time
+inline constexpr double LIFE_CO2_UPTAKE_MAX = 3.0381944444444441e-20; // [kg/s] DERIVED = CO2_MASS_PER_DIVISION / LIFE_DOUBLING_TIME -- saturated uptake rate per cell. Derived so the canon doubling time is reproduced by construction
 inline constexpr double TNT_GRAMS_PER_FULL_CELL = 358.50860420650093; // [g] DERIVED = E_max / 4184 J/g
 inline constexpr double WIEN_LAMBDA_AT_SETPOINT = 7.8410346082556516e-06; // [m] DERIVED = Wien b / T -- the THERMAL peak, distinct from the Petrova line
 
@@ -153,6 +155,7 @@ inline constexpr ParamMeta PARAM_TABLE[] = {
     { "LIFE_DOUBLING_TIME", 691200, "s", Provenance::Canon, "[REF 1.6] ~8 days.", true, 3600, 6912000, true },
     { "LIFE_DIVISION_ENERGY_COST", 0, "J", Provenance::Invented, "Canon silent; default free.", true, 0, 100000, false },
     { "LIFE_MITOSIS_DURATION", 900, "s", Provenance::Invented, "15 min visual division event.", true, 1, 10000, true },
+    { "LIFE_CO2_HALF_SATURATION", 0.001, "kg/m^3", Provenance::Invented, "Michaelis-Menten half-saturation for CO2 uptake. Informed by measured algal half-saturation constants for dissolved CO2 (~10-50 uM, i.e. 4e-4 to 2e-3 kg/m^3), but Astrophage's uptake machinery is fictional, so this is analogy and NOT a measurement -- INVENTED, not REAL, on the same reasoning as TAXIS_TUMBLE_ANGLE_MEAN. See ADR-025.", true, 9.9999999999999995e-07, 1.5, true },
     { "TAU_DIAMETER", 4.0000000000000003e-05, "m", Provenance::Invented, "[REF 1.8] 40 um. Must exceed Astrophage to engulf; size unstated.", true, 1.5e-05, 0.00020000000000000001, true },
     { "TAU_CRAWL_SPEED", 5.0000000000000004e-06, "m/s", Provenance::Invented, "Amoeboid crawl; real range 1-10 um/s.", true, 9.9999999999999995e-08, 0.0001, true },
     { "TAU_DIGEST_TIME", 120, "s", Provenance::Invented, "Per engulfed cell.", true, 1, 10000, true },
@@ -216,9 +219,10 @@ inline constexpr ParamMeta PARAM_TABLE[] = {
     { "TAXIS_RUN_MAX", 0.40000000000000002, "s", Provenance::Derived, "= 4 x TAXIS_MEMORY_TIME -- a run must outlast the comparison window to carry information, and must terminate so that a cell which outruns its own depletion halo still tumbles (ADR-022). Derived rather than invented so it cannot drift independently of the memory window", false, 0.0, 0.0, false },
     { "TAXIS_TUMBLE_SLEW_TIME", 1.1868238913561442, "s", Provenance::Derived, "= mean tumble angle / PETROVA_SLEW_RATE -- how long a cell would spend mis-aimed if re-aiming were rate-limited. Not yet exercised: see ADR-022 Q15", false, 0.0, 0.0, false },
     { "LIFE_GROWTH_RATE", 1.0028171015045505e-06, "1/s", Provenance::Derived, "= ln2 / doubling time", false, 0.0, 0.0, false },
+    { "LIFE_CO2_UPTAKE_MAX", 3.0381944444444441e-20, "kg/s", Provenance::Derived, "= CO2_MASS_PER_DIVISION / LIFE_DOUBLING_TIME -- saturated uptake rate per cell. Derived so the canon doubling time is reproduced by construction", false, 0.0, 0.0, false },
     { "TNT_GRAMS_PER_FULL_CELL", 358.50860420650093, "g", Provenance::Derived, "= E_max / 4184 J/g", false, 0.0, 0.0, false },
     { "WIEN_LAMBDA_AT_SETPOINT", 7.8410346082556516e-06, "m", Provenance::Derived, "= Wien b / T -- the THERMAL peak, distinct from the Petrova line", false, 0.0, 0.0, false },
 };
-inline constexpr int PARAM_COUNT = 84;
+inline constexpr int PARAM_COUNT = 86;
 
 } // namespace astro::canon

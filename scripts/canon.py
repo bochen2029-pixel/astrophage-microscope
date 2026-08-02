@@ -82,6 +82,13 @@ BASE = [
      "Canon silent; default free.", None, (0.0, 1.0e5, False)),
     ("LIFE_MITOSIS_DURATION", 900.0, "s", INVENTED,
      "15 min visual division event.", None, (1.0, 1.0e4, True)),
+    ("LIFE_CO2_HALF_SATURATION", 1.0e-3, "kg/m^3", INVENTED,
+     "Michaelis-Menten half-saturation for CO2 uptake. Informed by measured algal "
+     "half-saturation constants for dissolved CO2 (~10-50 uM, i.e. 4e-4 to 2e-3 "
+     "kg/m^3), but Astrophage's uptake machinery is fictional, so this is analogy "
+     "and NOT a measurement -- INVENTED, not REAL, on the same reasoning as "
+     "TAXIS_TUMBLE_ANGLE_MEAN. See ADR-025.",
+     None, (1.0e-6, 1.5, True)),
 
     # --- Taumoeba ------------------------------------------------------------
     ("TAU_DIAMETER", 4.0e-5, "m", INVENTED,

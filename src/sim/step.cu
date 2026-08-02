@@ -17,6 +17,11 @@ Error world_create(World& w, const WorldDesc& d) {
         world_destroy(w);
         return fail(Status::OutOfMemory, "cudaMalloc force scratch");
     }
+    const size_t co2_cells = static_cast<size_t>(canon::FIELD_N_CO2) * canon::FIELD_N_CO2;
+    if (cudaMalloc(&w.d_co2_demand, sizeof(unsigned long long) * co2_cells) != cudaSuccess) {
+        world_destroy(w);
+        return fail(Status::OutOfMemory, "cudaMalloc co2 demand");
+    }
     using astro::contract::BoundaryCondition;
     using astro::contract::DEPOSIT_SCALE_CO2;
     using astro::contract::DEPOSIT_SCALE_N2;
@@ -26,7 +31,7 @@ Error world_create(World& w, const WorldDesc& d) {
                                   DEPOSIT_SCALE_TEMPERATURE, BoundaryCondition::Robin,
                                   canon::DT_PHYSICS));
     ASTRO_TRY(fields::grid_create(w.fields.co2, canon::FIELD_N_CO2, d.chamber.w,
-                                  canon::CO2_DIFFUSIVITY_WATER, 0.0,
+                                  canon::CO2_DIFFUSIVITY_WATER, d.co2_init,
                                   DEPOSIT_SCALE_CO2, BoundaryCondition::Neumann,
                                   canon::DT_PHYSICS));
     ASTRO_TRY(fields::grid_create(w.fields.n2, canon::FIELD_N_N2, d.chamber.w,
@@ -64,6 +69,7 @@ void world_destroy(World& w) {
     fields::grid_destroy(w.fields.co2);
     fields::grid_destroy(w.fields.n2);
     fields::grid_destroy(w.fields.irradiance);
+    cudaFree(w.d_co2_demand);
     cudaFree(w.d_fx);
     cudaFree(w.d_fy);
     cudaFree(w.d_fz);
@@ -122,6 +128,10 @@ void world_step(World& w) {
     fields::grid_flush_deposits(w.fields.n2);
     fields::grid_diffuse(w.fields.co2, canon::DT_PHYSICS);
     fields::grid_diffuse(w.fields.n2, canon::DT_PHYSICS);
+
+    // Stage 10. LAST, and it must stay last: it appends daughters and moves
+    // `count`, so any stage reading indices after it would read stale ones.
+    lifecycle_step(w, canon::DT_PHYSICS);
 
     ++w.tick;
 }

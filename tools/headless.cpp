@@ -34,6 +34,7 @@ struct Options {
     bool               assert_deterministic = false;
     const char*        scenario = nullptr;
     bool               verbose = false;
+    bool               report_extent = false;
 };
 
 // Hash order is the snapshot file layout order (contracts/snapshot_v1.h), so a
@@ -87,6 +88,36 @@ bool run(const Options& o, uint64_t& hash_out) {
     }
 
     hash_out = hash_world(w);
+
+    if (o.report_extent) {
+        const int32_t n = w.cells.count;
+        std::vector<double> x(n), y(n), z(n);
+        sim::cell_store_download_positions(w.cells, x.data(), y.data(), z.data(), n);
+        double lo[3] = {1e30, 1e30, 1e30}, hi[3] = {-1e30, -1e30, -1e30};
+        for (int32_t i = 0; i < n; ++i) {
+            const double pos[3] = {x[i], y[i], z[i]};
+            for (int k = 0; k < 3; ++k) {
+                if (pos[k] < lo[k]) lo[k] = pos[k];
+                if (pos[k] > hi[k]) hi[k] = pos[k];
+            }
+        }
+        const double h[3] = {0.5 * w.chamber.w, 0.5 * w.chamber.h, 0.5 * w.chamber.d};
+        std::printf("extent um: x [%.1f, %.1f] wall +-%.1f | y [%.1f, %.1f] wall +-%.1f "
+                    "| z [%.1f, %.1f] wall +-%.1f\n",
+                    lo[0] * 1e6, hi[0] * 1e6, h[0] * 1e6,
+                    lo[1] * 1e6, hi[1] * 1e6, h[1] * 1e6,
+                    lo[2] * 1e6, hi[2] * 1e6, h[2] * 1e6);
+        // Containment is an invariant, not a preference: a cell in the glass is
+        // always a bug and is never tuned around (ARCHITECTURE.md Sec 4).
+        const double a = canon::CELL_RADIUS;
+        bool escaped = false;
+        for (int k = 0; k < 3; ++k)
+            if (lo[k] < -h[k] - a || hi[k] > h[k] + a) escaped = true;
+        std::printf(escaped ? "FAIL: a cell is outside the chamber\n"
+                            : "contained: every cell is inside the chamber\n");
+        if (escaped) { sim::world_destroy(w); return false; }
+    }
+
     sim::world_destroy(w);
     return true;
 }
@@ -118,6 +149,7 @@ int main(int argc, char** argv) {
         else if (a == "--charge")               o.charge = (i + 1 < argc) ? std::atof(argv[++i]) : o.charge;
         else if (a == "--assert-deterministic") o.assert_deterministic = true;
         else if (a == "--verbose")              o.verbose = true;
+        else if (a == "--extent")               o.report_extent = true;
         else if (a == "--scenario")             o.scenario = (i + 1 < argc) ? argv[++i] : nullptr;
         else if (a == "--help" || a == "-h")  { usage(); return 0; }
         else { std::printf("unknown argument: %s\n", a.c_str()); usage(); return 2; }

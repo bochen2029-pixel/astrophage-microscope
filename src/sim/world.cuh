@@ -55,6 +55,9 @@ struct WorldDesc {
     int32_t  capacity = 0;          // 0 = size to the initial population
     uint64_t seed = 20260802ull;
     MotionConfig motion{};
+    // Initial CO2 concentration [kg/m^3]. Zero until something adds some, which
+    // before M9a meant only a brush; growth needs a medium to grow in.
+    double   co2_init = 0.0;
 };
 
 struct World {
@@ -68,6 +71,11 @@ struct World {
     double*      d_fx = nullptr;
     double*      d_fy = nullptr;
     double*      d_fz = nullptr;
+    // Per-CO2-grid-cell uptake demand for the tick, fixed point (INV-2). Exists so
+    // an over-subscribed grid cell can be RATIONED: a per-cell clamp still lets N
+    // cells sharing one grid cell take N times its contents and drive the field
+    // negative (ADR-025).
+    unsigned long long* d_co2_demand = nullptr;
     Chamber      chamber{};
     MotionConfig motion{};
     uint64_t     tick = 0;
@@ -92,6 +100,10 @@ void emission_step(World& w, double dt);
 // Tick stage 3 (src/sim/taxis.cu). Sets emit_power and the emission axis, and
 // debits the store for what it emits.
 void taxis_step(World& w, double dt);
+
+// Tick stage 10 (src/sim/lifecycle.cu). CO2 uptake and mitosis. MUTATES THE STORE
+// -- it must stay last, because anything after it reads stale indices.
+void lifecycle_step(World& w, double dt);
 
 // Applied at a tick boundary from the app, never from an input handler --
 // writing device memory mid-tick would break INV-8 (src/app/MODULE.md).

@@ -6,6 +6,25 @@ Format: milestone · what landed · what is pending · open questions · gotchas
 
 ---
 
+## 2026-08-02 — M9a (Life: division) — GREEN · **cells divide, reproducibly**
+
+**Landed.** CO₂ uptake, mitosis with energy halving and `pcg_split`, and prefix-sum daughter slots. 19 tests green. **No contract change** — `biomass`, `co2_held` and `CELL_FLAG_DIVIDING` were all already in `cell_store_v1.h`.
+
+**T22 is the one that mattered.** Every determinism result before this held a *fixed* population, so nothing had yet exercised the case per-cell streams were introduced to survive. A run growing 2,000 → **50,508** cells reproduces **bit-identically**, and a different seed still diverges. That is ADR-014 finally under load.
+
+The design decision the milestone turns on: **daughter slots come from an exclusive prefix sum, never `atomicAdd`.** The snapshot hash is taken over the SoA in slot order, so order-dependent allocation would make the hash vary run to run. INV-2's reasoning one level up — it is the *allocation* that must be order-free, not just the arithmetic.
+
+**T18 is exact rather than tuned**: `LIFE_CO2_UPTAKE_MAX` is *derived* from the canon doubling time, so the test asserts the implementation reproduces its own definition. Measured 4000 → 7986 in one doubling time = **1.996**.
+
+**Gotchas — two unit bugs in one exchange, the second hiding behind the first.**
+- Uptake drove the CO₂ field to **−0.128 kg/m³**. A per-cell clamp is not enough: N cells sharing a grid cell each take its whole contents. Fixed with a two-pass demand/ration.
+- It *still* went negative, because the demand was booked in **kilograms** against a `deposit_scale` calibrated for **concentration** — 6e-16 rounds to zero in fixed point, so `asked` came back ~0 and the ration never fired. Match the units to the field, not just the sample to the source.
+- **The test passed through both of those.** It asserted the *total* CO₂ stayed positive, which negative pockets clear easily by hiding behind positive ones. It now asserts the **minimum**. A gate that passes while the thing it guards is broken is worse than no gate — this is the inverse of the usual lesson, and it cost two debugging rounds.
+- **Q19: `biology_rate` does not scale diffusion.** ADR-011 assumed biology clocks are local; CO₂ uptake is an exchange with a field on *physics* time. At 2e7 a cell eats 2e4 s of CO₂ per tick while the medium diffuses 1e-3 s worth, so growth goes locally diffusion-limited at 25 % consumption and even a saturating control slows once dense. T18.3 therefore compares against a control instead of asserting "grows then halts" — that shape is not constructible at a high biology rate. M9b owns the clock and should decide.
+- Answered a question from the app: the "curtain rolling up" when zoomed out is **P1**, not a defect. Empty cells at 40 kg/m³ cream upward at 52 μm/s as a coherent front because the charge slider makes every cell identical. Verified with a new `headless --extent`: x ∈ [−1995, 1995] against walls at ±2000 — every cell contained. That check is now gate step M9a.2.
+
+---
+
 ## 2026-08-02 — Q16 retune (ADR-024) — GREEN · **and a diagnosis that was half wrong**
 
 **Landed.** `TAXIS_MEMORY_TIME` 2 s → **0.1 s**. Migration **20.3σ → 26.0σ**, a 28 % larger displacement on the identical scenario and seed.

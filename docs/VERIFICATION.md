@@ -151,6 +151,8 @@ Emitted verbatim into `tests/golden/expected_values.h`.
 | `T20_WIEN_SETPOINT` | `7.84103e-06` | m | 0.0001 | Thermal blackbody peak; must differ from the Petrova line |
 | `T26_TUMBLE_MEAN_CLAMPED` | `1.10273` | rad | 0.02 | Realised mean tumble angle after the clamp at pi |
 | `T26_EMA_STEP_RESPONSE` | `0.632121` | - | 1e-06 | A step input into the taxis lag reaches this fraction at exactly TAXIS_MEMORY_TIME -- the exact discretisation, not the Euler approximation |
+| `T18_DOUBLING_TIME` | `691200` | s | 0.02 | Population doubling time under non-limiting CO2 |
+| `T18_UPTAKE_MAX` | `3.03819e-20` | kg/s | 1e-09 | Saturated per-cell CO2 uptake rate |
 | `HOVER_POWER_FULL` | `0.0475923` | W | 0.005 | Emission power a full cell needs to hover |
 | `TAU_MOMENTUM_EMPTY` | `2.22429e-07` | s | 1e-06 | Momentum relaxation time, empty cell |
 | `TAU_MOMENTUM_FULL` | `0.000176998` | s | 1e-06 | Momentum relaxation time, full cell |

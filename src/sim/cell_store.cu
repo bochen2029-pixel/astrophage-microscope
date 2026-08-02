@@ -212,15 +212,15 @@ Error cell_store_create(CellStore& s, int32_t capacity) {
     s.capacity = capacity;
     s.count = 0;
     s.next_id = 1;
-    s.d_free_list = free_list;
-    s.d_free_count = free_count;
+    s.d_birth_prefix = free_list;
+    s.d_birth_count = free_count;
     return ok();
 }
 
 void cell_store_destroy(CellStore& s) {
     if (s.blob) cudaFree(s.blob);
-    if (s.d_free_list) cudaFree(s.d_free_list);
-    if (s.d_free_count) cudaFree(s.d_free_count);
+    if (s.d_birth_prefix) cudaFree(s.d_birth_prefix);
+    if (s.d_birth_count) cudaFree(s.d_birth_count);
     s = CellStore{};
 }
 

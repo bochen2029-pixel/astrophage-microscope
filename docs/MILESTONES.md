@@ -16,7 +16,7 @@ Every gate re-runs all earlier gates. Gates never weaken.
 | M7 | Light | Petrova emission, thrust, irradiance + occlusion → **P5** | M7 | ✅ `m7-green` |
 | M8 | Taxis | run-and-tumble, phototaxis, CO₂ field, chemotaxis | M8 | ✅ `m8-green` |
 | M8b | Presentation | irregular morphology, field diaphragm, defocus culling | M8b | ✅ `m8b-green` |
-| M9a | Life: division | biomass, CO₂ uptake, mitosis, RNG splitting, prefix-sum slots | M9a | ☐ |
+| M9a | Life: division | biomass, CO₂ uptake, mitosis, RNG splitting, prefix-sum slots | M9a | ✅ `m9a-green` |
 | M9b | Life: content | corpses, disposition, multi-rate clock, stats reduction, compaction, charts | M9b | ☐ |
 | M10 | Predation | Taumoeba, N₂, heritable tolerance, evolution | M10 | ☐ |
 | M11 | Content | scenario system, all 8 scenarios, UI panels, charts, telemetry | M11 | ☐ |

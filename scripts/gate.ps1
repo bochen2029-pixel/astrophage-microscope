@@ -179,10 +179,14 @@ if (($n -gt 8) -or ($n -eq 8 -and $suffix -ge 'b')) {
 
 # ----------------------------------------------------------------- M9: life
 if ($n -ge 9) {
-    Gate 'M9.1' 'doubling time (T18)'                        { return (Run-Test 'test_lifecycle') }
-    Gate 'M9.2' 'determinism through division (T22)' {
+    Gate 'M9a.1' 'growth: T18 doubling, CO2 exhaustion, T22 determinism through division' {
+        return (Run-Test 'test_lifecycle')
+    }
+    # Containment is an invariant and a full rising culture is its hardest case:
+    # 25k empty cells cream against the +y wall for 70 s and must all stay inside.
+    Gate 'M9a.2' 'containment under a fully creamed culture' {
         $exe = Find-Exe 'headless'
-        & $exe --scenario bloom --ticks 200000 --assert-deterministic *>&1 | Out-Null
+        & $exe --cells 25000 --charge 0.0 --ticks 70000 --extent *>&1 | Out-Null
         return ($LASTEXITCODE -eq 0)
     }
 }

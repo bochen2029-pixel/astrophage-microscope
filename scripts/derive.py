@@ -124,6 +124,19 @@ DERIVED = [
      "mean tumble angle / PETROVA_SLEW_RATE -- how long a cell would spend "
      "mis-aimed if re-aiming were rate-limited. Not yet exercised: see ADR-022 Q15"),
     ("LIFE_GROWTH_RATE", math.log(2.0) / B["LIFE_DOUBLING_TIME"], "1/s", "ln2 / doubling time"),
+    # NOT invented: the uptake rate is whatever makes the doubling time come out at
+    # its canon value, so T18 asserts that the implementation reproduces its own
+    # definition rather than that a tuned number happens to land (ADR-025).
+    #
+    # M9a divides the instant the CO2 quota is banked, so the whole cycle is
+    # accumulation and this divides by the full doubling time. When M9b adds the
+    # TIMED mitosis event, the accumulation phase becomes
+    # LIFE_DOUBLING_TIME - LIFE_MITOSIS_DURATION and this denominator changes with
+    # it -- 900 s out of 691200 s, i.e. 0.13 %, which is why it can wait.
+    ("LIFE_CO2_UPTAKE_MAX",
+     B["CO2_MASS_PER_DIVISION"] / B["LIFE_DOUBLING_TIME"], "kg/s",
+     "CO2_MASS_PER_DIVISION / LIFE_DOUBLING_TIME -- saturated uptake rate per cell. "
+     "Derived so the canon doubling time is reproduced by construction"),
     ("TNT_GRAMS_PER_FULL_CELL", B["CELL_ENERGY_MAX"] / B["TNT_JOULE"], "g", "E_max / 4184 J/g"),
     ("WIEN_LAMBDA_AT_SETPOINT", B["WIEN_B"] / B["CELL_TEMP_SETPOINT"], "m",
      "Wien b / T -- the THERMAL peak, distinct from the Petrova line"),
@@ -171,6 +184,13 @@ EXPECT = [
     ("T26_EMA_STEP_RESPONSE", 1.0 - 1.0 / math.e, "-", 1e-6,
      "A step input into the taxis lag reaches this fraction at exactly "
      "TAXIS_MEMORY_TIME -- the exact discretisation, not the Euler approximation"),
+    # T18 -- the doubling time is the CLAIM, and the uptake rate is derived from it,
+    # so this asserts that the implementation reproduces its own definition rather
+    # than that a tuned number happens to land (ADR-025).
+    ("T18_DOUBLING_TIME", B["LIFE_DOUBLING_TIME"], "s", 2e-2,
+     "Population doubling time under non-limiting CO2"),
+    ("T18_UPTAKE_MAX", B["CO2_MASS_PER_DIVISION"] / B["LIFE_DOUBLING_TIME"], "kg/s", 1e-9,
+     "Saturated per-cell CO2 uptake rate"),
     ("HOVER_POWER_FULL", P_hover, "W", 5e-3, "Emission power a full cell needs to hover"),
     ("TAU_MOMENTUM_EMPTY", m_dry / gamma20, "s", 1e-6, "Momentum relaxation time, empty cell"),
     ("TAU_MOMENTUM_FULL", m_full / gamma20, "s", 1e-6, "Momentum relaxation time, full cell"),
