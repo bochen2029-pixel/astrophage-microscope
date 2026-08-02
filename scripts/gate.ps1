@@ -138,9 +138,12 @@ if ($n -ge 5) {
 
 # -------------------------------------------------------------- M6: thermal
 if ($n -ge 6) {
-    Gate 'M6.1' 'thermal oracle (T5, T7, T12)'          { return (Run-Test 'test_thermal') }
-    Gate 'M6.2' 'P2 thermostat, never boils (T9, T10, T19)' { return (Run-Test 'test_thermostat') }
-    Gate 'M6.3' 'P3 ignition latch (T11)'               { return (Run-Test 'test_ignition') }
+    # One test covers the oracle (T5, T7, T12), the P2 thermostat and its
+    # never-boils bound (T9, T10, T19), the P3 latch (T11), starvation, and
+    # determinism through the thermal stage.
+    Gate 'M6.1' 'thermal: P2 thermostat, P3 latch, P4 motility, T5/T7/T9/T10/T12/T19' {
+        return (Run-Test 'test_thermal')
+    }
 }
 
 # ---------------------------------------------------------------- M7: light

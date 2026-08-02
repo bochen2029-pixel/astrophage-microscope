@@ -80,15 +80,19 @@ void world_step(World& w) {
     //  10 lifecycle       M9   (mutates the store; must stay last)
     //  11 stats           M6
     hash_build(w.hash, w.cells.view, w.cells.count);
+
+    // Stage 4 is interleaved with the temperature field's own substeps, so it
+    // owns stages 7 and 8 for that field. One cell deposits ~188 K into a single
+    // grid cell per tick; applied all at once it would sail past boiling
+    // (ADR-020). Do NOT diffuse temperature again below.
+    thermal_step(w, canon::DT_PHYSICS);
+
     motion_step(w, canon::DT_PHYSICS);
 
-    // Stages 7 and 8. Deposits are folded in before diffusing, so a source added
-    // this tick spreads this tick. At M5 the only depositor is a tool brush;
-    // cells start depositing at M6.
-    fields::grid_flush_deposits(w.fields.temperature);
+    // Stages 7 and 8 for the slow fields. Deposits fold in before diffusing, so
+    // a source added this tick spreads this tick.
     fields::grid_flush_deposits(w.fields.co2);
     fields::grid_flush_deposits(w.fields.n2);
-    fields::grid_diffuse(w.fields.temperature, canon::DT_PHYSICS);
     fields::grid_diffuse(w.fields.co2, canon::DT_PHYSICS);
     fields::grid_diffuse(w.fields.n2, canon::DT_PHYSICS);
 

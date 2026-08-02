@@ -132,6 +132,50 @@ Append-only. Every contradiction in the source material and every non-obvious en
 
 ---
 
+## ADR-020 — The grid is the far field; conduct against it at the free-space rate
+
+**Status:** accepted, 2026-08-02 (M6). The hardest bug of the build so far, and worth the write-up.
+
+### The trap
+
+A cell holds 96.415 °C and conducts `Q = 4πka·(T_cell − T_∞)` into the medium. The obvious refinement looks compelling: the temperature *grid* does not sit at `T_∞`, it sits at the near-field value `T_∞ + ΔT·a/dx` = 342 K. So conducting against the grid with the free-space coefficient appears to under-report the flux, and the fix appears to be the **shell conductance** between radius `a` and radius `dx`:
+
+```
+G = 4πk / (1/a − 1/R)
+```
+
+That is exactly self-consistent on paper — substitute the analytic profile and it returns precisely `4πka·ΔT`. It is also completely wrong here, and it produced a **1.76 × 10⁶ K** runaway.
+
+### Why it fails
+
+The premise is that the grid cell holds the near-field temperature. It cannot. A grid cell's thermal time constant is `dx²/(4α)` = **1.06e-4 s**, which is *equal to the diffusion substep* — so diffusion drains the cell as fast as any source fills it, and it sits near the far-field value regardless. Conducting against it at 2.78× the free-space rate then pumps with no feedback at all.
+
+**The grid represents the far field.** The sub-grid 1/r structure is not resolved and must not be double-counted. Conduct at the free-space rate against the grid sample, and the loop closes correctly: measured max **369.56 K** against a setpoint of 369.565, and the medium never approaches boiling.
+
+### Two supporting decisions
+
+**Lumped exponential exchange, not explicit.** One cell deposits ~188 K into a single grid cell per tick, so an explicit step sails past boiling on its own. `C·ΔT·(1 − exp(−G·dt/C))` is the exact solution of the two-body lumped ODE, so the medium *approaches* the cell temperature and cannot overshoot it. That is the second law, not a clamp. Applied per diffusion substep, since a whole tick at once is a source term far too large for one grid cell.
+
+**Nearest-cell sample and deposit for the exchange, not bilinear.** Bilinear spreads a deposit over four cells with weights `w` but reads back only `Σw²` of it — 0.25 at a grid node. A lumped model that assumes the cell it heats reaches its own temperature then sees only a quarter of the feedback. Bilinear remains correct for smooth sources; lumped exchanges need the matched pair.
+
+### P4's viscosity temperature
+
+Three candidates for the temperature setting a live cell's drag, and they differ materially:
+
+| choice | T | motility ratio |
+|---|---|---|
+| far field (grid) | 342.1 K | 2.87 |
+| film mean | 331.4 K | 2.38 |
+| **surface (setpoint)** | **369.6 K** | **4.36** |
+
+Only the surface choice reproduces the independently-derived `T12_MOTILITY_RATIO` of 4.357, and it is also the physically right one: Stokes drag is set by the boundary layer at the sphere surface, and an awake cell holds that surface at the setpoint however cold the bulk is.
+
+### A consequence worth knowing
+
+**An ordinary chamber cannot starve a culture.** 500 cells warm their own medium to the setpoint within a second, at which point `Q → 0` and they stop spending — P2 doing its job. Isolating the starvation path in a test needs a perfect cold bath re-imposed every tick, not merely a Dirichlet boundary.
+
+---
+
 ## ADR-019 — Two corrections to the M5 field spec
 
 **Status:** accepted, 2026-08-02 (M5).

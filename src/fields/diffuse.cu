@@ -141,6 +141,21 @@ Error grid_flush_deposits(Grid2D& g) {
     return cuda_check(cudaGetLastError(), "flush_kernel");
 }
 
+Error grid_diffuse_substep(Grid2D& g, double dt_sub) {
+    const float coeff = static_cast<float>(g.diffusivity * dt_sub / (g.dx * g.dx));
+    if (!(coeff <= 0.25f)) return fail(Status::InvalidArgument, "diffusion coefficient unstable");
+    const dim3 block(16, 16);
+    const dim3 grid((g.n + block.x - 1) / block.x, (g.n + block.y - 1) / block.y);
+    diffuse_kernel<<<grid, block>>>(g.value, g.scratch, g.n, coeff,
+                                    static_cast<int>(g.bc),
+                                    static_cast<float>(g.ambient),
+                                    static_cast<float>(g.robin_coeff));
+    float* tmp = g.value;
+    g.value = g.scratch;
+    g.scratch = tmp;
+    return cuda_check(cudaGetLastError(), "diffuse_kernel");
+}
+
 Error grid_diffuse(Grid2D& g, double dt) {
     if (g.substeps <= 0) return ok();
     const double dt_sub = dt / g.substeps;

@@ -7,9 +7,9 @@ A sealed 4 mm chamber of water. Cells 10 μm across, black at every wavelength, 
 Deliberately **not** the interstellar scale — no ships, no Petrova arc, no Tau Ceti. Just what you would see down the eyepiece.
 
 ```
-Status:  M5 of M12 green  ·  C++20 + CUDA 13.1  ·  sm_89  ·  Windows 11
-         Motion, microscope optics, spatial hash, contact, and diffusion fields all live.
-         Thermal, emission, life cycle, and predation still to come.
+Status:  M6 of M12 green  ·  C++20 + CUDA 13.1  ·  sm_89  ·  Windows 11
+         Three of the five signature phenomena are live: P1, P2, P3 (and P4).
+         Emission, life cycle, and predation still to come.
 ```
 
 ![Astrophage at the 40× working objective](docs/images/brightfield-40x.png)
@@ -32,19 +32,25 @@ Neutral buoyancy lands at exactly **3.006 % charge**. You can read a cell's char
 
 *Above: identical 25,000-cell populations after two simulated minutes, differing only in charge. Left 0 % (40 kg/m³, risen to the ceiling). Middle 3.0058 % (998 kg/m³, exactly water, suspended). Right 20 % (6415 kg/m³, on the floor). Verified: drift velocity is linear in charge to Pearson **−1.000000**, crossing zero at **3.00577 %** against a canon-derived 3.00577 %.*
 
-### P2 — The perfect thermostat ⏳ *M6*
+### P2 — The perfect thermostat ✅ *live*
 
 96.415 °C sits **3.585 K below water's boiling point**, and a cell's heat output falls to zero as the medium approaches its setpoint. So a live culture pins its water to 96.415 °C and **can never boil it**. Overheat the chamber from outside and the cells absorb the excess and drag it back down.
 
 Weir picked that temperature from an unrelated proton-collision calculation. This consequence is free.
 
-### P3 — Ignition ⏳ *M6*
+*Verified: 2,000 awake cells in an insulated chamber for 60 simulated seconds reach a maximum of **369.56 K** against a setpoint of 369.565 — pinned exactly, and 3.6 K short of boiling. Driven externally to 400 K, the medium relaxes back down and the cells' stored energy goes **up**: they absorbed the excess as neutrino mass.*
+
+*A consequence that falls out of it: an ordinary chamber cannot starve a culture. The cells warm their own medium to the setpoint within a second, at which point they stop spending.*
+
+### P3 — Ignition ✅ *live*
 
 Below the setpoint, Astrophage is inert black powder. Heat the chamber past 96.415 °C once and the culture wakes — **irreversibly**. Chill it back down and it holds its own temperature anyway.
 
-### P4 — Live cells move ⏳ *M6*
+*Verified: 2,000 cells stay dormant indefinitely in cold water; all 2,000 wake within 50 ms of the chamber crossing the setpoint; all 2,000 are still awake after being chilled back to 20 °C for five seconds.*
 
-A live cell warms the water around it, viscosity drops 3.4×, Brownian diffusivity rises 4.24×. Live and dead become distinguishable by eye — which is exactly the tell Ryland Grace uses.
+### P4 — Live cells move ✅ *live*
+
+A live cell holds its **surface** at 96.415 °C however cold the bulk is, and Stokes drag is set by the boundary layer at that surface — so viscosity drops 3.4× and Brownian diffusivity rises **4.36×**. Live and dead become distinguishable by eye, which is exactly the tell Ryland Grace uses.
 
 ### P5 — Absolute shadows ⏳ *M7*
 
@@ -157,7 +163,7 @@ Without `-App`, the core library and the full test suite build with **no network
 | M3 | Microscope optics: defocus, depth of field, diffraction, objectives | ✅ `m3-green` |
 | M4 | Spatial hash, soft-sphere contact, wall adhesion | ✅ `m4-green` |
 | M5 | Fields: diffusion, fixed-point deposits, tool brushes | ✅ `m5-green` |
-| M6 | Thermal: mass–energy, ignition latch, thermostat → **P2 P3 P4** | ☐ |
+| M6 | Thermal: mass–energy, ignition latch, thermostat → **P2 P3 P4** | ✅ `m6-green` |
 | M7 | Light: Petrova emission, photon thrust, total occlusion → **P5** | ☐ |
 | M8 | Taxis: run-and-tumble phototaxis and chemotaxis | ☐ |
 | M9 | Life: mitosis, death, corpses, multi-rate clock | ☐ |

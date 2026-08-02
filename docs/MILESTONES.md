@@ -12,7 +12,7 @@ Every gate re-runs all earlier gates. Gates never weaken.
 | M3 | Optics | defocus, DOF, objectives, diffraction ring, focal plane | M3 | ✅ `m3-green` |
 | M4 | Neighbourhood | spatial hash, contact, adhesion | M4 | ✅ `m4-green` |
 | M5 | Fields | Grid2D, explicit diffusion, fixed-point deposit, brushes, overlays | M5 | ☐ |
-| M6 | Thermal | mass–energy, ignition latch, thermostat → **P2 P3 P4** | M6 | ☐ |
+| M6 | Thermal | mass–energy, ignition latch, thermostat → **P2 P3 P4** | M6 | ✅ `m6-green` |
 | M7 | Light | Petrova emission, thrust, irradiance + occlusion, view modes, bloom → **P5** | M7 | ☐ |
 | M8 | Taxis | run-and-tumble, phototaxis, CO₂ field, chemotaxis | M8 | ☐ |
 | M9 | Life | biomass, mitosis, death, corpses, multi-rate clock | M9 | ☐ |

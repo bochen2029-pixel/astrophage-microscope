@@ -5,7 +5,9 @@
 // body is untestable.
 #include <cuda_runtime.h>
 
+#include "fields/grid.cuh"
 #include "sim/integrator.cuh"
+#include "sim/thermal.cuh"
 #include "sim/world.cuh"
 
 namespace astro::sim {
@@ -14,13 +16,17 @@ using namespace astro::contract;
 
 namespace {
 
-// Stage 2, field_sample. At M2 there is no temperature field, so every cell
-// samples the scenario ambient. M5 replaces the body, not the stage.
-__global__ void field_sample_kernel(CellStoreView v, float ambient_k) {
+// Stage 2, field_sample.
+__global__ void field_sample_kernel(CellStoreView v, FieldView temp, FieldView co2,
+                                    FieldView n2) {
     const int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i >= v.count) return;
     if (!(v.flags[i] & CELL_FLAG_OCCUPIED)) return;
-    v.t_local[i] = ambient_k;
+    const float x = static_cast<float>(v.x[i]);
+    const float y = static_cast<float>(v.y[i]);
+    v.t_local[i]   = astro::fields::grid_sample(temp, x, y);
+    v.co2_local[i] = astro::fields::grid_sample(co2, x, y);
+    v.n2_local[i]  = astro::fields::grid_sample(n2, x, y);
 }
 
 // Stage 5, forces. SEPARATE FROM STAGE 6 ON PURPOSE.
@@ -70,7 +76,14 @@ __global__ void integrate_kernel(CellStoreView v, MotionConfig cfg, Chamber cham
 
     const double t_local = static_cast<double>(v.t_local[i]);
     const double mass  = cell_mass(v.biomass[i], v.energy[i]);
-    double gamma = drag_coefficient(t_local);
+    // P4. An awake cell holds its SURFACE at the setpoint however cold the bulk
+    // is, and Stokes drag is set by the boundary layer at that surface -- so a
+    // live cell is genuinely more mobile than a dead one sitting in the same
+    // water. Using the far-field grid value instead would understate it (2.87x
+    // rather than 4.36x). See ADR-020 and thermal.cuh.
+    const bool awake = (flags & CELL_FLAG_AWAKE) != 0u;
+    const double t_drag = viscosity_temperature(awake, t_local);
+    double gamma = drag_coefficient(t_drag);
 
     const Vec3 force{fx[i], fy[i], fz[i]};
 
@@ -81,7 +94,7 @@ __global__ void integrate_kernel(CellStoreView v, MotionConfig cfg, Chamber cham
     if (flags & CELL_FLAG_STUCK) gamma *= canon::WALL_STUCK_DRAG_MULT;
 
     Pcg32 rng = cell_rng(v.rng_state[i], v.id[i]);
-    integrate_cell(pos, vel, force, mass, gamma, t_local, dt, cfg.thermal_noise, rng);
+    integrate_cell(pos, vel, force, mass, gamma, t_drag, dt, cfg.thermal_noise, rng);
     v.rng_state[i] = rng.state;
 
     const double a = canon::CELL_RADIUS;
@@ -135,7 +148,9 @@ void motion_step(World& w, double dt) {
     const int grid = (n + block - 1) / block;
 
     field_sample_kernel<<<grid, block>>>(w.cells.view,
-                                         static_cast<float>(w.motion.ambient_temp));
+                                         astro::fields::grid_view(w.fields.temperature),
+                                         astro::fields::grid_view(w.fields.co2),
+                                         astro::fields::grid_view(w.fields.n2));
     forces_kernel<<<grid, block>>>(w.cells.view, hash_view(w.hash), w.motion,
                                    w.d_fx, w.d_fy, w.d_fz);
     integrate_kernel<<<grid, block>>>(w.cells.view, w.motion, w.chamber,

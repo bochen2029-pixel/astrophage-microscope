@@ -6,6 +6,45 @@ Format: milestone · what landed · what is pending · open questions · gotchas
 
 ---
 
+## 2026-08-02 — M6 (Thermal) — GREEN · **P2, P3, P4 live**
+
+**Landed.** The thermostat. 2,000 awake cells in an insulated chamber pin the medium at a maximum of **369.56 K** against a setpoint of 369.565 — and never approach boiling. Driven externally to 400 K it relaxes back down while cell energy goes *up*. The ignition latch survives cooling to 20 °C. Motility ratio **4.357**, matching the oracle exactly. 15 tests green.
+
+**ADR-020 — the hardest bug of the build.** A refinement that looked compelling and was completely wrong.
+
+A cell conducts `4πka·(T_cell − T_∞)`. But the grid does not sit at `T_∞`, it sits at the near-field value 342 K — so conducting against it with the free-space coefficient *appears* to under-report the flux, and the fix *appears* to be the shell conductance `4πk/(1/a − 1/dx)`. That is exactly self-consistent on paper: substitute the analytic profile and it returns precisely `4πka·ΔT`.
+
+It produced a **1.76 × 10⁶ K** runaway. The premise fails because a grid cell's thermal time constant is `dx²/4α` = 1.06e-4 s — *equal to the diffusion substep* — so diffusion drains it as fast as any source fills it and it never holds the near-field temperature. **The grid is the far field**; the sub-grid 1/r structure is unresolved and must not be double-counted.
+
+The diagnostic that cracked it: the energy rate was 5.3 W against 2000 × 2.871 mW = 5.74 W — the cells were conducting at exactly the free-space rate, as if the medium were permanently cold. That number said *no feedback* rather than *wrong coefficient*, which pointed at the premise instead of the arithmetic.
+
+**A wrong intermediate hypothesis, worth recording.** I first blamed the bilinear scatter: it spreads a deposit over four cells but reads back only `Σw²` of it (0.25 at a node), so a lumped model sees a quarter of its feedback. Switching to nearest-cell made the runaway **4× worse**, disproving it immediately — and that 4× is exactly the `Σw²` factor, so the mechanism was real and the causal claim was not. The nearest-cell pair was kept regardless: it *is* correct for a lumped exchange.
+
+**Supporting decision.** The exchange is the exact lumped exponential `C·ΔT·(1 − exp(−G·dt/C))`, applied per diffusion substep. An explicit step deposits 188 K into one grid cell per tick and sails past boiling unaided; the exponential *approaches* the cell temperature and cannot overshoot it. That is the second law, not a clamp.
+
+**P4's viscosity temperature was a genuine choice, settled by the oracle.** Far field 2.87×, film mean 2.38×, surface 4.36×. Only the surface reproduces `T12_MOTILITY_RATIO` = 4.357 — and it is the physically right one, since Stokes drag is set by the boundary layer at the sphere surface and an awake cell holds that surface at the setpoint.
+
+**Gotchas.**
+- **An ordinary chamber cannot starve a culture** — 500 cells warm their own medium to the setpoint within a second and stop spending. That is P2 working, but it meant the starvation test needed a perfect cold bath re-imposed every tick, not just a Dirichlet edge. Two attempts at that test failed for this reason before I understood it.
+- A 1e-6 tolerance on the lumped rate failed by 5e-6 — that residual *is* the second-order term of `1 − exp(−x)`, which is the whole reason for using the exponential. Now asserted explicitly.
+- Goldens survived unchanged: the golden scenario spawns dormant cells, whose drag M6 does not alter.
+
+---
+
+## 2026-08-02 — M5 (Fields) — GREEN
+
+**Landed.** `Grid2D`, explicit FTCS diffusion, fixed-point deposits, tool brushes. **Gaussian spreading matches the exact 2D analytic solution to −0.00 %** (σ 100 → 391.5 μm over 0.5 s); conservation drift −0.0001 % over 10⁴ ticks; FTCS coefficient 0.2347 against the 0.25 limit.
+
+**Two spec corrections (ADR-019).**
+- **"Explicit red-black" is not a scheme.** Red-black is a Gauss-Seidel *ordering* — an implicit smoother that reads partially-updated neighbours deliberately. An explicit step must read the old value everywhere, so it needs a second buffer, not an ordering.
+- **The gate asked a 2D grid to reproduce a 3D law.** `T = T∞ + ΔT·a/r` is the three-dimensional point-source profile; a depth-averaged grid is 2D, where a point source relaxes logarithmically. That 1/r law belongs to the per-cell near-field correction. Replaced with the 2D Gaussian oracle, which is stronger because it pins the diffusivity itself.
+
+Boundary conditions measured and distinguishable: Neumann conserves exactly (350.000), Dirichlet drains to 301.03, Robin to 347.57 — Robin sitting near Neumann is right at this resolution, since `dx·h/k` ≈ 5e-4.
+
+`fields_placeholder.cu` deleted, its ADR-008 substep `static_assert`s moved into `grid.cuh` so a resolution change stays a build break.
+
+---
+
 ## 2026-08-02 — M4 (Neighbourhood) — GREEN
 
 **Landed.** Spatial hash, soft-sphere contact, wall adhesion. Hash rebuild **0.110 ms** at 200k cells; neighbour query matches an O(n²) brute-force reference **exactly**; packed-cluster overlap **0.55 %**; 13 tests green.

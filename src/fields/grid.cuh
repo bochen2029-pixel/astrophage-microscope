@@ -80,6 +80,9 @@ Error grid_create(Grid2D& g, int32_t n, double extent, double diffusivity,
 void  grid_destroy(Grid2D& g);
 Error grid_fill(Grid2D& g, float value);
 Error grid_diffuse(Grid2D& g, double dt);
+// Exactly one explicit pass. Used when a source has to be interleaved with the
+// substeps rather than applied once per tick (src/sim/thermal.cu).
+Error grid_diffuse_substep(Grid2D& g, double dt_sub);
 Error grid_flush_deposits(Grid2D& g);        // fold the fixed-point accumulator in
 Error grid_download(const Grid2D& g, float* out);
 FieldView grid_view(const Grid2D& g);
@@ -111,9 +114,35 @@ ASTRO_HD inline float grid_sample(const FieldView& f, float x, float y) {
            (1.0f - tx) * ty * at(x0, y1) + tx * ty * at(x1, y1);
 }
 
+// Nearest-cell read. Pairs with grid_deposit_nearest for any LUMPED exchange,
+// where a source and the value it feeds back on must refer to the same cell.
+//
+// Bilinear will not do there. It spreads a deposit over four cells with weights
+// w, but reads back only sum(w^2) of it -- 0.25 at a grid node. A lumped model
+// that assumes the cell it heats reaches its own temperature then never sees the
+// feedback arrive, and pumps without limit. See ADR-020.
+ASTRO_HD inline int32_t grid_index_nearest(const FieldView& f, float x, float y) {
+    const float half = 0.5f * f.n * f.dx;
+    int32_t i = static_cast<int32_t>((x + half) / f.dx);
+    int32_t j = static_cast<int32_t>((y + half) / f.dx);
+    i = i < 0 ? 0 : (i >= f.n ? f.n - 1 : i);
+    j = j < 0 ? 0 : (j >= f.n ? f.n - 1 : j);
+    return j * f.n + i;
+}
+
+ASTRO_HD inline float grid_sample_nearest(const FieldView& f, float x, float y) {
+    return f.value[grid_index_nearest(f, x, y)];
+}
+
 #if defined(__CUDACC__)
+__device__ inline void grid_deposit_nearest(const FieldView& f, float x, float y,
+                                            double amount) {
+    astro::atomic_deposit(&f.deposit[grid_index_nearest(f, x, y)], amount, f.deposit_scale);
+}
+
 // Bilinear scatter into the FIXED-POINT accumulator (INV-2, ADR-013). Float
 // atomicAdd here would make the field depend on warp scheduling.
+// Use this for smooth sources; use the _nearest pair for lumped exchanges.
 __device__ inline void grid_deposit(const FieldView& f, float x, float y, double amount) {
     const float half = 0.5f * f.n * f.dx;
     const float gx = (x + half) / f.dx - 0.5f;

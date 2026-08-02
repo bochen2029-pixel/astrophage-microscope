@@ -36,6 +36,7 @@ struct MotionConfig {
     bool        thermal_noise = true;
     bool        contact_enabled = true;
     bool        adhesion_enabled = true;
+    bool        thermal_enabled = true;
     double      ambient_temp = canon::AMBIENT_TEMP_DEFAULT;
 };
 
@@ -67,6 +68,10 @@ struct World {
 
 // Tick stages 2, 5, 6 (src/sim/integrator.cu).
 void motion_step(World& w, double dt);
+
+// Tick stage 4 (src/sim/thermal.cu). Substepped against the temperature field
+// and therefore owns its diffusion; do not diffuse temperature again after it.
+void thermal_step(World& w, double dt);
 
 // Applied at a tick boundary from the app, never from an input handler --
 // writing device memory mid-tick would break INV-8 (src/app/MODULE.md).
