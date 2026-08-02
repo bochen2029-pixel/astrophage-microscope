@@ -59,7 +59,13 @@ Gate 'M0.1' 'canon artifacts fresh' {
 }
 if (-not $SkipBuild) {
     Gate 'M0.2' 'clean build, warnings as errors' {
-        & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'scripts\build.ps1') -Clean *>&1 | Out-Null
+        # The app target exists from M1 on. Without -App the clean reconfigure
+        # sets ASTRO_BUILD_APP=OFF and deletes the very executable the M1 checks
+        # below are about to look for.
+        $buildArgs = @('-Clean')
+        if ($n -ge 1) { $buildArgs += '-App' }
+        & powershell -NoProfile -ExecutionPolicy Bypass `
+            -File (Join-Path $root 'scripts\build.ps1') @buildArgs *>&1 | Out-Null
         return ($LASTEXITCODE -eq 0)
     }
 }
@@ -81,13 +87,16 @@ Gate 'M0.5' 'invariants + inventory (audit A5-A10)' {
 # ------------------------------------------------------- M1: store and pixels
 if ($n -ge 1) {
     Gate 'M1.1' 'app target builds' { return [bool](Find-Exe 'astrophage') }
-    Gate 'M1.2' 'render 200k cells at target fps (headless timing)' {
+    Gate 'M1.2' 'cell store: spawn, INV-1 streams, capacity' { return (Run-Test 'test_cell_store') }
+    Gate 'M1.3' 'scope: scale bar at 3 objectives, true cell size' { return (Run-Test 'test_scope') }
+    Gate 'M1.4' 'direction packing round trip' { return (Run-Test 'test_octahedral') }
+    Gate 'M1.5' 'render BENCH_CELLS at target fps' {
         $exe = Find-Exe 'astrophage'
         if (-not $exe) { return $false }
-        & $exe --benchmark --cells 200000 --frames 600 *>&1 | Out-Null
+        & $exe --benchmark --cells 200000 --frames 600 --headless *>&1 | Out-Null
         return ($LASTEXITCODE -eq 0)
     }
-    Gate 'M1.3' 'zero GL debug errors' {
+    Gate 'M1.6' 'zero GL debug errors' {
         $exe = Find-Exe 'astrophage'
         & $exe --gl-debug --frames 60 --headless *>&1 | Out-Null
         return ($LASTEXITCODE -eq 0)

@@ -118,7 +118,7 @@ so most cells are visibly out of focus at any moment. Racking focus is a primary
 |---|---|
 | One full cell | `358.5` g TNT equivalent |
 | 5,000 full cells | `7.50` GJ = `1.793` t TNT |
-| Default population (200,000 cells), fully charged | `0.3` TJ = `71.7` kt TNT |
+| Default population (25,000 cells), fully charged | `0.0` TJ = `9.0` kt TNT |
 | Thermal blackbody peak at setpoint (Wien) | `7.841` um -- **distinct from the 25.984 um Petrova line** |
 | Growth rate at 8 d doubling | `1.003e-06` /s |
 

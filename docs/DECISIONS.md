@@ -132,6 +132,16 @@ Append-only. Every contradiction in the source material and every non-obvious en
 
 ---
 
+## ADR-015 — Projected coverage, not volume fraction, sets the default population
+
+**Status:** accepted, 2026-08-02 (M1).
+**Context.** `DEFAULT_CELLS` was initially set to 200,000, the same number as the performance target. That is only ~11 % of the chamber **by volume** — a reasonable culture — but the scope looks down through the entire 60 μm slab, so every cell in a column overlaps in projection. Projected coverage came out at ~98 %: a solid black field with no distinguishable cells. The render was correct; the default was unusable.
+**Decision.** Separate the two numbers. `DEFAULT_CELLS` = 25,000 (~12 % projected, ~300 cells in a 40× field, reads as a culture). `BENCH_CELLS` = 200,000 stays as the figure the performance gate runs at.
+**Consequences.** When reasoning about how a population will *look*, compute `N · π a² / (chamber_w · chamber_h)`, not the volume fraction. The depth of field at M3 will partly relieve this — most cells will be defocused and only a thin layer sharp, which is exactly what a real dense culture looks like — but it does not remove the need for a sane default.
+**Escape hatch.** Scenarios set their own populations; `SCENARIOS.md` already ranges from 800 (`first-light`) to 12,000 in a single field (`shadow-garden`).
+
+---
+
 ## ADR-014 — Per-cell PCG32 streams, never a global generator
 
 **Status:** accepted.

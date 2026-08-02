@@ -119,7 +119,14 @@ Step 'A9' 'no unexplained physical literals in sim/fields (Iron Rule 3)' {
             $n++
             if ($line -match '^\s*(//|\*|/\*)') { continue }
             if ($line -match 'canon::|ASTRO_LITERAL_OK') { continue }
-            if ($line -match '[0-9]\.[0-9]{4,}|[0-9]e[-+]?[0-9]{2,}') {
+            # Three shapes of "that looks like a physical constant":
+            #   long mantissa   6.283185307179586
+            #   scientific      1.5e6, 2.1e-14
+            #   two-and-two     293.15, 96.415   (missed by the first pattern,
+            #                                     which is how room temperature
+            #                                     slipped into cell_store.cu)
+            # Small literals (0.5, 1.0, 2.0, 0.25) are deliberately allowed.
+            if ($line -match '[0-9]\.[0-9]{4,}|[0-9]e[-+]?[0-9]{2,}|[0-9]{2,}\.[0-9]{2,}') {
                 $hits += "$($f.Name):$n  $($line.Trim())"
             }
         }

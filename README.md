@@ -7,7 +7,8 @@ A sealed 4 mm culture chamber of water. Cells 10 μm across, black at every wave
 **Not** a game, and **not** the interstellar scale — no ships, no Petrova arc, no Tau Ceti. Just what you would see down the eyepiece.
 
 ```
-Status:  M0 green  ·  C++20 + CUDA 13.1  ·  sm_89  ·  Windows 11
+Status:  M1 green  ·  C++20 + CUDA 13.1  ·  sm_89  ·  Windows 11
+         200,000 cells at 795 fps on an RTX 4070 Ti SUPER
 ```
 
 ---
@@ -40,14 +41,24 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build.ps1
 ctest --test-dir build --output-on-failure
 ```
 
-The windowed app arrives at M1; until then `ASTRO_BUILD_APP` is `OFF` so the build needs no network and no external dependencies.
+`ASTRO_BUILD_APP` defaults to `OFF`, so the core library and the whole test suite build with no network and no external dependencies. Add `-App` to build the windowed application (first configure fetches GLFW, GLAD, and Dear ImGui):
+
+```bash
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build.ps1 -App
+```
+
+Then run it. Drag to pan the stage, scroll to zoom (cursor-anchored), `Home` to reset, `Esc` to quit:
+
+```bash
+build/astrophage.exe
+```
 
 ## Milestones
 
 | M | Delivers | State |
 |---|---|---|
 | M0 | Harness: build system, generated canon, RNG, determinism oracle, gates | ✅ `m0-green` |
-| M1 | Cell store, CUDA-GL interop, instanced discs, camera, scale bar | ☐ |
+| M1 | Cell store, CUDA-GL interop, instanced discs, camera, scale bar | ✅ `m1-green` |
 | M2 | Motion: OU integrator, buoyancy → **P1** | ☐ |
 | M3 | Microscope optics: defocus, DOF, objectives, diffraction | ☐ |
 | M4 | Spatial hash, contact, adhesion | ☐ |

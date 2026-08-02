@@ -53,7 +53,7 @@ lam = B["PETROVA_WAVELENGTH"]
 E_photon = h * c / lam
 cond = 4.0 * math.pi * B["WATER_CONDUCTIVITY"] * a          # W/K
 alpha_w = B["WATER_CONDUCTIVITY"] / (rho_w * B["WATER_SPECIFIC_HEAT"])
-T_room = 293.15
+T_room = B["AMBIENT_TEMP_DEFAULT"]
 
 
 def stokes_v(rho_p, mu=mu20):

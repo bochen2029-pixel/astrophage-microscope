@@ -30,6 +30,12 @@ ASTRO_HD inline double c_to_k(double c)       { return c + 273.15; }
 ASTRO_HD inline double w_to_mw(double w)      { return w * 1.0e3; }
 ASTRO_HD inline double j_to_g_tnt(double j)   { return j / 4184.0; }
 
+// --- mathematical constants -------------------------------------------------
+// These live here, not in canon.py: canon.py holds PHYSICAL numbers, whose
+// provenance is a question about the novel or about nature. Pi is neither.
+inline constexpr double PI     = 3.14159265358979323846;
+inline constexpr double TWO_PI = 6.28318530717958647693;
+
 // --- small numeric helpers -------------------------------------------------
 template <typename T> ASTRO_HD inline T astro_min(T a, T b) { return a < b ? a : b; }
 template <typename T> ASTRO_HD inline T astro_max(T a, T b) { return a > b ? a : b; }

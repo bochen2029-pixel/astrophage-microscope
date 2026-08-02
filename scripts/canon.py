@@ -111,6 +111,9 @@ BASE = [
     ("VF_B", 570.58, "K", REAL, "Vogel-Fulcher coefficient B", None, None),
     ("VF_C", 140.0, "K", REAL, "Vogel-Fulcher coefficient C", None, None),
     ("AIR_CONVECTION_H", 10.0, "W/m^2/K", REAL, "free convection to room air (Robin BC)", None, None),
+    ("AMBIENT_TEMP_DEFAULT", 293.15, "K", INVENTED,
+     "20 C. Default medium and room temperature; scenarios override it.",
+     None, (273.15, 373.15, False)),
 
     # --- Mechanics / numerics -----------------------------------------------
     ("CONTACT_STIFFNESS", 1.0e-6, "N/m", INVENTED,
@@ -157,6 +160,12 @@ FIELDS = [
 LIMITS = [
     ("MAX_CELLS",     2000000, "-", INVENTED, "Hard capacity of the cell store."),
     ("MAX_TAUMOEBA",    65536, "-", INVENTED, "Hard capacity of the taumoeba store."),
-    ("DEFAULT_CELLS",  200000, "-", INVENTED, "Default starting population."),
+    # Projected coverage, not volume fraction, is what decides legibility: the
+    # scope looks down through the full 60 um slab, so every cell in the column
+    # overlaps. 200k cells is only ~11% by volume but ~98% projected -- a solid
+    # black field. 25k gives ~12% projected and ~300 cells in a 40x field, which
+    # reads as a culture. See ADR-015.
+    ("DEFAULT_CELLS",   25000, "-", INVENTED, "Default starting population (legibility-tuned)."),
+    ("BENCH_CELLS",    200000, "-", INVENTED, "Population the performance gate gets run at."),
     ("TARGET_FPS",        144, "-", INVENTED, "Frame budget target on the reference GPU."),
 ]

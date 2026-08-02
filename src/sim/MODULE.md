@@ -10,8 +10,8 @@ The simulation itself: the cell and Taumoeba stores, the integrator, and every p
 
 | File | Owns | Milestone |
 |---|---|---|
-| `sim_placeholder.cu` | M0 scaffold — **delete when `cell_store.cu` lands** | M0 |
-| `cell_store.cu` | SoA allocation, spawn, free list, compaction | M1 |
+| `cell_store.{cuh,cu}` | ✅ SoA allocation, spawn, free list (compaction at M9) | M1 |
+| `world.cuh` + `step.cu` | ✅ world lifetime, the tick sequence, `Stats` | M1 |
 | `integrator.cu` | exact-propagator OU update (PHYSICS.md §3) | M2 |
 | `hash.cu` | spatial hash by counting sort; SoA reorder | M4 |
 | `contact.cu` | soft-sphere repulsion, wall adhesion | M4 |
@@ -21,7 +21,6 @@ The simulation itself: the cell and Taumoeba stores, the integrator, and every p
 | `lifecycle.cu` | mitosis, death, corpses, store disposition | M9 |
 | `predation.cu` | Taumoeba store, engulfment, N₂ lethality, evolution | M10 |
 | `snapshot.cpp` | serialise/restore, FNV-1a state hash | M12 |
-| `step.cu` | the tick sequence (ARCHITECTURE.md §3.4) | M1+ |
 
 ## Contracts
 
@@ -41,4 +40,11 @@ Produces `cell_store_v1.h`, `snapshot_v1.h`. Consumes `fields_v1.h`, `scenario_v
 
 ## Status
 
-M0 scaffold only. Physics begins at M2.
+**M1 complete.** The store allocates as one carved device blob, spawns with per-cell
+streams, and enforces capacity; `world_step` advances the clock and carries the stage
+list as comments so each milestone inserts at the documented position. Tested by
+`test_cell_store`.
+
+Physics begins at M2. `world_stats` returns only tick, time, and counts — the means
+and the energy ledger need the M6 device reduction, and the HUD hides what is not yet
+computed rather than displaying a plausible-looking zero.

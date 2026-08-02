@@ -10,8 +10,9 @@ Dear ImGui panels: the HUD, instrument controls, the cell inspector, the paramet
 
 | File | Owns | Milestone |
 |---|---|---|
-| `hud.cpp` | clock, counts, mean charge, medium temperature, **energy ledger**, non-canon badge | M1 |
-| `instrument_panel.cpp` | view mode, objective, focal plane, overlays, clock presets | M1 |
+| `hud.cpp` | ✅ clock, counts, fps, scope controls, population; **energy ledger and non-canon badge at M6/M11** | M1 |
+| `scale_bar.h` | ✅ pure length-snapping function — header-only so `test_scope` can check it with no GL | M1 |
+| `instrument_panel.cpp` | overlays, clock presets, the tool brushes | M5 |
 | `inspector_panel.cpp` | clicked-cell readout including the buoyancy line | M11 |
 | `params_panel.cpp` | `canon::PARAM_TABLE` with provenance badges and canon locks | M11 |
 | `chart_panel.cpp` | population, energy, temperature, tolerance time series | M9 |
@@ -31,4 +32,13 @@ Consumes `telemetry_v1.h`, `render_view_v1.h`, `scenario_v1.h`.
 
 ## Status
 
-Not started. HUD stub at M1; full panels at M11.
+**M1 complete.** Scope panel (objective, zoom, focal plane, view mode), population
+controls with respawn, and the scale bar. Full panels at M9/M11.
+
+The HUD deliberately shows `(focus has no visual effect until M3)` and
+`(only Charge is populated at M1)` rather than presenting inert controls as working.
+A control that silently does nothing is worse than one labelled as pending.
+
+The length-snapping half of the scale bar lives in `scale_bar.h` as a pure function so
+`test_scope` can verify it at all three objectives across the whole zoom range without
+a GL context. A gate you can only check by squinting at a screenshot is not a gate.

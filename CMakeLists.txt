@@ -10,7 +10,9 @@ endif()
 project(astrophage
     VERSION 0.1.0
     DESCRIPTION "Astrophage Microscope Simulator"
-    LANGUAGES CXX CUDA)
+    # C is required: GLFW and GLAD are C libraries. Omitting it fails at generate
+    # time with a misleading "required internal CMake variable not set".
+    LANGUAGES C CXX CUDA)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -88,7 +90,9 @@ add_library(astro_fields STATIC src/fields/fields_placeholder.cu)
 target_link_libraries(astro_fields PUBLIC astro_core)
 astro_strict(astro_fields)
 
-add_library(astro_sim STATIC src/sim/sim_placeholder.cu)
+add_library(astro_sim STATIC
+    src/sim/cell_store.cu
+    src/sim/step.cu)
 target_link_libraries(astro_sim PUBLIC astro_core astro_fields)
 astro_strict(astro_sim)
 
@@ -110,6 +114,11 @@ astro_test(test_canon        tests/physics/test_canon.cpp)
 astro_test(test_rng          tests/physics/test_rng.cpp)
 astro_test(test_contracts    tests/physics/test_contracts.cpp)
 astro_test(test_fixed_atomic tests/physics/test_fixed_atomic.cu)
+astro_test(test_octahedral   tests/physics/test_octahedral.cpp)
+astro_test(test_cell_store   tests/physics/test_cell_store.cu)
+# Scope geometry is pure arithmetic, so the M1 "scale bar is correct at all three
+# objectives" and "no size fudge" conditions are checked headless, not by eye.
+astro_test(test_scope        tests/physics/test_scope.cpp)
 
 # ---------------------------------------------------------------------------
 # tools -- headless runner. The determinism oracle (INV-8) and the scenario
@@ -169,8 +178,8 @@ if(ASTRO_BUILD_APP)
         astro_core astro_sim astro_fields
         glfw glad_gl_core_46 imgui CUDA::cudart_static)
     astro_strict(astrophage)
-    set_target_properties(astrophage PROPERTIES
-        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/dist)
+    # Note: the executable stays in the build tree. Packaging into dist/ is M12;
+    # redirecting it early would put it where scripts/gate.ps1 does not look.
 endif()
 
 message(STATUS "astrophage ${PROJECT_VERSION}")

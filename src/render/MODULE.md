@@ -10,11 +10,11 @@ Everything that produces pixels: GL context, CUDA-GL interop, the single instanc
 
 | File | Owns | Milestone |
 |---|---|---|
-| `gl_context.cpp` | GL 4.6 core context, debug output, extension checks | M1 |
-| `interop.cu` | `cudaGraphicsGLRegisterBuffer`; the kernel that writes `CellInstance` | M1 |
-| `cells_pass.cpp` | instanced disc draw, SDF fragment shader | M1 |
+| `gl_context.cpp` | ✅ GL 4.6 core context, debug output, ImGui bootstrap | M1 |
+| `interop.cu` | ✅ `cudaGraphicsGLRegisterBuffer`; the kernel that writes `CellInstance` | M1 |
+| `cells_pass.cpp` | ✅ instanced disc draw, SDF fragment shader | M1 |
+| `camera.h` | ✅ scope pan/zoom/focal plane, objective presets (header-only, so it is host-testable) | M1 |
 | `optics.cpp` | defocus, circle of confusion, diffraction ring, condenser | M3 |
-| `camera.cpp` | scope pan/zoom/focal plane, objective presets | M1 |
 | `field_pass.cpp` | grid → R32F texture, LUT mapping, overlays | M5 |
 | `luts.cpp` | the five colour tables | M5 |
 | `bloom.cpp` | 4-level downsample/upsample chain on Petrova emission | M7 |
@@ -34,4 +34,16 @@ Consumes `render_view_v1.h`, `fields_v1.h`, `telemetry_v1.h`. Produces none.
 
 ## Status
 
-Not started. Begins at M1 (`ASTRO_BUILD_APP=ON`).
+**M1 complete.** 200,000 cells in one instanced draw at ~795 fps on the reference GPU
+(target 144), zero GL debug errors. Flat discs only — defocus is M3, Petrovascope and
+Thermal IR are M6/M7. The uniforms those need (`u_focal_plane_um`, `u_mode`) are
+already plumbed so the shader grows rather than gets rewritten.
+
+Two things that cost time and are worth knowing:
+
+- **`<glad/gl.h>` must be included before `<cuda_gl_interop.h>`.** The CUDA header
+  uses `GLuint`/`GLenum` without declaring them, and standalone inclusion fails with
+  15 errors that all say "variable GLuint is not a type name".
+- **`project()` must enable `C`.** GLFW and GLAD are C libraries; omitting the language
+  fails at *generate* time with "required internal CMake variable not set:
+  CMAKE_C_COMPILE_OBJECT", which names nothing useful.

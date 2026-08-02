@@ -6,8 +6,8 @@ Every gate re-runs all earlier gates. Gates never weaken.
 
 | M | Name | Delivers | Gate | State |
 |---|---|---|---|---|
-| M0 | Harness | build system, generated canon, RNG, determinism skeleton, scripts | `gate.ps1 -Milestone M0` | ☐ |
-| M1 | Cell store & first pixels | GPU SoA, spawn, CUDA-GL interop, instanced discs, camera, scale bar | M1 | ☐ |
+| M0 | Harness | build system, generated canon, RNG, determinism skeleton, scripts | `gate.ps1 -Milestone M0` | ✅ `m0-green` |
+| M1 | Cell store & first pixels | GPU SoA, spawn, CUDA-GL interop, instanced discs, camera, scale bar | M1 | ✅ `m1-green` |
 | M2 | Motion | OU integrator, buoyancy, boundaries → **P1** | M2 | ☐ |
 | M3 | Optics | defocus, DOF, objectives, diffraction ring, focal plane | M3 | ☐ |
 | M4 | Neighbourhood | spatial hash, contact, adhesion | M4 | ☐ |
@@ -48,9 +48,11 @@ Every gate re-runs all earlier gates. Gates never weaken.
 
 **Contracts.** Consumes `cell_store_v1.h`; produces `render_view_v1.h`.
 
-**Gate.** M0 gate + window opens; 200,000 static cells render at ≥ `TARGET_FPS`; cells are drawn at true relative size (no size fudge — audit greps for it); scale bar reads correctly at all three objectives; zero GL debug-output errors.
+**Gate.** M0 gate + window opens; `BENCH_CELLS` render at ≥ `TARGET_FPS`; cells drawn at true relative size; scale bar correct at all three objectives; zero GL debug-output errors.
 
 **Do not.** No motion. No fields. No optics beyond a flat disc.
+
+**✅ Delivered 2026-08-02.** 200,000 cells at ~795 fps (5.5× target), zero GL errors. Scale-bar and true-size conditions are verified headless by `test_scope` rather than by eye. `DEFAULT_CELLS` dropped to 25,000 — see ADR-015, projected coverage is not volume fraction.
 
 ---
 
