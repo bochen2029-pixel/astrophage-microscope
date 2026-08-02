@@ -57,10 +57,12 @@ Five modes, **cross-faded with a slider rather than hard-cut**, so the user can 
 | **Brightfield** | bright warm white | pure black discs with diffraction ring; corpses translucent grey | what a human sees. Charge state invisible. |
 | **Darkfield** | black | bright edge-scattering rings | classic contrast; live/dead legible |
 | **Petrovascope** | pure black | magenta emission lobes only; non-emitting cells **invisible** | the 25.984 μm band. The canon instrument. |
-| **Thermal IR** | deep blue/black | glow by `temp_cell`, plus the field halo | the 7.841 μm blackbody band |
+| **Thermal IR** | warm false-colour (film pink/red) | **black absorbers** (albedo 0) on the warm medium, hot rim on awake heat-sources | IR imaging, as the 2026 film shows it |
 | **Analysis** | dark grey | flat discs coloured by a selectable channel (charge / temp / age / mass / awake) | the honest scientific view |
 
 **Thermal IR and Petrovascope must read differently.** The Petrova line is a discrete quantum annihilation line, not thermal emission (`PHYSICS.md` §6), so a live idle cell glows in Thermal and is *dark* in Petrovascope, while a discharging cell blazes in Petrovascope. This is scientifically real and it is the simulator's best teaching moment — do not let the two modes collapse into one another.
+
+**Implemented at M7b (ADR-029), and the divergence is a golden.** All five modes now draw distinctly, and the two IR modes are the **novel-vs-film split shipped both ways**. Petrovascope is the novel's *emission* instrument: it glows by `emit_power`, and a non-emitting cell is invisible. Thermal IR is the 2026 film's *absorption* image: the warm medium is false-coloured pink/red and the albedo-0 cells are **black silhouettes** on it, with a hot rim on the awake heat-sources (the `AWAKE` latch is exact for that, no `temp_cell` needed). The `m7b_thermal_awake` vs `m7b_petrova_awake` must-differ pair pins that the same idle cell is a visible absorber in one and invisible in the other. **Still deferred:** the cross-fade slider, bloom over the Petrova emission, the real T-field false-colour behind Thermal (the warm clear colour stands in for now), and pre-ignition warm-up of a heated dormant cell (which does need `temp_cell` → `render_view_v3`).
 
 **Overlays**, independently toggleable on any mode: T field, CO₂ field, N₂ field, irradiance field, velocity vectors, hash grid, trajectory trails, scale bar.
 

@@ -6,6 +6,24 @@ Format: milestone · what landed · what is pending · open questions · gotchas
 
 ---
 
+## 2026-08-02 — M7b (View modes) — GREEN · **the black screen was a deferred mode, now lit**
+
+**Landed.** Darkfield, **Petrovascope**, and **Thermal IR** drawn distinctly in the fragment shader (ADR-029), each with its own background, plus `--mode` / `--awake` CLI flags and honest HUD hints. Prompted by a user report: Thermal IR was a black screen. It was not a bug in the sim — the shader only implemented Brightfield and the other four modes fell through to an Analysis-by-charge ramp, near-black on a dark field for an uncharged culture.
+
+**The reference redirected the physics, and that is the lesson.** My first cut made Thermal IR an *emission* thermogram — awake cells glowing warm on black. Then a frame of the 2026 film's actual IR view came in: a warm pink/red false-colour field with cells as **black silhouettes**. That is an *absorption* image, not emission — Astrophage absorbs at every wavelength (albedo 0), so under IR it is dark, and the pink is the medium's false-colour. Reworked to match: black absorbing cells on the warm field, a hot rim on the awake heat-sources (still exact from the `AWAKE` latch, ADR-003), and the circular field diaphragm since it is an illuminated view. **The Petrovascope stays the novel's emission view** (glow by `emit_power`) — so the two IR modes are now the novel-vs-film split shipped both ways, the same house move as ADR-002/003/023.
+
+**No contract bump.** Both signals — `AWAKE` (thermal) and `emit_power` (Petrova) — were already in the instance, so `render_view_v3` buys nothing for the core contrast. `--mode` / `--awake` CLI flags let the modes be captured headless.
+
+**The divergence is a golden.** `m7b_thermal_awake` vs `m7b_petrova_awake`, on an awake, half-charged, idle population (charged so an awake cell does not instantly starve; idle so it is not emitting) — the same cell is a visible dark absorber in Thermal and invisible in the Petrovascope. Every existing measurement golden verifies **unchanged**, because Brightfield (mode 0) was not touched — the guarantee ADR-023 gave morphology.
+
+**Gotchas.**
+- **An awake cell at charge 0 starves instantly** (energy 0 while awake ⇒ STARVED that tick), so `--awake` alone renders corpses, not glowing cells. The mode goldens pin `--charge 0.5`, which also keeps them idle-but-alive.
+- **The 1-LSB golden-churn trap, again.** `-Generate` rewrote all 12 goldens; the 8 pre-existing ones showed modified at imgdiff **mean 0.0000, max 1**. Reverted them, kept only the 3 new `m7b_*` — committing the churn would make a future real change invisible in the diff (the M8b lesson).
+
+**Pending / next.** Bloom over Petrova, the cross-fade slider, the Thermal field-halo, and pre-ignition warm-up (the one piece that truly needs `render_view_v3`). Then M10 predation.
+
+---
+
 ## 2026-08-02 — M9c (Life: clock, compaction, charts) — GREEN · **the life cycle closes**
 
 **Landed.** The multi-rate clock wired for real (physics_rate scales the physics dt; biology_rate the growth dt, compounding), the **Q19 decision** (ADR-027), opt-in stable **compaction** (ADR-028), CUB `DeviceScan` for the birth prefix (Q20), and the population/energy/temperature charts + clock UI + permanent energy ledger. 21 tests green (added `test_clock`), 27 files, ~760 LOC. No contract change.

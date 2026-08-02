@@ -122,8 +122,13 @@ void hud_draw(HudState& hud, const Stats& stats, render::Camera& cam,
     int mode = static_cast<int>(hud.mode);
     if (ImGui::Combo("mode", &mode, kModeNames, IM_ARRAYSIZE(kModeNames)))
         hud.mode = static_cast<ViewMode>(mode);
-    if (hud.mode != ViewMode::Brightfield && hud.mode != ViewMode::Analysis)
-        ImGui::TextDisabled("(this mode arrives at M6/M7; drawing Analysis)");
+    // Astrophage is black in visible light and emits where no eye can see, so the
+    // IR modes are dark until something makes a cell glow -- say so, or an empty
+    // Petrovascope reads as a broken screen rather than as "nothing is emitting".
+    if (hud.mode == ViewMode::Petrovascope)
+        ImGui::TextDisabled("(only emitting cells glow; ignite and seek light to see it)");
+    else if (hud.mode == ViewMode::ThermalIR)
+        ImGui::TextDisabled("(awake cells glow warm; dormant cells sit at ambient and stay dark)");
     if (hud.mode == ViewMode::Analysis) {
         int ch = static_cast<int>(hud.channel);
         if (ImGui::Combo("channel", &ch, kChannelNames, IM_ARRAYSIZE(kChannelNames)))

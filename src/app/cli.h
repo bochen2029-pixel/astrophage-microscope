@@ -45,6 +45,13 @@ struct Options {
     // measurement oracles pin morphology to Sphere and the aperture to 0.
     contract::Morphology morphology = contract::Morphology::Irregular;
     float    aperture   = 0.92f;     // field diaphragm radius; 0 = full rectangle
+
+    // Initial view mode, and whether the population spawns awake -- both needed to
+    // capture the non-brightfield modes headless (an awake idle cell glows in
+    // Thermal IR and is dark in the Petrovascope).
+    contract::ViewMode view_mode = contract::ViewMode::Brightfield;
+    bool     awake      = false;
+
     bool     help       = false;
     bool     bad        = false;
 };

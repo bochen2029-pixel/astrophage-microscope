@@ -18,6 +18,8 @@ void print_usage() {
         "  --zoom F           digital zoom on top of the objective\n"
         "  --focus F          focal plane in micrometres from chamber centre\n"
         "  --no-ui            suppress all ImGui drawing (for golden captures)\n"
+        "  --mode NAME        brightfield | darkfield | petrovascope | thermal | analysis\n"
+        "  --awake            spawn the population awake (glows in Thermal IR)\n"
         "  --morphology M     sphere | irregular  (appearance only; goldens pin sphere)\n"
         "  --aperture F       field diaphragm radius, 0 = full rectangle\n"
         "  --ticks-per-frame N  fixed ticks per frame, ignoring wall clock;\n"
@@ -102,6 +104,19 @@ Options parse_args(int argc, char** argv) {
             if (i + 1 >= argc) o.bad = true;
             else { o.biology_rate = std::atof(argv[++i]); o.clock_preset = 4; }
         }
+        else if (want("--mode")) {
+            if (i + 1 >= argc) { o.bad = true; }
+            else {
+                const char* m = argv[++i];
+                if      (std::strcmp(m, "brightfield") == 0)  o.view_mode = contract::ViewMode::Brightfield;
+                else if (std::strcmp(m, "darkfield") == 0)    o.view_mode = contract::ViewMode::Darkfield;
+                else if (std::strcmp(m, "petrovascope") == 0) o.view_mode = contract::ViewMode::Petrovascope;
+                else if (std::strcmp(m, "thermal") == 0)      o.view_mode = contract::ViewMode::ThermalIR;
+                else if (std::strcmp(m, "analysis") == 0)     o.view_mode = contract::ViewMode::Analysis;
+                else                                          o.bad = true;
+            }
+        }
+        else if (want("--awake"))      o.awake     = true;
         else if (want("--headless"))   o.headless  = true;
         else if (want("--gl-debug"))   o.gl_debug  = true;
         else if (want("--benchmark"))  o.benchmark = true;

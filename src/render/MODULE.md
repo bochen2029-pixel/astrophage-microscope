@@ -36,9 +36,17 @@ Consumes `render_view_v2.h`, `fields_v1.h`, `telemetry_v1.h`. Produces none.
 
 ## Status
 
-**M3 complete.** 200,000 cells in one instanced draw with full defocus at ~426 fps on
-the reference GPU (target 144), zero GL debug errors. Petrovascope and Thermal IR are
-M6/M7; `u_mode` is already plumbed so the shader grows rather than gets rewritten.
+**M3 + M7b.** 200,000 cells in one instanced draw with full defocus at ~426 fps on the
+reference GPU (target 144), zero GL debug errors. All five view modes now draw distinctly
+(ADR-029), and the two IR modes are the novel-vs-film split: **Petrovascope** is the
+novel's *emission* view (glow by `emit_power`, non-emitting cells invisible); **Thermal IR**
+is the 2026 film's *absorption* view (albedo-0 cells are black silhouettes on a warm
+pink/red false-colour field, with a hot rim on awake heat-sources -- the `AWAKE` latch is
+exact for that, no per-cell temperature needed). Plus Darkfield (edge-scatter) and Analysis.
+A `m7b_thermal_awake` vs `m7b_petrova_awake` must-differ golden pins that the two read
+differently. **Still deferred:** bloom over the Petrova emission, the real T-field
+false-colour behind Thermal, and pre-ignition warm-up of a heated dormant cell (needs
+`temp_cell` -> `render_view_v3`).
 
 ### The one hazard specific to this module
 

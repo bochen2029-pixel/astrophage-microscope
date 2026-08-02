@@ -132,6 +132,57 @@ Append-only. Every contradiction in the source material and every non-obvious en
 
 ---
 
+## ADR-029 — The two IR view modes, implemented without a contract bump
+
+**Status:** accepted, 2026-08-02 (M7b).
+
+**Context.** Petrovascope and Thermal IR were plumbed but never drawn — deferred from
+M7 as the "M7b" slot. The fragment shader distinguished only Brightfield; Darkfield,
+Petrovascope, and Thermal IR all fell through to an Analysis-style ramp tinted by
+**charge**, which for an uncharged culture is near-black on a dark background. Selecting
+Thermal IR therefore showed a black screen — a mode that silently does nothing, which
+`ui/MODULE.md` calls out as worse than one labelled pending. Surfaced by a user report.
+
+**Decision.** Implement Darkfield, Petrovascope, and Thermal IR distinctly in the
+fragment shader, each with its own background, and **without bumping `render_view_v2.h`**:
+
+- **Petrovascope** (novel-faithful): glows by `emit_power_norm` (already in the instance)
+  through the petrova-film magenta LUT; a non-emitting cell is invisible. This is the
+  novel's instrument — Astrophage "emits where no eye can see", so you see only what is
+  emitting.
+- **Thermal IR** (2026-film-faithful): the warm medium is false-coloured pink/red and the
+  albedo-0 cells are **black absorbing silhouettes** on it — the film's IR look, *not* a
+  glowing thermogram. This is an *absorption* view: a cell absorbs at every wavelength, so
+  under IR illumination it is dark. An awake cell is a heat *source* (its surface is at the
+  369.565 K setpoint by definition, the latch ADR-003), so it takes a hot rim; a dormant or
+  dead cell is just black. The `AWAKE` flag, already in `flags_packed`, carries that with no
+  `temp_cell`. Being an illuminated view, it also gets the circular field diaphragm that
+  Brightfield gets.
+- **Darkfield** shows the cells as bright edge-scatter on black.
+
+**The two IR modes are the novel-vs-film split, shipped both ways.** The novel's
+Petrovascope detects *emission*; the film's IR is an *absorption* image. They are genuinely
+different physics, so — as with ADR-002, ADR-003, ADR-023 — both ship rather than one being
+silently chosen. That they must **read differently** (RENDERING.md §4) is now a
+**must-differ golden pair** (`m7b_thermal_awake` vs `m7b_petrova_awake`): the same awake,
+half-charged (so it does not instantly starve), idle (so it is not emitting) cell is a
+visible dark absorber with a hot rim in Thermal and invisible in the Petrovascope. A
+`render_view_v3` with per-cell `temp_cell` buys nothing for this contrast, since the awake
+latch is exact for it.
+
+**What is deliberately deferred.** Bloom over the Petrova emission (the swirling-points
+look) is still M7b-remainder. And a *heated-but-still-dormant* cell warming before it
+ignites would need real `temp_cell` in the instance (`render_view_v3`); the awake flag is
+exact for awake-vs-dormant but binary, so pre-ignition warm-up does not yet show. Both are
+refinements, not the phenomenon.
+
+**Golden safety.** Brightfield (mode 0) is untouched, so every existing `m3_*` and `m8b_*`
+measurement golden verifies **unchanged** — the mode work cannot move an optics oracle,
+the same guarantee ADR-023 established for morphology. Only the three new `m7b_*` captures
+are added (Iron Rule 10: this entry is their record).
+
+---
+
 ## ADR-028 — Compaction: stable, prefix-sum, out-of-place, opt-in — and CUB for Q20
 
 **Status:** accepted, 2026-08-02 (M9c).

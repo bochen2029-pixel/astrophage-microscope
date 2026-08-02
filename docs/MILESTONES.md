@@ -19,6 +19,7 @@ Every gate re-runs all earlier gates. Gates never weaken.
 | M9a | Life: division | biomass, CO₂ uptake, mitosis, RNG splitting, prefix-sum slots | M9a | ✅ `m9a-green` |
 | M9b | Life: death | overheat death, corpses, store disposition, stage-11 stats reduction | M9b | ✅ `m9b-green` |
 | M9c | Life: clock | multi-rate presets, Q19 decision, compaction, charts | M9c | ✅ `m9c-green` |
+| M7b | View modes | Petrovascope, Thermal IR, Darkfield (deferred render; bloom still pending) | M7b | ✅ `m7b-green` |
 | M10 | Predation | Taumoeba, N₂, heritable tolerance, evolution | M10 | ☐ |
 | M11 | Content | scenario system, all 8 scenarios, UI panels, charts, telemetry | M11 | ☐ |
 | M12 | Ship | snapshot/replay, perf pass, packaging | `v1.0` | ☐ |
@@ -205,6 +206,20 @@ Three findings, all in ADR-018:
 **✅ Delivered 2026-08-02.** `physics_rate` is wired into the physics dt with the diffusion substeps derived from that dt and contact stiffness scaled as `1/physics_rate`, so a fast clock stays stable and contained; at `physics_rate = 1` the state is **bit-identical to M9b**. `test_clock` asserts the preset ratios and that the two rates compound exactly. Compaction (ADR-028) is stable, prefix-sum-allocated and out-of-place, opt-in via `compaction_enabled`; T22b re-runs T22 with corpses reclaimed **and contact on** and gets an identical hash. The serial birth scan is now `cub::DeviceScan` (Q20). Charts (population / energy / temperature), both clock multipliers, and the permanent energy ledger are in the HUD.
 
 **Q19 — decided (ADR-027): `biology_rate` does NOT scale CO₂ diffusion.** The transport limit is real physics, not a defect; faking a faster diffusivity would violate the oracle and blow the CO₂ stability budget. The honest lever is `physics_rate`, which scales diffusion correctly; the HUD states the limitation.
+
+---
+
+## M7b — View modes (deferred render work, done after M9c)
+
+**Split from the deferred render work (the M8b note).** M8b took the silhouette half; this is the view-mode half.
+
+**Scope.** `RENDERING.md` §4. Darkfield, Petrovascope, and Thermal IR drawn distinctly in the fragment shader, each with its own background — **without a contract bump** (ADR-029). Petrovascope glows by `emit_power`; Thermal IR glows by the `AWAKE` latch, which is an exact proxy for the setpoint (ADR-003). `--mode` and `--awake` CLI flags so the modes are capturable headless.
+
+**Gate.** M9c gate + the `m7b_thermal_awake` vs `m7b_petrova_awake` must-differ golden (a live idle cell is bright in Thermal, dark in the Petrovascope), and every existing measurement golden **unchanged** (Brightfield is untouched, so the optics oracle cannot move).
+
+**✅ Delivered 2026-08-02.** Measured: thermal vs petrova mean **34.1**, max **252** — the glow is unmistakable, and the two modes can never collapse into one another while that golden holds.
+
+**Still deferred:** bloom over the Petrova emission, the cross-fade slider, the Thermal field-halo term, and pre-ignition warm-up of a heated-but-dormant cell (the one piece that genuinely needs `temp_cell` in the instance, i.e. `render_view_v3`).
 
 ---
 

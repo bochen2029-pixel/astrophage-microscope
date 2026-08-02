@@ -55,6 +55,20 @@ $cases = @(
     # M8b. The only case that leaves the sphere: proves morphology reaches pixels.
     @{ name = 'm8b_working_irregular';
        args = @('--objective','1','--focus','0','--morphology','irregular')      }
+    # M7b. The non-brightfield view modes. Captured on an AWAKE, half-charged
+    # population (charge so an awake cell does not instantly starve), in darkness so
+    # the cells are idle: awake and NOT emitting. That is the exact case that must
+    # separate the two IR instruments. Thermal IR is the film's ABSORPTION view --
+    # albedo-0 cells are black silhouettes on the warm false-colour medium, with a
+    # hot rim on the awake heat-sources -- so the cell is plainly visible. In the
+    # Petrovascope the same idle cell is invisible (nothing is emitting). Darkfield
+    # shows the cells as bright edge-scatter on black.
+    @{ name = 'm7b_thermal_awake';
+       args = @('--objective','1','--focus','0','--charge','0.5','--mode','thermal','--awake')     }
+    @{ name = 'm7b_petrova_awake';
+       args = @('--objective','1','--focus','0','--charge','0.5','--mode','petrovascope','--awake') }
+    @{ name = 'm7b_darkfield_awake';
+       args = @('--objective','1','--focus','0','--charge','0.5','--mode','darkfield','--awake')    }
 )
 
 # EVERY measurement golden pins --morphology sphere and --aperture 0, so the M3
@@ -115,6 +129,14 @@ $mustDiffer = @(
     # morphology.h has silently died (ADR-017 has no compiler check across GLSL).
     @{ a = 'm3_working_focus0';  b = 'm8b_working_irregular';
        why = 'irregular morphology changes the silhouette' }
+    # The teaching moment (RENDERING.md Sec 4): the Petrova line is a quantum
+    # annihilation line, not thermal emission, so the two IR modes MUST diverge. A
+    # live idle cell is bright in Thermal and dark in the Petrovascope. If these
+    # ever match, a real physical distinction has been lost.
+    @{ a = 'm7b_thermal_awake';  b = 'm7b_petrova_awake';
+       why = 'a live idle cell is a visible absorber on the warm IR field and is invisible in the Petrovascope' }
+    @{ a = 'm7b_darkfield_awake'; b = 'm7b_petrova_awake';
+       why = 'darkfield edge-scatter is not the Petrova glow' }
 )
 foreach ($pair in $mustDiffer) {
     $pa = Join-Path $goldens "$($pair.a).ppm"

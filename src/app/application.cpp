@@ -22,13 +22,14 @@ namespace {
 double g_scroll_y = 0.0;
 void scroll_callback(GLFWwindow*, double, double yoff) { g_scroll_y += yoff; }
 
-Error spawn_population(sim::World& w, int32_t count, float charge, uint64_t seed) {
+Error spawn_population(sim::World& w, int32_t count, float charge, uint64_t seed,
+                       bool awake = false) {
     sim::SpawnParams p;
     p.count       = count;
     p.placement   = sim::Placement::Uniform;
     p.charge_dist = sim::Distribution::Constant;
     p.charge_a    = charge;
-    p.awake       = false;
+    p.awake       = awake;
     return sim::cell_store_spawn(w.cells, p, w.chamber, seed);
 }
 
@@ -112,7 +113,8 @@ Error app_init(Application& a, const Options& o) {
     // Registered with CUDA, so it must be created after the GL context.
     ASTRO_TRY(render::cells_pass_create(a.cells_pass, count));
     ASTRO_TRY(render::post_pass_create(a.post_pass));
-    ASTRO_TRY(spawn_population(a.world, count, o.charge, o.seed));
+    ASTRO_TRY(spawn_population(a.world, count, o.charge, o.seed, o.awake));
+    a.hud.mode = o.view_mode;
 
     // Apply the requested clock (ADR-011/ADR-027) and mirror the resolved rates
     // into the HUD so the panel opens showing the clock the run actually started on.
@@ -228,8 +230,11 @@ int app_run(Application& a) {
                                 a.world.cells.count, a.hud.mode, a.hud.channel,
                                 a.options.morphology);
         // The condenser affects the field as well as the cells, so it goes after
-        // them. Brightfield only: a darkfield or Petrovascope field is not lamp-lit.
-        if (a.hud.mode == contract::ViewMode::Brightfield)
+        // them. Applied to the ILLUMINATED modes -- Brightfield and Thermal IR (the
+        // film's IR view is a lit circular field) -- but not the emission modes
+        // (Darkfield, Petrovascope), whose field is genuinely black.
+        if (a.hud.mode == contract::ViewMode::Brightfield ||
+            a.hud.mode == contract::ViewMode::ThermalIR)
             render::post_pass_draw(a.post_pass, a.gl.fb_width, a.gl.fb_height, 0.22f, 0.6f,
                                    a.options.aperture);
 

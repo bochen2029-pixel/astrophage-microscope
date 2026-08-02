@@ -185,9 +185,11 @@ uniform int u_channel;   // contract::AnalysisChannel
 out vec4 frag;
 
 const uint FLAG_ALIVE = 2u;
+const uint FLAG_AWAKE = 4u;   // thermostat engaged: surface held at the setpoint
 
-// Provisional ramp. The real perceptually-uniform LUTs arrive as 1D textures in
-// M5 (docs/RENDERING.md Sec 5); this keeps the pass free of texture plumbing.
+// Provisional magma-like ramp (perceptually-uniform-ish). The real 1D-texture
+// LUTs are RENDERING.md Sec 5; this keeps the pass free of texture plumbing. Used
+// for the Analysis channels and, at its warm end, for the Thermal-IR glow.
 vec3 ramp(float t) {
     t = clamp(t, 0.0, 1.0);
     vec3 c0 = vec3(0.001, 0.000, 0.014);
@@ -199,6 +201,18 @@ vec3 ramp(float t) {
     if (t < 0.50) return mix(c1, c2, (t - 0.25) / 0.25);
     if (t < 0.75) return mix(c2, c3, (t - 0.50) / 0.25);
     return mix(c3, c4, (t - 0.75) / 0.25);
+}
+
+// The Petrova-film LUT: dark plum -> magenta -> hot pink (RENDERING.md Sec 5,
+// #3D0620 -> #C4187A -> #FF2D95). Deliberately a different colour family from the
+// thermal ramp so the two IR modes never read alike.
+vec3 petrova(float t) {
+    t = clamp(t, 0.0, 1.0);
+    vec3 c0 = vec3(0.239, 0.024, 0.125);
+    vec3 c1 = vec3(0.769, 0.094, 0.478);
+    vec3 c2 = vec3(1.000, 0.176, 0.584);
+    if (t < 0.5) return mix(c0, c1, t / 0.5);
+    return mix(c1, c2, (t - 0.5) / 0.5);
 }
 
 void main() {
@@ -238,6 +252,8 @@ void main() {
     float contrast = v_peak * cov - v_polarity * band * 0.5;
 
     bool alive = (v_flags & FLAG_ALIVE) != 0u;
+    bool awake = (v_flags & FLAG_AWAKE) != 0u;
+    float cov_a = max(contrast, 0.0);        // positive coverage: the disc fill
 
     vec3 color;
     float alpha;
@@ -251,10 +267,45 @@ void main() {
             color = vec3(1.0);            // lighter than the field: the halo
             alpha = -contrast;
         }
+    } else if (u_mode == 1) {
+        // Darkfield: light scatters at the cell's edge, so the rim is bright on a
+        // black field and the centre stays dark. The coverage falloff peaks a thin
+        // shell at the edge; the Becke band reinforces it in focus.
+        float shell = cov_a * (1.0 - cov_a) * 4.0;
+        float rim = max(shell, band);
+        color = alive ? vec3(0.75, 0.86, 1.0) : vec3(0.50, 0.55, 0.60);
+        alpha = rim * (alive ? 1.0 : 0.6);
+    } else if (u_mode == 2) {
+        // Petrovascope: the 25.984 um annihilation line only. A cell glows by how
+        // hard it emits; one that is NOT emitting is invisible -- the canon
+        // instrument. Dead cells never emit. (Bloom over this is deferred.)
+        float e = alive ? v_emit : 0.0;
+        color = petrova(0.35 + 0.65 * e);
+        alpha = cov_a * e;
+    } else if (u_mode == 3) {
+        // Thermal IR, film grade (2026 film reference). Astrophage absorbs at EVERY
+        // wavelength (albedo 0, "super cross-sectionality"), so under IR it is a
+        // BLACK silhouette on the warm false-coloured medium -- the film's look, not
+        // a glowing thermogram. It is still the emission modes' opposite of the
+        // Petrovascope: a cell that is idle-but-warm is a dark absorber here and
+        // simply invisible there. An AWAKE cell holds its surface at the 369.565 K
+        // setpoint (the latch, ADR-003) and is a heat SOURCE, so it takes a hot rim;
+        // a dormant or dead cell is just black. The true medium false-colour is the
+        // T-field pass (deferred); the warm clear colour stands in for it, and
+        // per-cell warmth of a heated-but-dormant cell needs render_view_v3.
+        float hot = (alive && awake) ? 1.0 : 0.0;
+        if (contrast >= 0.0) {
+            color = mix(vec3(0.02), vec3(1.0, 0.80, 0.45), clamp(band * hot * 2.0, 0.0, 1.0));
+            alpha = max(cov_a, band * hot);
+        } else {
+            color = vec3(1.0, 0.85, 0.60);   // warm halo just outside the edge
+            alpha = -contrast;
+        }
     } else {
+        // Analysis: flat discs coloured by the selected channel.
         float t = (u_channel == 0) ? v_charge : v_emit;
         color = alive ? ramp(t) : vec3(0.25);
-        alpha = max(contrast, 0.0) * (alive ? 1.0 : 0.5);
+        alpha = cov_a * (alive ? 1.0 : 0.5);
     }
 
     alpha *= v_alpha_scale;
@@ -356,8 +407,17 @@ void cells_pass_destroy(CellsPass& p) {
 void cells_pass_draw(const CellsPass& p, const Camera& cam, int fb_w, int fb_h,
                      int32_t count, ViewMode mode, AnalysisChannel channel,
                      contract::Morphology morphology) {
-    if (mode == ViewMode::Brightfield) glClearColor(0.961f, 0.941f, 0.902f, 1.0f);
-    else                               glClearColor(0.055f, 0.055f, 0.070f, 1.0f);
+    // The background is part of the mode: brightfield is lamp-white, the IR modes
+    // are near-black so a faint glow reads, and Analysis is a neutral dark grey.
+    switch (mode) {
+        case ViewMode::Brightfield:  glClearColor(0.961f, 0.941f, 0.902f, 1.0f); break;
+        case ViewMode::Darkfield:    glClearColor(0.020f, 0.020f, 0.030f, 1.0f); break;
+        case ViewMode::Petrovascope: glClearColor(0.000f, 0.000f, 0.000f, 1.0f); break;
+        // Warm false-colour medium: the 2026 film's pink/red IR grade, against which
+        // the albedo-0 cells read as black silhouettes.
+        case ViewMode::ThermalIR:    glClearColor(0.502f, 0.106f, 0.180f, 1.0f); break;
+        default:                     glClearColor(0.055f, 0.055f, 0.070f, 1.0f); break;
+    }
     glClear(GL_COLOR_BUFFER_BIT);
     if (count <= 0) return;
 

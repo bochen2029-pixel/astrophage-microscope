@@ -4,7 +4,7 @@
 self-contained: everything a cold session needs to be productive within one read,
 without loading the repo.
 
-Last rewritten: 2026-08-02, after **M9b**.
+Last rewritten: 2026-08-02, after **M7b** (M9c then the deferred view modes).
 
 ---
 
@@ -20,9 +20,12 @@ A sealed 4 mm × 4 mm × 60 μm chamber of water. Cells 10 μm across, black at 
 wavelength, each holding up to 1.5 MJ as neutrino mass. Real Stokes drag, Langevin
 dynamics, Fickian diffusion, conduction, photon momentum.
 
-**Eleven of twelve milestone-slots are green.** All five signature phenomena are
-live; cells behave, look like organisms, divide reproducibly, die, and report
-telemetry. **Next up: M9c — Life: clock, compaction, charts.**
+**M0 through M9c are green, plus the deferred M7b view modes.** All five signature
+phenomena are live; cells behave, look like organisms, divide reproducibly, die,
+report telemetry, run on a multi-rate clock with slot compaction, and all five
+view modes (Brightfield, Darkfield, Petrovascope, Thermal IR, Analysis) draw
+distinctly. **Next up: M10 — Predation** (Taumoeba, N₂ lethality, the
+Taumoeba-82.5 evolution arc).
 
 **This is a simulator and visualisation, not a game.** No win state, no story mode,
 no asset files — everything procedural or generated.
@@ -98,7 +101,7 @@ fix the contract.
 
 ## 3. The state, in numbers
 
-**20 tests green, 9 golden images, 10 audit invariant checks, 26 ADRs.**
+**21 tests green, 12 golden images, 10 audit invariant checks, 29 ADRs.**
 
 ```
 test_canon ......... generated constants consistent; the right params carry the canon lock
@@ -316,42 +319,47 @@ network access beyond dependency fetch, Windows settings, spending money.
 
 ---
 
-## 6. What is next — M9c
+## 6. What is next — M10 (Predation)
 
-**Scope.** `PHYSICS.md` §12. The multi-rate clock with its four presets (ADR-011),
-**the Q19 decision**, slot reuse and compaction, and the population/energy/
-temperature charts.
+M9c (the multi-rate clock, slot compaction, charts) and M7b (the Petrovascope and
+Thermal-IR view modes) are both **done and green**. M10 is next.
 
-**Gate.** M9b gate + each preset advances biology and physics at its stated ratio;
-a run with compaction enabled is still bit-reproducible (T22 re-run).
+**Scope.** `PHYSICS.md` §11. A `TaumoebaStore` (its own SoA, same patterns as the
+cell store), amoeboid crawl biased up the local cell-density gradient, engulfment
+on overlap with a live cell, digestion, the **N₂ field lethality**, and **heritable
+N₂ tolerance with mutation**.
 
-**Three things M9c must confront:**
+**Gate.** M9c gate + a predator introduction crashes the population; under a slowly
+rising N₂ ramp the mean tolerance rises monotonically on a 5-generation moving
+average, and a strain with tolerance ≥ 0.825 (**Taumoeba-82.5**) appears within 40
+generations at default `TAU_MUTATION_SIGMA` — by genuine directional selection,
+**not by script** (`SCENARIOS.md` §6).
 
-1. **Q19 — `biology_rate` does not scale diffusion, and M9c owns the clock.**
-   ADR-011 assumed biology clocks are "local and non-stiff". **CO₂ uptake is not
-   purely local** — it is an exchange with a field that diffuses on *physics* time.
-   At `biology_rate` = 2e7 a cell eats 2×10⁴ s of CO₂ per tick while the medium
-   diffuses 10⁻³ s worth, so a cell strips its own grid cell and waits. Measured:
-   growth goes locally diffusion-limited at 25 % consumption, and even a
-   *saturating* control slows once dense. Decide whether fast presets scale CO₂
-   diffusion alongside, or whether the HUD simply states the limitation.
-   **Do not read the slowdown as a growth bug.**
-2. **Compaction was deliberately deferred twice.** Reordering the SoA reorders
-   contact-force summation — ADR-018's hazard — and it must not ride along with
-   mitosis. It needs its own determinism argument and a T22 re-run.
-3. **Q20 — `scan_kernel` is still single-threaded** when divisions actually occur.
-   A CUB `DeviceScan` is the right answer, CUB is already an allowed dependency,
-   and compaction needs the same primitive. Do them together.
+**Three things M10 will confront:**
 
-### Then M10 → M12
+1. **A second organism store, and it evolves.** `predation.cu` is in the module map
+   but empty. It gets its own OU integrator (γ from `TAU_DIAMETER`), its own PCG32
+   streams keyed on a Taumoeba id, and — because Taumoeba divide and die — its own
+   reproducible birth/death. That is **T22's argument all over again** for a new
+   store, and it wants the M9c compaction primitive (`cell_store_compact` is the
+   template; give the Taumoeba store the same scan/gather buffers).
+2. **N₂ already exists as a field** (`FIELD_N_N2` = 128², a brush at M5). M10 adds
+   the coupling: hazard `max(0, N − N_lethal·(1 + tol·k))` and a Poisson death, and
+   a heritable `tolerance` drawn `parent + N(0, TAU_MUTATION_SIGMA)` clamped to
+   [0,1] — a **real draw from the Taumoeba's stream**, so determinism must survive
+   it. **Q19 stands:** `biology_rate` does not scale N₂ diffusion either.
+3. **The 82.5 arc must EMERGE.** The gate forbids scripting it. If you find yourself
+   special-casing 0.825, stop — that is the P1–P5 rule applied to evolution.
 
-- **M10 Predation** — Taumoeba, engulfment, N₂ lethality, heritable tolerance. The
-  gate wants the **Taumoeba-82.5** strain to emerge by genuine directional
-  selection, not by script.
+### Then M11 → M12
+
 - **M11 Content** — scenario loader, all eight scenarios from `docs/SCENARIOS.md`,
   the parameter inspector with provenance badges and canon locks, the cell
-  inspector, charts, CSV telemetry.
-- **M12 Ship** — snapshot/replay, performance pass, packaging, v1.0.
+  inspector, CSV telemetry.
+- **M12 Ship** — snapshot/replay, performance pass, packaging, v1.0. The M7b
+  remainder (bloom, cross-fade slider, Thermal field-halo) is render polish that
+  fits M12's performance/packaging pass; pre-ignition warm-up needs
+  `render_view_v3` and can ride a contract bump there.
 
 ---
 
