@@ -214,8 +214,17 @@ if (($n -gt 9) -or ($n -eq 9 -and $suffix -ge 'c')) {
     }
 }
 
-# ------------------------------------------------------------ M10: predation
-if ($n -ge 10) { Gate 'M10.1' 'predation + nitrogen selection' { return (Run-Test 'test_predation') } }
+# ------------------------------- M10a: predation (store, crawl, engulfment)
+if (($n -gt 10) -or ($n -eq 10 -and $suffix -ge 'a')) {
+    Gate 'M10a.1' 'predation: T30 determinism, population reduction, containment' {
+        return (Run-Test 'test_predation')
+    }
+}
+
+# ---------------------------------- M10b: evolution (N2 lethality, selection)
+if (($n -gt 10) -or ($n -eq 10 -and $suffix -ge 'b')) {
+    Gate 'M10b.1' 'nitrogen lethality + Taumoeba-82.5 selection' { return (Run-Test 'test_evolution') }
+}
 
 # -------------------------------------------------------------- M11: content
 if ($n -ge 11) {

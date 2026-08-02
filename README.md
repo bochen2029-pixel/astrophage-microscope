@@ -173,7 +173,9 @@ Without `-App`, the core library and the full test suite build with **no network
 | M9a | Life: CO₂ uptake, mitosis, reproducible division | ✅ `m9a-green` |
 | M9b | Life: death, store disposition, telemetry reduction | ✅ `m9b-green` |
 | M9c | Life: multi-rate clock, slot compaction, charts | ✅ `m9c-green` |
-| M10 | Predation: Taumoeba, nitrogen lethality, heritable tolerance | ☐ |
+| M7b | View modes: Petrovascope, Thermal IR, Darkfield | ✅ `m7b-green` |
+| M10a | Predation: Taumoeba store, crawl, engulfment | ✅ `m10a-green` |
+| M10b | Evolution: N₂ lethality, heritable tolerance, Taumoeba-82.5 | ☐ |
 | M11 | Content: eight scenarios, inspector panels, telemetry | ☐ |
 | M12 | Ship: snapshot/replay, performance pass, packaging | ☐ |
 

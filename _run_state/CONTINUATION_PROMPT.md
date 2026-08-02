@@ -20,12 +20,11 @@ A sealed 4 mm × 4 mm × 60 μm chamber of water. Cells 10 μm across, black at 
 wavelength, each holding up to 1.5 MJ as neutrino mass. Real Stokes drag, Langevin
 dynamics, Fickian diffusion, conduction, photon momentum.
 
-**M0 through M9c are green, plus the deferred M7b view modes.** All five signature
-phenomena are live; cells behave, look like organisms, divide reproducibly, die,
-report telemetry, run on a multi-rate clock with slot compaction, and all five
-view modes (Brightfield, Darkfield, Petrovascope, Thermal IR, Analysis) draw
-distinctly. **Next up: M10 — Predation** (Taumoeba, N₂ lethality, the
-Taumoeba-82.5 evolution arc).
+**M0 through M9c are green, plus the deferred M7b view modes and M10a predation.**
+All five signature phenomena are live; cells behave, divide, die, run on a
+multi-rate clock with slot compaction; all five view modes draw distinctly; and
+the Taumoeba predator crawls and engulfs (deterministically). **Next up: M10b —
+Evolution** (N₂ lethality, heritable tolerance, the Taumoeba-82.5 arc).
 
 **This is a simulator and visualisation, not a game.** No win state, no story mode,
 no asset files — everything procedural or generated.
@@ -101,7 +100,7 @@ fix the contract.
 
 ## 3. The state, in numbers
 
-**21 tests green, 12 golden images, 10 audit invariant checks, 29 ADRs.**
+**22 tests green, 12 golden images, 10 audit invariant checks, 29 ADRs.**
 
 ```
 test_canon ......... generated constants consistent; the right params carry the canon lock
@@ -319,35 +318,38 @@ network access beyond dependency fetch, Windows settings, spending money.
 
 ---
 
-## 6. What is next — M10 (Predation)
+## 6. What is next — M10b (Evolution)
 
-M9c (the multi-rate clock, slot compaction, charts) and M7b (the Petrovascope and
-Thermal-IR view modes) are both **done and green**. M10 is next.
+M9c (clock, compaction, charts), M7b (the view modes), and **M10a (the Taumoeba
+store, crawl, and engulfment)** are all **done and green**. M10b is next.
 
-**Scope.** `PHYSICS.md` §11. A `TaumoebaStore` (its own SoA, same patterns as the
-cell store), amoeboid crawl biased up the local cell-density gradient, engulfment
-on overlap with a live cell, digestion, the **N₂ field lethality**, and **heritable
-N₂ tolerance with mutation**.
+**M10a already shipped:** the `TaumoebaStore` (its own SoA, PCG32 streams keyed on a
+Taumoeba id, double-mixed seed disjoint from the cells), amoeboid crawl (run-and-
+tumble on the prey-density signal), deterministic **engulfment** (an `atomicMin`
+claim so the lowest-id predator wins a shared prey), and digestion. T30 proves it
+bit-reproducible; a predator introduction thins the culture (6,000 → 5,898).
 
-**Gate.** M9c gate + a predator introduction crashes the population; under a slowly
+**M10b scope.** `PHYSICS.md` §11, evolution half. The **N₂ field lethality**
+(`hazard = max(0, N − N_lethal·(1 + tol·k))`, Poisson death), Taumoeba **division**
+at 2× biomass, **heritable tolerance** (`parent + N(0, TAU_MUTATION_SIGMA)` clamped
+to [0,1]), and the mean-tolerance chart.
+
+**Gate.** M10a gate + a predator introduction crashes the population; under a slowly
 rising N₂ ramp the mean tolerance rises monotonically on a 5-generation moving
 average, and a strain with tolerance ≥ 0.825 (**Taumoeba-82.5**) appears within 40
 generations at default `TAU_MUTATION_SIGMA` — by genuine directional selection,
 **not by script** (`SCENARIOS.md` §6).
 
-**Three things M10 will confront:**
+**Three things M10b will confront:**
 
-1. **A second organism store, and it evolves.** `predation.cu` is in the module map
-   but empty. It gets its own OU integrator (γ from `TAU_DIAMETER`), its own PCG32
-   streams keyed on a Taumoeba id, and — because Taumoeba divide and die — its own
-   reproducible birth/death. That is **T22's argument all over again** for a new
-   store, and it wants the M9c compaction primitive (`cell_store_compact` is the
-   template; give the Taumoeba store the same scan/gather buffers).
-2. **N₂ already exists as a field** (`FIELD_N_N2` = 128², a brush at M5). M10 adds
-   the coupling: hazard `max(0, N − N_lethal·(1 + tol·k))` and a Poisson death, and
-   a heritable `tolerance` drawn `parent + N(0, TAU_MUTATION_SIGMA)` clamped to
-   [0,1] — a **real draw from the Taumoeba's stream**, so determinism must survive
-   it. **Q19 stands:** `biology_rate` does not scale N₂ diffusion either.
+1. **The store is append-only and now needs to reclaim.** N₂ kills predators and
+   division appends them, so give `TaumoebaStore` the scan/gather buffers and the
+   stable prefix-sum compaction the cell store has (ADR-028). Division reuses the
+   mitosis pattern (ADR-025): prefix-sum daughter slots, `pcg_split`, the mutation
+   drawn from the daughter's own stream.
+2. **The N₂ Poisson death draws from the Taumoeba stream** — a conditional draw,
+   fine for determinism as long as it stays a pure function of state (the taxis IDLE
+   lesson, ADR-022). **Q19 stands:** `biology_rate` does not scale N₂ diffusion.
 3. **The 82.5 arc must EMERGE.** The gate forbids scripting it. If you find yourself
    special-casing 0.825, stop — that is the P1–P5 rule applied to evolution.
 

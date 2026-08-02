@@ -216,6 +216,7 @@ FIELDS = [
 LIMITS = [
     ("MAX_CELLS",     2000000, "-", INVENTED, "Hard capacity of the cell store."),
     ("MAX_TAUMOEBA",    65536, "-", INVENTED, "Hard capacity of the taumoeba store."),
+    ("DEFAULT_TAUMOEBA",  256, "-", INVENTED, "Default taumoeba store capacity when a scenario does not set one."),
     # Projected coverage, not volume fraction, is what decides legibility: the
     # scope looks down through the full 60 um slab, so every cell in the column
     # overlaps. 200k cells is only ~11% by volume but ~98% projected -- a solid

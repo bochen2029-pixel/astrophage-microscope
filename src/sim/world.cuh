@@ -15,6 +15,7 @@
 #include "sim/cell_store.cuh"
 #include "sim/hash.cuh"
 #include "sim/integrator.cuh"
+#include "sim/predation.cuh"
 
 namespace astro::sim {
 
@@ -71,6 +72,7 @@ struct MotionConfig {
 struct WorldDesc {
     Chamber  chamber{canon::CHAMBER_W, canon::CHAMBER_H, canon::CHAMBER_D};
     int32_t  capacity = 0;          // 0 = size to the initial population
+    int32_t  tau_capacity = 0;      // Taumoeba store capacity; 0 = a small default
     uint64_t seed = 20260802ull;
     MotionConfig motion{};
     // Initial CO2 concentration [kg/m^3]. Zero until something adds some, which
@@ -80,8 +82,12 @@ struct WorldDesc {
 
 struct World {
     CellStore    cells;
+    TaumoebaStore taumoeba;      // the predator population (M10)
     SpatialHash  hash;
     Fields       fields;
+    // Per-cell claim buffer for engulfment: a predator atomicMins its id here so
+    // the lowest-id predator wins a shared prey deterministically (predation.cu).
+    unsigned long long* d_predator_claim = nullptr;
     // Tick stage 5 writes these; stage 6 reads them. They exist SPECIFICALLY so
     // that contact reads every neighbour's position from before the step --
     // computing forces and positions in one kernel is a read/write race and
@@ -134,7 +140,11 @@ void emission_step(World& w, double dt);
 // debits the store for what it emits.
 void taxis_step(World& w, double dt);
 
-// Tick stage 10 (src/sim/lifecycle.cu). CO2 uptake, death and mitosis. MUTATES THE
+// Tick stage 10 (src/sim/predation.cu). Taumoeba crawl and engulfment. Kills prey
+// before lifecycle disposes of the corpses. docs/PHYSICS.md Sec 11.
+void predation_step(World& w, double dt);
+
+// Tick stage 11 (src/sim/lifecycle.cu). CO2 uptake, death and mitosis. MUTATES THE
 // STORE -- it must stay last, because anything after it reads stale indices.
 void lifecycle_step(World& w, double dt);
 

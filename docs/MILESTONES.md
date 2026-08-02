@@ -20,7 +20,8 @@ Every gate re-runs all earlier gates. Gates never weaken.
 | M9b | Life: death | overheat death, corpses, store disposition, stage-11 stats reduction | M9b | ✅ `m9b-green` |
 | M9c | Life: clock | multi-rate presets, Q19 decision, compaction, charts | M9c | ✅ `m9c-green` |
 | M7b | View modes | Petrovascope, Thermal IR, Darkfield (deferred render; bloom still pending) | M7b | ✅ `m7b-green` |
-| M10 | Predation | Taumoeba, N₂, heritable tolerance, evolution | M10 | ☐ |
+| M10a | Predation | Taumoeba store, crawl, engulfment, digestion | M10a | ☐ |
+| M10b | Evolution | N₂ field lethality, heritable tolerance, Taumoeba-82.5 arc | M10b | ☐ |
 | M11 | Content | scenario system, all 8 scenarios, UI panels, charts, telemetry | M11 | ☐ |
 | M12 | Ship | snapshot/replay, perf pass, packaging | `v1.0` | ☐ |
 
@@ -225,9 +226,21 @@ Three findings, all in ADR-018:
 
 ## M10 — Predation
 
-**Scope.** `PHYSICS.md` §11. `TaumoebaStore`, crawl, engulfment, digestion, N₂ field and lethality, heritable tolerance with mutation, the mean-tolerance chart.
+**Split into M10a and M10b before starting, per Iron Rule 9.** The original M10 carried a new organism store (its own determinism problem, T22 over again) *and* the evolution arc (N₂ lethality + heritable tolerance, whose gate demands emergent directional selection). Those want different sessions and different gates.
 
-**Gate.** M9c gate + a predator introduction crashes the population; under a slowly rising N₂ ramp the mean tolerance rises monotonically on a 5-generation moving average and a strain with tolerance ≥ 0.825 appears within 40 generations at default `TAU_MUTATION_SIGMA`.
+### M10a — Predation: the Taumoeba store, crawl, and engulfment
+
+**Scope.** `PHYSICS.md` §11, predation half only. A `TaumoebaStore` (its own SoA, its own PCG32 streams keyed on a Taumoeba id, and the M9c compaction primitive for its dead), amoeboid **crawl** (run-and-tumble biased up the local cell-density gradient, sensing the cell spatial hash), **engulfment** on overlap with a live cell, and **digestion** (`TAU_DIGEST_TIME`, gaining `biomass × TAU_BIOMASS_YIELD`). Per Weir, a Taumoeba consumes only the **chemical** energy — the neutrino store goes to the §10 disposition toggle, `void` by default.
+
+**Determinism is the crux, again.** Two predators overlapping one prey must resolve **order-independently**: the prey is claimed by `atomicMin` of the predator id, so the lowest-id Taumoeba wins deterministically (min is associative/commutative, the same reasoning as the fixed-point deposits — INV-2). A Taumoeba's crawl draws from its own stream; engulfment consumes no draw.
+
+**Gate.** M9c gate + T30: a Taumoeba run is **bit-reproducible** (a new store exercising ADR-014 for the second organism), and a predator introduction into an established culture **reduces the live cell count** measurably (engulfment works) while every Taumoeba stays inside the chamber.
+
+### M10b — Evolution: N₂ lethality and the Taumoeba-82.5 arc
+
+**Scope.** `PHYSICS.md` §11, evolution half. The **N₂ field lethality** (`hazard = max(0, N − N_lethal·(1 + tol·k))`, Poisson death), Taumoeba **division** at 2× initial biomass, **heritable tolerance** (`parent + N(0, TAU_MUTATION_SIGMA)` clamped to [0,1] — a real draw from the Taumoeba's stream), and the mean-tolerance chart.
+
+**Gate.** M10a gate + a predator introduction crashes the population; under a slowly rising N₂ ramp the mean tolerance rises monotonically on a 5-generation moving average and a strain with tolerance ≥ 0.825 (**Taumoeba-82.5**) appears within 40 generations at default `TAU_MUTATION_SIGMA` — by directional selection, **not by script**.
 
 ---
 

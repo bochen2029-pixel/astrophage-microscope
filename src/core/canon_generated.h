@@ -117,6 +117,11 @@ inline constexpr double TAXIS_RUN_MAX = 0.40000000000000002; // [s] DERIVED = 4 
 inline constexpr double TAXIS_TUMBLE_SLEW_TIME = 1.1868238913561442; // [s] DERIVED = mean tumble angle / PETROVA_SLEW_RATE -- how long a cell would spend mis-aimed if re-aiming were rate-limited. Not yet exercised: see ADR-022 Q15
 inline constexpr double LIFE_GROWTH_RATE = 1.0028171015045505e-06; // [1/s] DERIVED = ln2 / doubling time
 inline constexpr double LIFE_CO2_UPTAKE_MAX = 3.0381944444444441e-20; // [kg/s] DERIVED = CO2_MASS_PER_DIVISION / LIFE_DOUBLING_TIME -- saturated uptake rate per cell. Derived so the canon doubling time is reproduced by construction
+inline constexpr double TAU_RADIUS = 2.0000000000000002e-05; // [m] DERIVED = TAU_DIAMETER / 2
+inline constexpr double TAU_VOLUME = 3.3510321638291131e-14; // [m^3] DERIVED = (4/3) pi (TAU_DIAMETER/2)^3
+inline constexpr double TAU_MASS = 3.3450003059342215e-11; // [kg] DERIVED = WATER_DENSITY * TAU_VOLUME -- Taumoeba is mostly water
+inline constexpr double TAU_DRAG_20C = 3.776489400816919e-07; // [kg/s] DERIVED = 6 pi mu(20C) (TAU_DIAMETER/2) -- Stokes drag on the predator
+inline constexpr double TAU_CRAWL_THRUST = 1.8882447004084599e-12; // [N] DERIVED = TAU_CRAWL_SPEED * TAU_DRAG_20C -- driving force for the terminal crawl speed
 inline constexpr double TNT_GRAMS_PER_FULL_CELL = 358.50860420650093; // [g] DERIVED = E_max / 4184 J/g
 inline constexpr double WIEN_LAMBDA_AT_SETPOINT = 7.8410346082556516e-06; // [m] DERIVED = Wien b / T -- the THERMAL peak, distinct from the Petrova line
 
@@ -129,6 +134,7 @@ inline constexpr int FIELD_N_IRRAD = 512; // INVENTED -- Irradiance grid resolut
 // ---- Capacity and performance targets ------------------------------------
 inline constexpr int MAX_CELLS = 2000000; // INVENTED -- Hard capacity of the cell store.
 inline constexpr int MAX_TAUMOEBA = 65536; // INVENTED -- Hard capacity of the taumoeba store.
+inline constexpr int DEFAULT_TAUMOEBA = 256; // INVENTED -- Default taumoeba store capacity when a scenario does not set one.
 inline constexpr int DEFAULT_CELLS = 25000; // INVENTED -- Default starting population (legibility-tuned).
 inline constexpr int BENCH_CELLS = 200000; // INVENTED -- Population the performance gate gets run at.
 inline constexpr int TARGET_FPS = 144; // INVENTED -- Frame budget target on the reference GPU.
@@ -244,9 +250,14 @@ inline constexpr ParamMeta PARAM_TABLE[] = {
     { "TAXIS_TUMBLE_SLEW_TIME", 1.1868238913561442, "s", Provenance::Derived, "= mean tumble angle / PETROVA_SLEW_RATE -- how long a cell would spend mis-aimed if re-aiming were rate-limited. Not yet exercised: see ADR-022 Q15", false, 0.0, 0.0, false },
     { "LIFE_GROWTH_RATE", 1.0028171015045505e-06, "1/s", Provenance::Derived, "= ln2 / doubling time", false, 0.0, 0.0, false },
     { "LIFE_CO2_UPTAKE_MAX", 3.0381944444444441e-20, "kg/s", Provenance::Derived, "= CO2_MASS_PER_DIVISION / LIFE_DOUBLING_TIME -- saturated uptake rate per cell. Derived so the canon doubling time is reproduced by construction", false, 0.0, 0.0, false },
+    { "TAU_RADIUS", 2.0000000000000002e-05, "m", Provenance::Derived, "= TAU_DIAMETER / 2", false, 0.0, 0.0, false },
+    { "TAU_VOLUME", 3.3510321638291131e-14, "m^3", Provenance::Derived, "= (4/3) pi (TAU_DIAMETER/2)^3", false, 0.0, 0.0, false },
+    { "TAU_MASS", 3.3450003059342215e-11, "kg", Provenance::Derived, "= WATER_DENSITY * TAU_VOLUME -- Taumoeba is mostly water", false, 0.0, 0.0, false },
+    { "TAU_DRAG_20C", 3.776489400816919e-07, "kg/s", Provenance::Derived, "= 6 pi mu(20C) (TAU_DIAMETER/2) -- Stokes drag on the predator", false, 0.0, 0.0, false },
+    { "TAU_CRAWL_THRUST", 1.8882447004084599e-12, "N", Provenance::Derived, "= TAU_CRAWL_SPEED * TAU_DRAG_20C -- driving force for the terminal crawl speed", false, 0.0, 0.0, false },
     { "TNT_GRAMS_PER_FULL_CELL", 358.50860420650093, "g", Provenance::Derived, "= E_max / 4184 J/g", false, 0.0, 0.0, false },
     { "WIEN_LAMBDA_AT_SETPOINT", 7.8410346082556516e-06, "m", Provenance::Derived, "= Wien b / T -- the THERMAL peak, distinct from the Petrova line", false, 0.0, 0.0, false },
 };
-inline constexpr int PARAM_COUNT = 98;
+inline constexpr int PARAM_COUNT = 103;
 
 } // namespace astro::canon

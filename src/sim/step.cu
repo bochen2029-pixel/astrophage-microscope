@@ -45,6 +45,16 @@ Error world_create(World& w, const WorldDesc& d) {
                                   contract::DEPOSIT_SCALE_IRRADIANCE,
                                   BoundaryCondition::Neumann, canon::DT_PHYSICS));
 
+    // The predator store and the per-cell engulfment claim buffer (M10). The claim
+    // is sized to the cell capacity, since any live cell may be a prey.
+    const int32_t tau_cap = d.tau_capacity > 0 ? d.tau_capacity : canon::DEFAULT_TAUMOEBA;
+    ASTRO_TRY(taumoeba_create(w.taumoeba, tau_cap));
+    if (cudaMalloc(&w.d_predator_claim,
+                   sizeof(unsigned long long) * static_cast<size_t>(cap)) != cudaSuccess) {
+        world_destroy(w);
+        return fail(Status::OutOfMemory, "cudaMalloc predator claim");
+    }
+
     w.chamber = d.chamber;
     w.motion = d.motion;
     w.seed = d.seed;
@@ -75,6 +85,8 @@ void world_destroy(World& w) {
     fields::grid_destroy(w.fields.co2);
     fields::grid_destroy(w.fields.n2);
     fields::grid_destroy(w.fields.irradiance);
+    taumoeba_destroy(w.taumoeba);
+    cudaFree(w.d_predator_claim);
     cudaFree(w.d_stats);
     cudaFree(w.d_co2_demand);
     cudaFree(w.d_fx);
@@ -141,7 +153,12 @@ void world_step(World& w) {
     fields::grid_diffuse(w.fields.co2, dt);
     fields::grid_diffuse(w.fields.n2, dt);
 
-    // Stage 10. LAST, and it must stay last: it appends daughters and moves
+    // Stage 10. Predators crawl and engulf, killing prey. Uses the cell hash from
+    // stage 1 (a one-tick lag, negligible against the engulf radius) and runs before
+    // lifecycle so the corpses it makes are disposed of this tick.
+    predation_step(w, dt);
+
+    // Stage 11. LAST, and it must stay last: it appends daughters and moves
     // `count`, so any stage reading indices after it would read stale ones.
     lifecycle_step(w, dt);
 

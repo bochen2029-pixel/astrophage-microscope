@@ -137,6 +137,19 @@ DERIVED = [
      B["CO2_MASS_PER_DIVISION"] / B["LIFE_DOUBLING_TIME"], "kg/s",
      "CO2_MASS_PER_DIVISION / LIFE_DOUBLING_TIME -- saturated uptake rate per cell. "
      "Derived so the canon doubling time is reproduced by construction"),
+    # Taumoeba mechanics (M10). The predator is a mostly-water amoeba, so its mass
+    # is a water-density blob and its Stokes drag follows from TAU_DIAMETER. The
+    # crawl is a DRIVEN persistent walk: the thrust that yields TAU_CRAWL_SPEED as a
+    # terminal velocity is crawl_speed * drag, exactly as photon thrust is for cells.
+    ("TAU_RADIUS", B["TAU_DIAMETER"] / 2.0, "m", "TAU_DIAMETER / 2"),
+    ("TAU_VOLUME", 4.0 / 3.0 * math.pi * (B["TAU_DIAMETER"] / 2.0) ** 3, "m^3",
+     "(4/3) pi (TAU_DIAMETER/2)^3"),
+    ("TAU_MASS", rho_w * 4.0 / 3.0 * math.pi * (B["TAU_DIAMETER"] / 2.0) ** 3, "kg",
+     "WATER_DENSITY * TAU_VOLUME -- Taumoeba is mostly water"),
+    ("TAU_DRAG_20C", 6.0 * math.pi * mu20 * (B["TAU_DIAMETER"] / 2.0), "kg/s",
+     "6 pi mu(20C) (TAU_DIAMETER/2) -- Stokes drag on the predator"),
+    ("TAU_CRAWL_THRUST", B["TAU_CRAWL_SPEED"] * 6.0 * math.pi * mu20 * (B["TAU_DIAMETER"] / 2.0), "N",
+     "TAU_CRAWL_SPEED * TAU_DRAG_20C -- driving force for the terminal crawl speed"),
     ("TNT_GRAMS_PER_FULL_CELL", B["CELL_ENERGY_MAX"] / B["TNT_JOULE"], "g", "E_max / 4184 J/g"),
     ("WIEN_LAMBDA_AT_SETPOINT", B["WIEN_B"] / B["CELL_TEMP_SETPOINT"], "m",
      "Wien b / T -- the THERMAL peak, distinct from the Petrova line"),

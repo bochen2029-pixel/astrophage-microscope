@@ -6,6 +6,25 @@ Format: milestone · what landed · what is pending · open questions · gotchas
 
 ---
 
+## 2026-08-02 — M10a (Predation) — GREEN · **the predator arrives**
+
+**Landed.** The `TaumoebaStore` — a second organism SoA with its own PCG32 streams (double-mixed seed, disjoint from the cells), amoeboid crawl (run-and-tumble biased up the prey-density signal, reusing the taxis temporal comparison), deterministic engulfment, and digestion. `predation.{cuh,cu}`, tick stage 10, before lifecycle. 22 tests green. No contract change.
+
+**T30 is the claim, and it is T22 for a second store.** A predation run — 150 predators crawling, engulfing, and digesting through a 6,000-cell culture over 2,000 ticks — reproduces **bit-identically** (hash `5301212a`), and a different seed diverges. ADR-014 holding for the second organism.
+
+**Engulfment is order-free.** Two predators reaching one prey resolve by `atomicMin` of the predator id into a per-cell claim buffer, so the lowest id wins regardless of thread order — the fixed-point-deposit reasoning (INV-2) applied to a *claim* rather than a sum. Exactly one predator engulfs each claimed cell, so the prey death is race-free.
+
+**Predation thins the culture** (T30.3): live **6,000 → 5,898**, 102 engulfed into corpses, every predator contained. The reduction is limited by the 5 μm/s crawl over 4 s of physics — a predator eats what it starts near. The dramatic crash is M10b's, on the biology clock over generations.
+
+**Gotchas.**
+- **A distance sentinel `1.0e30` tripped A9** (scientific notation in `sim/`). Switched to the FIRST overlapping prey in hash order — deterministic anyway (the hash is a stable sort, INV-7), which also removed a redundant overlap re-test.
+- **The predator is neutrally buoyant** (water-density blob, `TAU_MASS = ρ_w · V_tau`), so there is no sedimentation term — the crawl is a purely driven walk, `TAU_CRAWL_THRUST` giving `TAU_CRAWL_SPEED` as the terminal velocity, exactly as photon thrust does for a cell.
+- **Digestion is on the biology clock** (`dt_bio`), so a high `biology_rate` cycles predators fast — which is how the test sees kills at all in 4 s of physics time.
+
+**Pending / next.** M10b: the N₂ field lethality, Taumoeba division, heritable tolerance, and the emergent Taumoeba-82.5 arc. The store's compaction (for N₂ deaths) reuses the M9c primitive.
+
+---
+
 ## 2026-08-02 — M7b (View modes) — GREEN · **the black screen was a deferred mode, now lit**
 
 **Landed.** Darkfield, **Petrovascope**, and **Thermal IR** drawn distinctly in the fragment shader (ADR-029), each with its own background, plus `--mode` / `--awake` CLI flags and honest HUD hints. Prompted by a user report: Thermal IR was a black screen. It was not a bug in the sim — the shader only implemented Brightfield and the other four modes fell through to an Analysis-by-charge ramp, near-black on a dark field for an uncharged culture.

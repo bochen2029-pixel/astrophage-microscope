@@ -11,9 +11,9 @@
 
 ## Where the build stands
 
-**Last green: `m7b-green`. Next milestone: M10 — Predation.**
+**Last green: `m10a-green`. Next milestone: M10b — Evolution.**
 
-**All five phenomena live. Cells behave, look like organisms, divide reproducibly, die, report telemetry, run on a multi-rate clock, and all five view modes draw distinctly.** 21 tests green, 12 goldens, 10 audit checks, 29 ADRs.
+**All five phenomena live. Cells behave, divide, die, run on a multi-rate clock; all five view modes draw distinctly; and the Taumoeba predator now crawls and engulfs.** 22 tests green, 12 goldens, 10 audit checks, 29 ADRs.
 
 | | measured |
 |---|---|
@@ -26,28 +26,30 @@
 | **M9a/b** | doubling **1.996**; 2,000 → 50,508 bit-reproducible (T22); void corpses 40.1 kg/m³ |
 | **M9c clock** | preset ratios exact — physics **10.0000**, biology **2.00000**, compounding **1.00000**; T22 unchanged at 50508 / `130793f3` (bit-identical to M9b at rate 1) |
 | **M9c compaction** | T22b: 50378 cells, **914 deaths reclaimed**, identical hash `42d459c3` through division + death + contact |
-| **M7b modes** | Thermal vs Petrovascope mean **34.1**, max **252** — a live idle cell glows in one, dark in the other |
+| **M7b modes** | Thermal vs Petrovascope mean **34.1**, max **252** — a live idle cell is a dark absorber on the warm IR field, invisible in the Petrovascope |
+| **M10a predation** | T30 bit-reproducible (hash `5301212a`); 150 predators thin a 6,000-cell culture to **5,898**, all contained |
 
 ## Start here
 
 ```bash
 git -C C:\Astrophage tag --list
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/gate.ps1 -Milestone M9c
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/gate.ps1 -Milestone M10a
 ```
 
-Read: `CLAUDE.md` → `docs/ARCHITECTURE.md` → **the M10 section only** of `docs/MILESTONES.md` → `docs/PHYSICS.md` **§11** → `src/sim/MODULE.md` → **ADR-014, ADR-018, ADR-022, ADR-025**.
+Read: `CLAUDE.md` → `docs/ARCHITECTURE.md` → **the M10b section only** of `docs/MILESTONES.md` → `docs/PHYSICS.md` **§11** → `src/sim/predation.{cuh,cu}` and `src/sim/MODULE.md` → **ADR-014, ADR-025, ADR-028**.
 
-## What M10 is
+## What M10b is
 
-Predation. `TaumoebaStore` (its own SoA, same patterns as `CellStore`), amoeboid crawl biased up the cell-density gradient, engulfment on overlap with a live cell, digestion, the **N₂ field and its lethality**, and **heritable N₂ tolerance with mutation**.
+The evolution half. **N₂ field lethality** (`hazard = max(0, N − N_lethal·(1 + tol·k))`, Poisson death), Taumoeba **division** at 2× initial biomass, **heritable tolerance** (`parent + N(0, TAU_MUTATION_SIGMA)` clamped to [0,1] — a real draw from the Taumoeba's stream), and the mean-tolerance chart.
 
-**Gate.** M9c gate + a predator introduction crashes the population; under a slowly rising N₂ ramp the mean tolerance rises monotonically on a 5-generation moving average, and a strain with tolerance ≥ 0.825 (**Taumoeba-82.5**) appears within 40 generations at default `TAU_MUTATION_SIGMA` — by genuine directional selection, **not by script** (`SCENARIOS.md` §6).
+**Gate.** M10a gate + a predator introduction crashes the population; under a slowly rising N₂ ramp the mean tolerance rises monotonically on a 5-generation moving average, and a strain with tolerance ≥ 0.825 (**Taumoeba-82.5**) appears within 40 generations at default `TAU_MUTATION_SIGMA` — by genuine directional selection, **not by script** (`SCENARIOS.md` §6).
 
-**Three things it will confront:**
+**What M10a already built, that M10b builds on:**
 
-1. **A second organism store.** `predation.cu` is in the module map but empty. It gets its own OU integrator (own γ from `TAU_DIAMETER`), its own PCG32 streams keyed on a Taumoeba id, and its own compaction — reuse the M9c primitive (`cell_store_compact` is the template; the Taumoeba store needs the same buffers). Evolution means Taumoeba divide and die, so this is the first store since the cell store to exercise reproducible birth/death — T22's argument all over again for a new store.
-2. **N₂ is the fourth field** and it already exists (`FIELD_N_N2` = 128², a brush source at M5). M10 gives it a cell/Taumoeba coupling: a lethality hazard `max(0, N − N_lethal·(1 + tol·k))` and a Poisson death. Heritable `tolerance ∈ [0,1]` on the daughter is `parent + N(0, TAU_MUTATION_SIGMA)`, clamped — a real draw from the Taumoeba's stream, so determinism must survive it.
-3. **The 82.5 arc must EMERGE.** The gate forbids scripting it. It is directional selection under a rising ramp; if you find yourself special-casing 0.825, stop — the model is wrong (this is the P1–P5 rule for the evolution feature).
+1. **The `TaumoebaStore` is done** (`predation.cuh`): SoA, PCG32 streams keyed on the Taumoeba id (double-mixed seed, disjoint from cells), crawl, deterministic engulfment (atomicMin claim), digestion. It is **append-only** — M10b adds N₂ death and division, so it now needs the **compaction** primitive: give the store the scan/gather buffers `CellStore` has and call the same stable prefix-sum reclaim (ADR-028). `tolerance` is already a field (init `TAU_N2_TOLERANCE_INIT`); M10b makes it heritable and selected.
+2. **N₂ exists** (`FIELD_N_N2` = 128², a brush at M5). M10b adds the coupling: the hazard's Poisson death draws from the Taumoeba stream — a conditional draw, fine for determinism as long as it stays a pure function of state (the taxis IDLE lesson, ADR-022).
+3. **Division reuses the mitosis pattern** (ADR-025): daughter slots by prefix sum, `pcg_split` for the daughter stream, the mutation drawn from the daughter's own stream so it consumes nothing from the parent.
+4. **The 82.5 arc must EMERGE.** The gate forbids scripting it. If you special-case 0.825, stop — the P1–P5 rule for the evolution feature.
 
 ## The clock and compaction, now that they exist (M9c)
 
