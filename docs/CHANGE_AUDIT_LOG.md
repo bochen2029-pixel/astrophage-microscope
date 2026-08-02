@@ -22,3 +22,7 @@ One line per `scripts/audit.ps1` run. Append-only.
 2026-08-02 02:33  f54ee2f-dirty  AUDIT PASS  (7 checks)
 2026-08-02 03:12  c0a423e-dirty  AUDIT PASS  (7 checks)
 2026-08-02 03:17  c0a423e-dirty  AUDIT PASS  (7 checks)
+2026-08-02 03:59  6e30d03-dirty  AUDIT FAIL  A9 (no unexplained physical literals in sim/fields (Iron Rule 3))
+2026-08-02 04:02  6e30d03-dirty  AUDIT FAIL  A9 (no unexplained physical literals in sim/fields (Iron Rule 3))
+2026-08-02 04:04  6e30d03-dirty  AUDIT PASS  (7 checks)
+2026-08-02 04:09  6e30d03-dirty  AUDIT PASS  (7 checks)

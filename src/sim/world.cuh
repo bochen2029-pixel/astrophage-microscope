@@ -23,6 +23,9 @@ struct Fields {
     fields::Grid2D temperature;
     fields::Grid2D co2;
     fields::Grid2D n2;
+    // Rebuilt from scratch every tick, never accumulated, so it has no diffusion
+    // and its deposit accumulator is reused as an occlusion buffer.
+    fields::Grid2D irradiance;
 };
 
 enum class BrushKind : uint8_t { Heat = 0, Chill = 1, InjectCO2 = 2, InjectN2 = 3 };
@@ -37,6 +40,9 @@ struct MotionConfig {
     bool        contact_enabled = true;
     bool        adhesion_enabled = true;
     bool        thermal_enabled = true;
+    bool        emission_enabled = true;
+    // Exact per-cell 3D shadowing on top of the grid's far-field extinction.
+    bool        occlusion_exact = true;
     double      ambient_temp = canon::AMBIENT_TEMP_DEFAULT;
 };
 
@@ -64,6 +70,9 @@ struct World {
     uint64_t     seed = 0;
     double       physics_rate = 1.0;
     double       biology_rate = 1.0;
+
+    contract::LightSource light{1.0f, 0.0f, 0.0f, 0.0f, 0};   // off by default
+    float        ambient_irradiance = 0.0f;
 };
 
 // Tick stages 2, 5, 6 (src/sim/integrator.cu).
@@ -72,6 +81,9 @@ void motion_step(World& w, double dt);
 // Tick stage 4 (src/sim/thermal.cu). Substepped against the temperature field
 // and therefore owns its diffusion; do not diffuse temperature again after it.
 void thermal_step(World& w, double dt);
+
+// Tick stage 9 plus the feeding half of stage 3 (src/sim/emission.cu).
+void emission_step(World& w, double dt);
 
 // Applied at a tick boundary from the app, never from an input handler --
 // writing device memory mid-tick would break INV-8 (src/app/MODULE.md).

@@ -54,6 +54,20 @@ inline constexpr double DEPOSIT_SCALE_CO2         = 1.0e15;  // kg/m^3, value_ma
 inline constexpr double DEPOSIT_SCALE_N2          = 1.0e15;  // kg/m^3, value_max 1e-2
 inline constexpr double DEPOSIT_SCALE_STATS       = 1.0e6;   // generic reductions
 
+// The irradiance grid reuses its deposit accumulator as an OCCLUSION buffer:
+// cells stamp their blocking cross-section (7.854e-11 m^2) into it, and the
+// sweep converts that to transmittance. The scale must resolve a single cell, so
+// it is far larger than the others. One cell contributes 7.85e7 units; at
+// DEPOSIT_MAX_CONTRIBUTORS that is 3.2e11, eleven orders inside int64.
+inline constexpr double DEPOSIT_SCALE_IRRADIANCE  = 1.0e18;  // m^2, value_max 1e-9
+static_assert(DEPOSIT_MAX_CONTRIBUTORS * 1.0e-9 * DEPOSIT_SCALE_IRRADIANCE < 9.2e18,
+              "Irradiance occlusion accumulator can overflow int64; see ADR-013.");
+
+// Irradiance is rebuilt from scratch every tick and never diffused, so its
+// diffusivity is a placeholder that only has to satisfy grid_create's stability
+// check. It is deliberately not a physical quantity.
+inline constexpr double IRRADIANCE_NOMINAL_DIFFUSIVITY = 1.0e-9;
+
 // Compile-time guard: adding a field or changing a scale without redoing this
 // arithmetic is a build break, not a runtime surprise.
 static_assert(DEPOSIT_MAX_CONTRIBUTORS * 1.0e3  * DEPOSIT_SCALE_TEMPERATURE < 9.2e18,

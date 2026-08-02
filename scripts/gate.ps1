@@ -148,8 +148,12 @@ if ($n -ge 6) {
 
 # ---------------------------------------------------------------- M7: light
 if ($n -ge 7) {
-    Gate 'M7.1' 'emission + thrust (T15, T16, T17, T20)' { return (Run-Test 'test_emission') }
-    Gate 'M7.2' 'P5 total occlusion (T13)'               { return (Run-Test 'test_occlusion') }
+    # One test: emission, photon thrust, Komorov (T15), the band separation
+    # (T16/T17/T20), and P5 both exactly (T13, adjacent pair) and statistically
+    # (population-scale depth gradient). See ADR-021 for why it is both.
+    Gate 'M7.1' 'emission, thrust, Komorov, P5 near-exact + far-statistical' {
+        return (Run-Test 'test_emission')
+    }
 }
 
 # ---------------------------------------------------------------- M8: taxis

@@ -6,61 +6,57 @@
 
 ## Where the build stands
 
-**Last green: `m6-green`. Next milestone: M7 — Light.**
+**Last green: `m7-green`. Next milestone: M8 — Taxis.**
 
-**Three of the five signature phenomena are live.** 15 tests green, 8 goldens, 7 audit checks clean.
+**All five signature phenomena are live.** The physics core is complete; everything remaining adds behaviour and content on top of it. 16 tests green, 8 goldens, 7 audit checks.
 
-- **P1** drift velocity linear in charge, zero crossing at 3.00577 %
-- **P2** 2000 awake cells pin the medium at max 369.56 K against a 369.565 setpoint; never boils; driven to 400 K it relaxes back while cell energy rises
-- **P3** ignition latch survives cooling to 20 °C
-- **P4** motility ratio 4.357, matching the oracle exactly
-- **P5** is M7 — the last one
+| | measured |
+|---|---|
+| **P1** | drift velocity linear in charge, zero crossing at 3.00577 % |
+| **P2** | 2000 awake cells pin the medium at max 369.56 K vs a 369.565 setpoint; never boils; driven to 400 K it relaxes back while cell energy rises |
+| **P3** | ignition latch survives cooling to 20 °C |
+| **P4** | motility ratio 4.357, matching the oracle |
+| **P5** | adjacent collinear pair: rear cell at bitwise `0.0`. 8000 cells: charge-vs-depth r = −0.879, 8× lit/far ratio |
 
 ## Start here
 
 ```bash
 git -C C:\Astrophage tag --list
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/gate.ps1 -Milestone M7
 ```
 
-Read: `CLAUDE.md` → `docs/ARCHITECTURE.md` → **the M7 section only** of `docs/MILESTONES.md` → `docs/PHYSICS.md` **§6 and §7.5–7.6** → `docs/RENDERING.md` **§4–§5** → `src/render/MODULE.md`.
+Read: `CLAUDE.md` → `docs/ARCHITECTURE.md` → **the M8 section only** of `docs/MILESTONES.md` → `docs/PHYSICS.md` **§8 only** → `src/sim/MODULE.md`.
 
-```bash
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/gate.ps1 -Milestone M6
-build/astrophage.exe
-```
+## What M8 is
 
-## What M7 is — the milestone that completes the set
+`PHYSICS.md` §8. Run-and-tumble taxis, and it is mostly plumbing on top of parts that already exist.
 
-- **Petrova emission**: directional lobe, `PETROVA_SLEW_RATE`, photon thrust `F = P/c` (the pure functions already exist and T6 already passes).
-- **Irradiance field with TOTAL occlusion** → **P5**. Albedo is exactly 0, so irradiance behind a live cell is exactly **zero**, not "very small". Tests assert exact zero.
-- **Feeding**: `P_absorbed = E_directional·πa² + E_ambient·4πa²`.
-- **View modes**: Petrovascope (magenta, non-emitting cells *invisible*) and Thermal IR. **They must read differently** — the Petrova line is a discrete 25.984 μm quantum line, the thermal peak is 7.841 μm blackbody. A live idle cell glows in Thermal and is dark in Petrovascope. If the two modes ever agree, a real physical distinction has been lost.
-- **Bloom** on Petrova emission only.
+- **Temporal-comparison gradient climbing** (ADR-007), not spatial finite differences: a 10 μm cell cannot meaningfully difference a 7.8 μm grid across its own body, and a smooth glide reads as a video game. `taxis_memory` and `run_timer` are already in the cell store and unused.
+- **FEED / BREED / IDLE** state machine keyed on charge and the darkness rule. `TAXIS_DARK_THRESHOLD` and both seek thresholds are already in canon.
+- **CO₂ chemotaxis** — the CO₂ field, its brush, and per-cell sampling all exist from M5/M6; only the controller is missing.
+- Emission direction already slews (`slew_toward`, tested). Thrust already works (T6). **The taxis controller just needs to set `emit_power` and the commanded heading.**
 
-**Gate:** M6 gate + T13 (rear cell in a collinear pair: irradiance exactly 0, dCharge/dt exactly 0), T15 (Komorov: 1 kW × 1500 s ⇒ 1.5 MJ and 16.69 ng within 0.1 %), T16, T17, T20.
+**Gate:** M7 gate + a population in a light gradient migrates measurably up-gradient (mean position shift > 3σ of the null over 10⁴ ticks); cells in darkness show zero emission and pure Brownian statistics.
 
-## Hard-won lessons that apply directly to M7
+## The pattern that has caught three bugs — check for it first
 
-- **The grid is the far field** (ADR-020). The irradiance field will have the same temptation: do not try to make it resolve sub-grid structure. Occlusion is a ray march, not a diffusion.
-- **Match the sample to the source.** A lumped exchange needs `grid_sample_nearest`/`grid_deposit_nearest`; bilinear reads back only `Σw²` of what it writes. Irradiance is read-only per cell, so bilinear is fine there.
-- **When a number is wrong, check whether it says "no feedback" or "wrong coefficient".** The 1.76e6 K runaway was diagnosed by noticing the energy rate equalled the free-space rate exactly.
-- **Do not guess a threshold — derive it.** Every invented cutoff this build has been wrong. Size a test from the physics (e.g. run length from `store / conduction rate`).
-- **Fusing across a documented tick-stage boundary is a correctness change** (ADR-018). Emission reads neighbour occlusion; if it reads what another kernel writes, they are separate stages.
-- **Regenerating goldens needs a `DECISIONS.md` entry in the same commit.** M7 changes what cells emit, so the goldens will likely move — the golden scenario currently spawns *dormant* cells, which is why M6 left them untouched.
+**ADR-019, ADR-020, ADR-021 are the same lesson.** A grid field is depth-averaged, 2D, and far-field. Whenever a claim is about *individual bodies* — a 1/r profile, a cell's own conduction, an exact shadow — the grid is the wrong instrument and the answer is per-cell via the spatial hash.
 
-## Performance state
+M8 will meet it again: **a cell's own CO₂ uptake will contaminate the grid cell it samples**, exactly as its own heat did in M6. Decide up front whether the taxis signal is far-field (grid) or near-field (per-cell), and do not let a cell chase its own depletion halo.
 
-200k cells at ~281 ticks/s (0.28× real time) before M6; the thermal stage adds 10 kernel launches per tick. **Two named levers, both untouched:**
+## Other hard-won rules
 
-- **Q9** — the neighbour walk visits **27 buckets when 8 would do** (`cell_size` 22 μm ≥ 2 × 10 μm contact range). ~3.4× on the dominant cost.
-- **Q8** — defocus overdraw: cull cells below the fragment discard threshold in the vertex stage. **Bloom lands on top of this in M7**, so take it if the frame budget tightens.
+- **Do not guess a numeric threshold — derive it.** Every invented cutoff this build has been wrong. Size a test from the physics.
+- **When a gate fails, first ask whether it asks the right question.** Four times now the failing threshold was the *test's* fault and the corrected test came out stricter.
+- **Fusing across a documented tick-stage boundary is a correctness change** (ADR-018), not an optimisation.
+- **Match the sample to the source.** Lumped exchanges need `grid_sample_nearest`/`grid_deposit_nearest`; bilinear reads back only `Σw²` of what it writes.
+- **Regenerating goldens needs a `DECISIONS.md` entry in the same commit** (Iron Rule 10).
 
-## Open questions
+## Deferred, with reasons
 
-- **Q1** App `--headless` and `tools/headless` stay separate deliberately.
-- **Q5** When M9 adds slot reuse, confirm `spawn_kernel` clears `vx/vy/vz`.
-- **Q6** `MotionConfig` flags (`thermal_noise`, `contact_enabled`, `adhesion_enabled`, `thermal_enabled`) are test-only; a scenario wanting them needs fields in `scenario_v1.h`.
-- **Q7** `optics.h` and the GLSL duplicate four formulas with no compiler check (ADR-017).
-- **Q10** Contact cannot hold a fully charged cell at `dt` = 1 ms (ADR-018 §3). Bounded and tested; needs substepping if M9 produces dense charged cultures.
-- **Q11** The SoA is not reordered by bucket, contrary to M4's stated scope. Deliberate.
-- **Q12 (new)** `shell_conductance` is kept in `thermal.cuh` but deliberately unused, with its reasoning preserved. If someone later needs a resolved near field, that is the right starting point — but re-read ADR-020 first.
+- **Bloom and the Petrovascope/Thermal-IR view modes** were in M7's scope and are **not done** — the physics gate took the milestone. The enum values and `u_mode` uniform are plumbed; `cells_pass.cpp` currently renders modes 1–4 through the Analysis branch. `RENDERING.md` §4 has the spec, and the key constraint is that Thermal IR and Petrovascope must read *differently* (7.841 μm blackbody vs a 25.984 μm quantum line — a live idle cell glows in one and is dark in the other). Do this at M11 with the rest of the UI, or as a standalone M7b.
+- **Q9** — the neighbour walk visits **27 buckets when 8 would do** (`cell_size` 22 μm ≥ 2 × 10 μm range). Now used by *both* contact and occlusion, so the win has doubled. This is the single best performance lever available.
+- **Q8** — defocus overdraw: cull cells below the fragment discard threshold in the vertex stage.
+- **Q10** — contact cannot hold a fully charged cell at `dt` = 1 ms (ADR-018 §3); needs substepping if M9 makes dense charged cultures.
+- **Q12** — `shell_conductance` is kept but deliberately unused; read ADR-020 before reaching for it.
+- **Q13 (new)** — light is axis-aligned only (ADR-021). A sheared sweep needs atomics or a rotated buffer. Fine for P5; revisit only if a scenario needs oblique illumination.

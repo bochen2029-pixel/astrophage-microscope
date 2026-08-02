@@ -7,9 +7,9 @@ A sealed 4 mm chamber of water. Cells 10 μm across, black at every wavelength, 
 Deliberately **not** the interstellar scale — no ships, no Petrova arc, no Tau Ceti. Just what you would see down the eyepiece.
 
 ```
-Status:  M6 of M12 green  ·  C++20 + CUDA 13.1  ·  sm_89  ·  Windows 11
-         Three of the five signature phenomena are live: P1, P2, P3 (and P4).
-         Emission, life cycle, and predation still to come.
+Status:  M7 of M12 green  ·  C++20 + CUDA 13.1  ·  sm_89  ·  Windows 11
+         ALL FIVE signature phenomena are live.
+         Remaining milestones add taxis, life cycle, predation, and content.
 ```
 
 ![Astrophage at the 40× working objective](docs/images/brightfield-40x.png)
@@ -52,9 +52,11 @@ Below the setpoint, Astrophage is inert black powder. Heat the chamber past 96.4
 
 A live cell holds its **surface** at 96.415 °C however cold the bulk is, and Stokes drag is set by the boundary layer at that surface — so viscosity drops 3.4× and Brownian diffusivity rises **4.36×**. Live and dead become distinguishable by eye, which is exactly the tell Ryland Grace uses.
 
-### P5 — Absolute shadows ⏳ *M7*
+### P5 — Absolute shadows ✅ *live*
 
 Albedo is exactly zero at every wavelength ("super cross-sectionality"). In a lit dense culture the front row shadows everything behind it *perfectly*, so a lit monolayer forms and the back starves.
+
+*Verified two ways, because the claim has two regimes. **Exactly**: a cell directly behind another receives irradiance of bitwise `0.0` and charges at bitwise zero rate — not "very little". **Statistically**: 8,000 cells lit along one axis show a charge-versus-depth correlation of **−0.879**, with the lit face holding 8× the energy of the far side.*
 
 ---
 
@@ -164,14 +166,14 @@ Without `-App`, the core library and the full test suite build with **no network
 | M4 | Spatial hash, soft-sphere contact, wall adhesion | ✅ `m4-green` |
 | M5 | Fields: diffusion, fixed-point deposits, tool brushes | ✅ `m5-green` |
 | M6 | Thermal: mass–energy, ignition latch, thermostat → **P2 P3 P4** | ✅ `m6-green` |
-| M7 | Light: Petrova emission, photon thrust, total occlusion → **P5** | ☐ |
+| M7 | Light: Petrova emission, photon thrust, total occlusion → **P5** | ✅ `m7-green` |
 | M8 | Taxis: run-and-tumble phototaxis and chemotaxis | ☐ |
 | M9 | Life: mitosis, death, corpses, multi-rate clock | ☐ |
 | M10 | Predation: Taumoeba, nitrogen lethality, heritable tolerance | ☐ |
 | M11 | Content: eight scenarios, inspector panels, telemetry | ☐ |
 | M12 | Ship: snapshot/replay, performance pass, packaging | ☐ |
 
-**M7 is the line where all five signature phenomena are live.**
+**M7 was the line where all five signature phenomena came live.** Everything after it adds behaviour and content on top of a physics core that is now complete.
 
 Scenarios planned for M11 include *First Light* (heat a slide of inert powder until it ignites), *Komorov* (Dimitri's 1 kW laser, reproduced on a microbalance), *Shadow Garden* (absolute self-shading), and *Spin Drive Face* — the one place the ship intrudes, because a spin drive is a cell-scale machine and the microscope is the right instrument to look at it.
 

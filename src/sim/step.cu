@@ -32,6 +32,12 @@ Error world_create(World& w, const WorldDesc& d) {
     ASTRO_TRY(fields::grid_create(w.fields.n2, canon::FIELD_N_N2, d.chamber.w,
                                   2.0e-9, 0.0, DEPOSIT_SCALE_N2,
                                   BoundaryCondition::Neumann, canon::DT_PHYSICS));
+    // Diffusivity is nominal: irradiance is rebuilt each tick and never diffused.
+    // The deposit scale must resolve a single cell's cross-section (7.85e-11 m^2).
+    ASTRO_TRY(fields::grid_create(w.fields.irradiance, canon::FIELD_N_IRRAD, d.chamber.w,
+                                  contract::IRRADIANCE_NOMINAL_DIFFUSIVITY, 0.0,
+                                  contract::DEPOSIT_SCALE_IRRADIANCE,
+                                  BoundaryCondition::Neumann, canon::DT_PHYSICS));
 
     w.chamber = d.chamber;
     w.motion = d.motion;
@@ -57,6 +63,7 @@ void world_destroy(World& w) {
     fields::grid_destroy(w.fields.temperature);
     fields::grid_destroy(w.fields.co2);
     fields::grid_destroy(w.fields.n2);
+    fields::grid_destroy(w.fields.irradiance);
     cudaFree(w.d_fx);
     cudaFree(w.d_fy);
     cudaFree(w.d_fz);
@@ -86,6 +93,10 @@ void world_step(World& w) {
     // grid cell per tick; applied all at once it would sail past boiling
     // (ADR-020). Do NOT diffuse temperature again below.
     thermal_step(w, canon::DT_PHYSICS);
+
+    // Stage 9. Rebuilt from scratch every tick -- irradiance is never
+    // accumulated. Runs before motion so feeding and thrust see the same field.
+    if (w.motion.emission_enabled) emission_step(w, canon::DT_PHYSICS);
 
     motion_step(w, canon::DT_PHYSICS);
 

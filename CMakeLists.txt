@@ -95,6 +95,7 @@ add_library(astro_sim STATIC
     src/sim/hash.cu
     src/sim/integrator.cu
     src/sim/thermal.cu
+    src/sim/emission.cu
     src/sim/step.cu)
 target_link_libraries(astro_sim PUBLIC astro_core astro_fields)
 astro_strict(astro_sim)
@@ -131,6 +132,7 @@ astro_test(test_hash         tests/physics/test_hash.cu)
 astro_test(test_contact      tests/physics/test_contact.cu)
 astro_test(test_fields       tests/physics/test_fields.cu)
 astro_test(test_thermal      tests/physics/test_thermal.cu)
+astro_test(test_emission     tests/physics/test_emission.cu)
 
 # ---------------------------------------------------------------------------
 # tools -- headless runner. The determinism oracle (INV-8) and the scenario

@@ -6,6 +6,24 @@ Format: milestone · what landed · what is pending · open questions · gotchas
 
 ---
 
+## 2026-08-02 — M7 (Light) — GREEN · **all five phenomena live**
+
+**Landed.** Petrova emission, photon thrust, the irradiance field, and occlusion. **P5 completes the set.** Komorov (T15) is exact: 1 kW × 25 min ⇒ 1.5 MJ and 16.6898 ng. Bands separated 3.31× (T20). 16 tests green.
+
+**ADR-021 — the same structural lesson for the third time.** P5 claims *exact* zero behind a cell. The irradiance field is depth-averaged and therefore 2D, where one cell blocks only **16.8 %** of a grid column's face — a depth-averaged grid can never produce an exact zero from one occluder. That is a 3D fact about two discs.
+
+This is precisely ADR-019 (2D grid, 3D 1/r) and ADR-020 (grid is far field, not near field) again. **When a claim is about individual bodies, the grid is the wrong instrument.** Having named the pattern at M6, I looked for it at M7 before writing code rather than after — which is the first time this build has caught one of these in advance.
+
+So: exact per-cell shadowing over the hash neighbourhood (`disc_overlap_fraction` returns bitwise 1.0 at zero offset and bitwise 0.0 beyond 2a), plus Beer–Lambert extinction on the grid for the far field. Measured: an adjacent collinear pair leaves the rear cell at bitwise `0.0`; a pair 200 μm apart gets 0.832 transmittance, the correct single-cell far-field value; 8,000 cells lit along +x give charge-versus-depth **r = −0.879** and an 8× lit-face/far-side ratio.
+
+**Gotchas.**
+- **"Exactly zero" survives one tick, not two hundred.** Integration drifts a collinear pair apart by ~1e-13 m — enough to leave 1e-8 of the incident light. That residual is *correct*: they are no longer collinear. The exact assertion belongs on the pure function and an undrifted pair; the drifted case gets a relative bound. I had to back-solve the 1.17e-8 residual to a 0.09 pm offset to see this.
+- **A per-cell 27-bucket walk in every tick of every test doubled the suite runtime** before I added the dark-chamber early-out. No source and no ambient ⇒ nothing to compute, which is also what canon says about darkness.
+- **`test_hash`'s timing check flaked** when run after a heavy test — leftover GPU work inflated the mean. Switched to the floor over several batches, which is the right statistic for "how fast can this go".
+- Axis-aligned light only, deliberately: a sheared sweep collides threads on shared cells and would need atomics. One thread per line owns its whole output line.
+
+---
+
 ## 2026-08-02 — M6 (Thermal) — GREEN · **P2, P3, P4 live**
 
 **Landed.** The thermostat. 2,000 awake cells in an insulated chamber pin the medium at a maximum of **369.56 K** against a setpoint of 369.565 — and never approach boiling. Driven externally to 400 K it relaxes back down while cell energy goes *up*. The ignition latch survives cooling to 20 °C. Motility ratio **4.357**, matching the oracle exactly. 15 tests green.

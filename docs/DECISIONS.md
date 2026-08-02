@@ -132,6 +132,28 @@ Append-only. Every contradiction in the source material and every non-obvious en
 
 ---
 
+## ADR-021 — Occlusion: exact in the near field, statistical in the far field
+
+**Status:** accepted, 2026-08-02 (M7). The third instance of the same structural lesson, and the one that shows it is a pattern rather than a coincidence.
+
+**Context.** P5 claims cells shadow each other *perfectly* — albedo is exactly 0, so a cell directly behind another receives **exactly** zero. The irradiance field is depth-averaged and therefore 2D, where one cell blocks only **16.8 %** of a grid column's face. A depth-averaged grid can never produce an exact zero from a single occluder; that is a three-dimensional fact about two discs.
+
+This is the same shape as ADR-019 (a 2D grid cannot give a 3D 1/r profile) and ADR-020 (the grid is the far field, not the near field). **When a claim is about individual bodies, the grid is the wrong instrument.**
+
+**Decision.** Split it.
+- **Near field, exact, per cell.** For each cell, walk its hash neighbourhood and multiply by `1 − shadow_fraction` against every upstream neighbour. `disc_overlap_fraction` returns **exactly 1.0** at zero perpendicular offset and **exactly 0.0** beyond 2a, so a directly-aligned neighbour leaves exactly zero. Range is the 27-bucket walk, ±22 μm.
+- **Far field, statistical, on the grid.** Cells stamp their cross-section into an occlusion buffer; an axis-aligned sweep accumulates Beer–Lambert transmittance. Fractional by construction, which is correct for a depth-averaged model.
+
+**Consequences.** T13's "exactly zero" holds for an adjacent pair, which is the regime it describes. A pair 200 μm apart gets 0.832 transmittance — the single-cell far-field extinction, also correct. At population scale P5 shows as a gradient: 8,000 cells lit along +x give a charge-versus-depth correlation of **−0.879** and an 8× ratio between the lit face and the far side.
+
+**Two smaller decisions.**
+- **Axis-aligned light only.** A sheared sweep for arbitrary directions makes threads collide on shared cells and would need atomics or a rotated buffer. One thread per line means each thread owns its whole output line — deterministic by construction. Four directions demonstrate P5 completely and the physics is identical.
+- **Dark chambers cost nothing.** With no source and no ambient, `emission_step` returns immediately rather than paying for a per-cell 27-bucket walk. Also what canon says: Astrophage does not move in darkness.
+
+**A test-design note.** "Exactly zero" survives one tick and not two hundred: integration drifts a collinear pair apart by ~1e-13 m, which is enough to leave 1e-8 of the incident light. That residual is *correct* — they genuinely are not collinear any more. The exact assertion belongs on the pure function and on an undrifted pair; the drifted case gets a relative bound.
+
+---
+
 ## ADR-020 — The grid is the far field; conduct against it at the free-space rate
 
 **Status:** accepted, 2026-08-02 (M6). The hardest bug of the build so far, and worth the write-up.
