@@ -86,7 +86,7 @@ endfunction()
 # Sources are added milestone by milestone; the placeholder keeps the target
 # valid until M2/M5 populate it.
 # ---------------------------------------------------------------------------
-add_library(astro_fields STATIC src/fields/fields_placeholder.cu)
+add_library(astro_fields STATIC src/fields/diffuse.cu)
 target_link_libraries(astro_fields PUBLIC astro_core)
 astro_strict(astro_fields)
 
@@ -128,6 +128,7 @@ astro_test(test_buoyancy     tests/physics/test_buoyancy.cu)
 astro_test(test_optics       tests/physics/test_optics.cpp)
 astro_test(test_hash         tests/physics/test_hash.cu)
 astro_test(test_contact      tests/physics/test_contact.cu)
+astro_test(test_fields       tests/physics/test_fields.cu)
 
 # ---------------------------------------------------------------------------
 # tools -- headless runner. The determinism oracle (INV-8) and the scenario

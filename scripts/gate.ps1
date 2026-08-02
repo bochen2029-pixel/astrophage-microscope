@@ -127,8 +127,13 @@ if ($n -ge 4) {
 
 # --------------------------------------------------------------- M5: fields
 if ($n -ge 5) {
-    Gate 'M5.1' 'diffusion stability + conservation (T25)' { return (Run-Test 'test_fields') }
-    Gate 'M5.2' 'point-source analytic profile'            { return (Run-Test 'test_field_analytic') }
+    # One test covers all of it: stability, T25 conservation, the analytic 2D
+    # Gaussian oracle, boundary conditions, and fixed-point deposits. The M5 text
+    # named a second "point-source analytic profile" check; that asked a 2D
+    # depth-averaged grid to reproduce a 3D 1/r law, which it cannot (ADR-019).
+    Gate 'M5.1' 'diffusion: stability, conservation, 2D Gaussian oracle, BCs' {
+        return (Run-Test 'test_fields')
+    }
 }
 
 # -------------------------------------------------------------- M6: thermal

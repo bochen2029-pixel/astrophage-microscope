@@ -132,6 +132,36 @@ Append-only. Every contradiction in the source material and every non-obvious en
 
 ---
 
+## ADR-019 — Two corrections to the M5 field spec
+
+**Status:** accepted, 2026-08-02 (M5).
+
+### 1. Ping-pong buffers, not "red-black"
+
+`MILESTONES.md` §M5 and `PHYSICS.md` §7 both said "explicit red-black". Red-black is a **Gauss-Seidel ordering** — an implicit smoother that reads partially-updated neighbours *on purpose*, which is exactly what makes it converge. An explicit FTCS step must read the **old** value everywhere, so what it needs is a second buffer, not an ordering. A red-black explicit step would be neither scheme and would have no analytic justification.
+
+**Decision.** Explicit FTCS with ping-pong buffers. Measured: FTCS coefficient 0.2347 against the 0.25 stability limit, conservation drift **−0.0001 %** over 10⁴ ticks under an insulated boundary, and no undershoot (an explicit step inside its bound is monotone).
+
+### 2. The grid is 2D, so a point source is logarithmic, not 1/r
+
+The M5 gate asked for "the analytic point-source steady state matching `T(r) = T∞ + ΔT·a/r` in the far field within 2 %". **That is the three-dimensional law**, and the field is depth-averaged over the chamber slab and therefore two-dimensional. A 2D point source relaxes logarithmically. The 1/r profile belongs to **ADR-010's per-cell analytic near field**, which operates on individual cells at M6 and is not a property this grid can or should reproduce.
+
+**Decision.** Replace it with the exact 2D diffusion solution, which is a stronger test anyway because it pins the diffusivity itself rather than just "it spreads": a Gaussian stays Gaussian with variance `σ²(t) = σ₀² + 2·D·t` per axis. Measured over 0.5 s: σ went 100 → 391.5 μm against an analytic 391.5 μm, **error −0.00 %**.
+
+**Consequences.** The gate is one test, not two. `PHYSICS.md` §7 and `MILESTONES.md` §M5 are corrected. Do not reintroduce a 1/r expectation for the grid at M6 — the near-field correction adds 1/r *per cell at sample time*, on top of a grid that is correctly logarithmic in the far field.
+
+### 3. Boundary conditions, measured
+
+| BC | uniform 350 K over 20 s, ambient 300 K | reading |
+|---|---|---|
+| Neumann | 350.000 | insulated; nothing escapes, exactly |
+| Dirichlet | 301.03 | edge pinned to ambient; drains fast |
+| Robin | 347.57 | convective; `dx·h/k` ≈ 5e-4, so a chamber edge is nearly insulating |
+
+Robin being close to Neumann at this resolution is physically right, not a bug: a 31 μm cell of water loses very little to room air across its face.
+
+---
+
 ## ADR-018 — Three constraints the spatial hash and contact had to satisfy
 
 **Status:** accepted, 2026-08-02 (M4). Three findings, all determinism- or stability-driven.

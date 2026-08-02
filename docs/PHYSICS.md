@@ -210,12 +210,16 @@ Four grids over the `xy` plane, depth-averaged. Authority on layout: `contracts/
 
 | Field | Grid | Diffusivity | Solver | Substeps per tick |
 |---|---|---|---|---|
-| Temperature | `FIELD_N_TEMP` = 512² | 1.4325e-7 m²/s | explicit red-black, fp32 | 10 |
+| Temperature | `FIELD_N_TEMP` = 512² | 1.4325e-7 m²/s | explicit FTCS, ping-pong, fp32 | 10 |
 | CO₂ | `FIELD_N_CO2` = 256² | 1.92e-9 m²/s | explicit | 1 |
 | N₂ | `FIELD_N_N2` = 128² | 2.0e-9 m²/s | explicit | 1 |
 | Irradiance | `FIELD_N_IRRAD` = 512² | — | occlusion sweep, rebuilt each tick | — |
 
 Exact substep counts are computed in `VERIFICATION.md` §6 and must be read from there, not assumed.
+
+**Ping-pong, not red-black** (ADR-019). Red-black is a Gauss-Seidel *ordering* — an implicit smoother that reads partially-updated neighbours deliberately. An explicit step must read the old value everywhere, so it needs a second buffer, not an ordering.
+
+**The grid is 2D.** It is depth-averaged over the slab, so a point source in it relaxes **logarithmically**, not as 1/r. The 1/r law in §7.2 is the *three-dimensional* near field and is applied per cell at sample time — do not expect the grid itself to produce it.
 
 ### 7.1 Why explicit, and why 512²
 

@@ -17,6 +17,22 @@ Error world_create(World& w, const WorldDesc& d) {
         world_destroy(w);
         return fail(Status::OutOfMemory, "cudaMalloc force scratch");
     }
+    using astro::contract::BoundaryCondition;
+    using astro::contract::DEPOSIT_SCALE_CO2;
+    using astro::contract::DEPOSIT_SCALE_N2;
+    using astro::contract::DEPOSIT_SCALE_TEMPERATURE;
+    ASTRO_TRY(fields::grid_create(w.fields.temperature, canon::FIELD_N_TEMP, d.chamber.w,
+                                  canon::WATER_THERMAL_DIFFUSIVITY, d.motion.ambient_temp,
+                                  DEPOSIT_SCALE_TEMPERATURE, BoundaryCondition::Robin,
+                                  canon::DT_PHYSICS));
+    ASTRO_TRY(fields::grid_create(w.fields.co2, canon::FIELD_N_CO2, d.chamber.w,
+                                  canon::CO2_DIFFUSIVITY_WATER, 0.0,
+                                  DEPOSIT_SCALE_CO2, BoundaryCondition::Neumann,
+                                  canon::DT_PHYSICS));
+    ASTRO_TRY(fields::grid_create(w.fields.n2, canon::FIELD_N_N2, d.chamber.w,
+                                  2.0e-9, 0.0, DEPOSIT_SCALE_N2,
+                                  BoundaryCondition::Neumann, canon::DT_PHYSICS));
+
     w.chamber = d.chamber;
     w.motion = d.motion;
     w.seed = d.seed;
@@ -26,7 +42,21 @@ Error world_create(World& w, const WorldDesc& d) {
     return ok();
 }
 
+Error world_apply_brush(World& w, BrushKind kind, double x, double y,
+                        double radius, double strength) {
+    switch (kind) {
+        case BrushKind::Heat:      return fields::grid_brush(w.fields.temperature, x, y, radius,  strength);
+        case BrushKind::Chill:     return fields::grid_brush(w.fields.temperature, x, y, radius, -strength);
+        case BrushKind::InjectCO2: return fields::grid_brush(w.fields.co2, x, y, radius, strength);
+        case BrushKind::InjectN2:  return fields::grid_brush(w.fields.n2, x, y, radius, strength);
+    }
+    return fail(Status::InvalidArgument, "unknown brush");
+}
+
 void world_destroy(World& w) {
+    fields::grid_destroy(w.fields.temperature);
+    fields::grid_destroy(w.fields.co2);
+    fields::grid_destroy(w.fields.n2);
     cudaFree(w.d_fx);
     cudaFree(w.d_fy);
     cudaFree(w.d_fz);
@@ -51,6 +81,17 @@ void world_step(World& w) {
     //  11 stats           M6
     hash_build(w.hash, w.cells.view, w.cells.count);
     motion_step(w, canon::DT_PHYSICS);
+
+    // Stages 7 and 8. Deposits are folded in before diffusing, so a source added
+    // this tick spreads this tick. At M5 the only depositor is a tool brush;
+    // cells start depositing at M6.
+    fields::grid_flush_deposits(w.fields.temperature);
+    fields::grid_flush_deposits(w.fields.co2);
+    fields::grid_flush_deposits(w.fields.n2);
+    fields::grid_diffuse(w.fields.temperature, canon::DT_PHYSICS);
+    fields::grid_diffuse(w.fields.co2, canon::DT_PHYSICS);
+    fields::grid_diffuse(w.fields.n2, canon::DT_PHYSICS);
+
     ++w.tick;
 }
 

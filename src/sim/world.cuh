@@ -10,11 +10,22 @@
 #include "contracts/telemetry_v1.h"
 #include "core/canon_generated.h"
 #include "core/result.h"
+#include "fields/grid.cuh"
 #include "sim/cell_store.cuh"
 #include "sim/hash.cuh"
 #include "sim/integrator.cuh"
 
 namespace astro::sim {
+
+// The chamber's scalar fields. Cell coupling arrives at M6; at M5 the only
+// sources are tool brushes.
+struct Fields {
+    fields::Grid2D temperature;
+    fields::Grid2D co2;
+    fields::Grid2D n2;
+};
+
+enum class BrushKind : uint8_t { Heat = 0, Chill = 1, InjectCO2 = 2, InjectN2 = 3 };
 
 // Everything the motion stages need. Passed by value into kernels, so POD.
 struct MotionConfig {
@@ -38,6 +49,7 @@ struct WorldDesc {
 struct World {
     CellStore    cells;
     SpatialHash  hash;
+    Fields       fields;
     // Tick stage 5 writes these; stage 6 reads them. They exist SPECIFICALLY so
     // that contact reads every neighbour's position from before the step --
     // computing forces and positions in one kernel is a read/write race and
@@ -55,6 +67,11 @@ struct World {
 
 // Tick stages 2, 5, 6 (src/sim/integrator.cu).
 void motion_step(World& w, double dt);
+
+// Applied at a tick boundary from the app, never from an input handler --
+// writing device memory mid-tick would break INV-8 (src/app/MODULE.md).
+Error world_apply_brush(World& w, BrushKind kind, double x, double y,
+                        double radius, double strength);
 
 Error world_create(World& w, const WorldDesc& d);
 void  world_destroy(World& w);
