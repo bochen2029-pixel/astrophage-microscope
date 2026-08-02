@@ -191,6 +191,13 @@ if ($n -ge 9) {
     }
 }
 
+# --------------------------------- M9b: death, disposition, stats (T23)
+if (($n -gt 9) -or ($n -eq 9 -and $suffix -ge 'b')) {
+    Gate 'M9b.1' 'stats reduction bit-identical, death paths, store disposition (T23)' {
+        return (Run-Test 'test_stats')
+    }
+}
+
 # ------------------------------------------------------------ M10: predation
 if ($n -ge 10) { Gate 'M10.1' 'predation + nitrogen selection' { return (Run-Test 'test_predation') } }
 

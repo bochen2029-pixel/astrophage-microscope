@@ -89,18 +89,44 @@ __global__ void clear_u64_kernel(unsigned long long* p, int32_t n) {
     if (i < n) p[i] = 0ull;
 }
 
+// Death by overheating, plus the store disposition (ADR-004). Starvation is already
+// handled in thermal.cu; this is the other end of the temperature range.
+//
+// A corpse stops emitting and stops taxis for free -- both stages gate on ALIVE --
+// and the thermostat disengages because thermal.cu returns early for dead cells.
+// AWAKE is deliberately NOT cleared: the glossary makes alive/dead orthogonal to
+// awake/dormant, and a corpse that WAS awake is a fact about its history.
+__global__ void death_kernel(CellStoreView v, unsigned char disposition) {
+    const int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i >= v.count) return;
+    const uint32_t f = v.flags[i];
+    if (!(f & CELL_FLAG_OCCUPIED) || !(f & CELL_FLAG_ALIVE)) return;
+    if (!lethal_temperature(static_cast<double>(v.t_local[i]))) return;
+
+    v.flags[i] = f & ~static_cast<uint32_t>(CELL_FLAG_ALIVE);
+    v.death_cause[i] = static_cast<uint8_t>(DeathCause::Overheated);
+    v.emit_power[i] = 0.0f;
+    v.energy[i] = corpse_energy(static_cast<contract::StoreDisposition>(disposition),
+                                v.energy[i]);
+}
+
 // Stage 10b, pass 1. Mark who divides, and count them with a DETERMINISTIC
 // exclusive prefix sum -- never atomicAdd. The snapshot hash is taken over the SoA
 // in slot order, so an order-dependent slot assignment would make the hash vary
 // run to run (ADR-025). This is INV-2's reasoning one level up: it is not the
 // arithmetic that must be associative here, it is the allocation.
-__global__ void mark_kernel(CellStoreView v, int32_t* flagsum) {
+__global__ void mark_kernel(CellStoreView v, int32_t* flagsum, int32_t* total) {
     const int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i >= v.count) return;
     const uint32_t f = v.flags[i];
     const bool divides = (f & CELL_FLAG_OCCUPIED) && (f & CELL_FLAG_ALIVE) &&
                          ready_to_divide(v.co2_held[i]);
     flagsum[i] = divides ? 1 : 0;
+    // A COUNT, not a prefix: summing ones with atomicAdd is order-independent
+    // because integer addition is associative, so this is safe where an ordered
+    // slot assignment would not be. It exists so the serial scan below can be
+    // skipped entirely on the overwhelmingly common tick where nobody divides.
+    if (divides) atomicAdd(total, 1);
 }
 
 // Single-block exclusive scan. The population that can divide in one tick is
@@ -215,12 +241,26 @@ void lifecycle_step(World& w, double dt) {
     // only sound if what it rations against is current.
     fields::grid_flush_deposits(w.fields.co2);
 
-    mark_kernel<<<grid, block>>>(w.cells.view, w.cells.d_birth_prefix);
-    scan_kernel<<<1, 1>>>(w.cells.d_birth_prefix, n, w.cells.d_birth_count);
+    // Death before division: a cell that cooked this tick does not then divide.
+    death_kernel<<<grid, block>>>(w.cells.view,
+                                  static_cast<unsigned char>(w.motion.store_disposition));
+
+    // Count first, scan only if it matters. scan_kernel is a SINGLE-THREADED loop
+    // over the whole population, so running it unconditionally costs a serial pass
+    // over 200k elements every tick -- which is what failed the M1.5 render
+    // benchmark. Divisions are rare (one per cell per doubling time), so on almost
+    // every tick this skips the scan and the divide pass outright.
+    cudaMemset(w.cells.d_birth_count, 0, sizeof(int32_t));
+    mark_kernel<<<grid, block>>>(w.cells.view, w.cells.d_birth_prefix,
+                                 w.cells.d_birth_count);
 
     int32_t births = 0;
     cudaMemcpy(&births, w.cells.d_birth_count, sizeof(int32_t), cudaMemcpyDeviceToHost);
     if (births <= 0) return;
+
+    // Only now is the exclusive prefix worth computing. Still single-threaded: a
+    // CUB DeviceScan is the right answer at scale and is M9c's (Q20).
+    scan_kernel<<<1, 1>>>(w.cells.d_birth_prefix, n, w.cells.d_birth_count);
 
     const int32_t base = n;
     if (base + births > w.cells.capacity) births = w.cells.capacity - base;
@@ -229,6 +269,10 @@ void lifecycle_step(World& w, double dt) {
     divide_kernel<<<grid, block>>>(w.cells.view, w.cells.d_birth_prefix, base, n,
                                    w.cells.next_id, w.chamber);
 
+    // Births are already known on the host here, so the window counter is free --
+    // no extra device buffer and no per-tick D2H. Deaths are derived in world_stats
+    // by differencing the reduction's dead count against the last window.
+    w.divisions_this_window += births;
     w.cells.next_id += static_cast<uint64_t>(births);
     w.cells.count += births;
     w.cells.view.count = w.cells.count;

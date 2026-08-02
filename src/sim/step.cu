@@ -18,9 +18,10 @@ Error world_create(World& w, const WorldDesc& d) {
         return fail(Status::OutOfMemory, "cudaMalloc force scratch");
     }
     const size_t co2_cells = static_cast<size_t>(canon::FIELD_N_CO2) * canon::FIELD_N_CO2;
-    if (cudaMalloc(&w.d_co2_demand, sizeof(unsigned long long) * co2_cells) != cudaSuccess) {
+    if (cudaMalloc(&w.d_co2_demand, sizeof(unsigned long long) * co2_cells) != cudaSuccess ||
+        cudaMalloc(&w.d_stats, sizeof(StatsAccum)) != cudaSuccess) {
         world_destroy(w);
-        return fail(Status::OutOfMemory, "cudaMalloc co2 demand");
+        return fail(Status::OutOfMemory, "cudaMalloc co2 demand / stats");
     }
     using astro::contract::BoundaryCondition;
     using astro::contract::DEPOSIT_SCALE_CO2;
@@ -69,6 +70,7 @@ void world_destroy(World& w) {
     fields::grid_destroy(w.fields.co2);
     fields::grid_destroy(w.fields.n2);
     fields::grid_destroy(w.fields.irradiance);
+    cudaFree(w.d_stats);
     cudaFree(w.d_co2_demand);
     cudaFree(w.d_fx);
     cudaFree(w.d_fy);
@@ -91,12 +93,9 @@ void world_step(World& w) {
     //   8 field_diffuse   M5
     //   9 irradiance      M7
     //  10 lifecycle       M9   (mutates the store; must stay last)
-    //  11 stats           M9  -- NOT SHIPPED. world_stats below returns only
-    //                          tick, time and counts; the means and the energy
-    //                          ledger need a deterministic device reduction
-    //                          (INV-2: tree reduction or fixed point, never
-    //                          atomicAdd on float). Lands with M9's charts,
-    //                          which are its first real consumer.
+    //  11 stats           M9b  (src/sim/stats.cu). Run from world_stats at HUD
+    //                           rate rather than every tick: it ends in a D2H copy
+    //                           and nothing in the tick consumes it.
     hash_build(w.hash, w.cells.view, w.cells.count);
 
     // Stage 4 is interleaved with the temperature field's own substeps, so it
@@ -138,19 +137,6 @@ void world_step(World& w) {
 
 double world_sim_time(const World& w) {
     return static_cast<double>(w.tick) * canon::DT_PHYSICS * w.physics_rate;
-}
-
-contract::Stats world_stats(const World& w) {
-    contract::Stats s{};
-    s.tick = w.tick;
-    s.sim_time_s = world_sim_time(w);
-    s.n_live = w.cells.count;
-    s.physics_rate = w.physics_rate;
-    s.biology_rate = w.biology_rate;
-    // Energy, temperature, and charge means arrive with the M6 device reduction.
-    // Reporting a plausible-looking zero would be worse than reporting nothing,
-    // so the HUD hides fields that are not yet computed.
-    return s;
 }
 
 } // namespace astro::sim

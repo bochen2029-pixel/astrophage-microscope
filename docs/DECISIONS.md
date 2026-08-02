@@ -132,6 +132,45 @@ Append-only. Every contradiction in the source material and every non-obvious en
 
 ---
 
+## ADR-026 — The stage-11 reduction, and what a lethal bath actually does
+
+**Status:** accepted, 2026-08-02 (M9b).
+
+### Why the reduction is fixed point
+
+Tick stage 11 went unshipped for nine milestones while `contract::Stats` sat fully specified and entirely unfilled. It is now a **64-bit fixed-point** reduction (INV-2), not because a float sum would be inaccurate but because it would be **order-dependent**: the same population would report a different total depending on how the blocks happened to retire, so the HUD's last digits would flicker with occupancy and no two runs would agree on the energy ledger.
+
+Measured (T23): eight reductions of one identical state produce an **identical bit pattern**, and the ledger matches a sorted host-side sum to 1e-9. `atomicMax` on the fixed-point representation is used for the medium's peak temperature — max is associative and commutative over integers too, and temperatures are positive so unsigned ordering matches signed.
+
+**It is not free, so it does not run every tick.** `world_stats` ends in a D2H copy and nothing inside the tick consumes the result, so it is called at HUD rate — which is what `ARCHITECTURE.md` §3.1 always said ("~30 Hz, not every tick").
+
+**Window counters avoid a second device buffer.** Divisions are already known on the host inside `lifecycle_step`, and deaths are differenced against the previous reduction's dead count. A per-tick death counter would have needed either its own allocation or a D2H every tick.
+
+### Two performance regressions the M1.5 benchmark caught, and it was right to
+
+**Neither showed up in any correctness test**, which is exactly what a render benchmark is for.
+
+1. **`world_stats` was called every frame.** It runs the reduction and ends in a *synchronous* D2H, which stalls the pipeline. The fix is what `ARCHITECTURE.md` §3.1 has said all along -- HUD rate, not frame rate -- and the HUD cannot tell the difference.
+2. **`scan_kernel` is `<<<1,1>>>`, a serial loop over the whole population, and it ran unconditionally.** At 200k cells that is a 200,000-iteration single-threaded pass *every tick*, to compute a prefix that is almost always all zeros. Divisions are rare -- one per cell per doubling time -- so `mark_kernel` now also accumulates a plain integer **count** (associative, so `atomicAdd` is safe here where an ordered slot assignment would not be), and the scan and divide passes are skipped entirely when it is zero.
+
+Measured: **145.2 → 185.5 fps** at 200k cells, taking the margin over the 144 target from 0.8 % to 29 %. **T22's hash is unchanged**, which is the proof the optimisation is behaviour-preserving rather than merely plausible.
+
+**Q20** — the scan is still single-threaded when divisions *do* occur. A CUB `DeviceScan` is the right answer and CUB is already an allowed dependency; it belongs with M9c's compaction work, which needs the same primitive.
+
+### The store disposition is now observable
+
+ADR-004's three readings are distinguishable rather than nominal (T23.3): under `void` a corpse falls to `CELL_DENSITY_DRY` = **40.1 kg/m³** and *rises*, and under `retain` it stays at **~25,500 kg/m³** and rains to the coverslip. Both are just `mass = biomass + energy/c²` with the store either gone or kept — no special case anywhere.
+
+`AWAKE` is deliberately **not** cleared on death. The glossary makes alive/dead orthogonal to awake/dormant, and a corpse that *was* awake is a fact about its history. Corpses stop emitting and stop taxis for free, because both stages already gate on `ALIVE`, and the thermostat disengages because `thermal.cu` returns early for dead cells.
+
+### A lethal bath does not sterilise a culture, and that is P2
+
+Dropping 4,000 dormant cells into a **623 K** bath — 50 K above `CELL_LETHAL_TEMP` — kills only **3,411** of them. Every cell ignites instantly (P3), and the awake survivors then drag the medium *down* from 623 K to **601 K**, because the thermostat is bidirectional: at temperatures above the setpoint cells **absorb** heat. Some cells end up in pockets below lethal and live.
+
+This surfaced as a confound — the survivors polluted an energy ledger that a disposition test was reading — and the right response was to isolate the disposition test (thermostat off) **and assert the contest separately** (T23.5) rather than to suppress it. Overheating the slide is a fight the culture partly wins, which is a far better property than a kill switch.
+
+---
+
 ## ADR-025 — Division: prefix-sum slots, and two unit bugs in one exchange
 
 **Status:** accepted, 2026-08-02 (M9a).

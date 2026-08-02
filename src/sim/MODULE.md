@@ -10,7 +10,7 @@ The simulation itself: the cell and Taumoeba stores, the integrator, and every p
 
 | File | Owns | Milestone |
 |---|---|---|
-| `cell_store.{cuh,cu}` | ✅ SoA allocation, spawn, birth-prefix buffer (compaction at M9b) | M1 |
+| `cell_store.{cuh,cu}` | ✅ SoA allocation, spawn, birth-prefix buffer (compaction at M9c) | M1 |
 | `world.cuh` + `step.cu` | ✅ world lifetime, the tick sequence, `Stats` | M1 |
 | `integrator.{cuh,cu}` | ✅ exact joint position–velocity OU propagator, buoyancy, boundaries (PHYSICS.md §3, ADR-016) | M2 |
 | `hash.cu` | spatial hash by counting sort; SoA reorder | M4 |
@@ -18,8 +18,9 @@ The simulation itself: the cell and Taumoeba stores, the integrator, and every p
 | `thermal.cu` | ignition latch, thermostat, conduction (PHYSICS.md §5) | M6 |
 | `emission.cu` | Petrova emission, directionality, photon thrust | M7 |
 | `taxis.{cuh,cu}` | ✅ run-and-tumble FEED/BREED/IDLE controller, emission discharge (PHYSICS.md §8, ADR-022) | M8 |
-| `lifecycle.{cuh,cu}` | ✅ CO₂ uptake, mitosis, prefix-sum daughter slots (PHYSICS.md §10, ADR-025) | M9a |
-| | corpses, store disposition, compaction | M9b |
+| `lifecycle.{cuh,cu}` | ✅ CO₂ uptake, mitosis, prefix-sum slots (ADR-025); overheat death and store disposition (ADR-004) | M9a/M9b |
+| `stats.cu` | ✅ tick stage 11, fixed-point telemetry reduction (ADR-026) | M9b |
+| | slot reuse and compaction | M9c |
 | `predation.cu` | Taumoeba store, engulfment, N₂ lethality, evolution | M10 |
 | `snapshot.cpp` | serialise/restore, FNV-1a state hash | M12 |
 
@@ -41,14 +42,15 @@ Produces `cell_store_v1.h`, `snapshot_v1.h`. Consumes `fields_v1.h`, `scenario_v
 
 ## Status
 
-**M9a complete.** All five signature phenomena are live (M2–M7), and cells now behave:
+**M9b complete.** All five signature phenomena are live (M2–M7), and cells now behave:
 run-and-tumble taxis climbs the culture's own self-shadowing gradient, emission debits
-the store, and cells divide — bit-reproducibly, which is the claim ADR-014 was made for.
+the store, cells divide bit-reproducibly (the claim ADR-014 was made for), they die of
+heat, and their stores go somewhere the user chooses.
 
-`world_stats` still returns only tick, time, and counts. The means and the energy ledger
-need a deterministic device reduction (INV-2: tree or fixed-point, never `atomicAdd` on
-float) and land with **M9b**, whose charts are their first real consumer. The HUD hides
-what is not yet computed rather than displaying a plausible-looking zero.
+`world_stats` now runs the stage-11 reduction and ends in a D2H copy, so it is **not
+free** — call it at HUD rate, never per tick (ARCHITECTURE.md §3.1). Everything
+accumulates in fixed point because a float sum would be order-dependent, not because it
+would be inaccurate (ADR-026).
 
 Before touching `lifecycle.{cuh,cu}`, read ADR-025:
 - **Daughter slots come from an exclusive prefix sum, never `atomicAdd`.** The snapshot

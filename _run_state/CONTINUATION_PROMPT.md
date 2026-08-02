@@ -1,50 +1,58 @@
-# CONTINUATION PROMPT
+# CONTINUATION PROMPT — Astrophage Microscope Simulator
 
 **Paste this whole file as the first message of a new session.** It is written to be
 self-contained: everything a cold session needs to be productive within one read,
 without loading the repo.
 
+Last rewritten: 2026-08-02, after **M9b**.
+
 ---
 
-## What you are picking up
+## 0. The thirty-second version
 
-`C:\Astrophage` is the **Astrophage Microscope Simulator** — a physics-based,
-GPU-accelerated simulation of Astrophage, the fictional organism from Andy Weir's
-*Project Hail Mary*, viewed **through a microscope**. C++20 + CUDA 13.1, OpenGL 4.6
-interop, Dear ImGui, CMake/Ninja, targeting `sm_89` on Windows 11.
+`C:\Astrophage` is a physics-based, GPU-accelerated simulation of **Astrophage** —
+the fictional organism from Andy Weir's *Project Hail Mary* — seen **through a
+microscope**. C++20 + CUDA 13.1, OpenGL 4.6 interop, Dear ImGui, CMake/Ninja,
+`sm_89`, Windows 11. Public repo (MIT):
+https://github.com/bochen2029-pixel/astrophage-microscope
 
 A sealed 4 mm × 4 mm × 60 μm chamber of water. Cells 10 μm across, black at every
 wavelength, each holding up to 1.5 MJ as neutrino mass. Real Stokes drag, Langevin
-dynamics, Fickian diffusion, conduction, photon momentum. Public repo:
-https://github.com/bochen2029-pixel/astrophage-microscope (MIT).
+dynamics, Fickian diffusion, conduction, photon momentum.
 
-**Scope is deliberately cell-level and quasi-2D.** No ships, no Petrova arc, no
-Tau Ceti, no interstellar view. The single exception is a planned `spin-drive-face`
+**Eleven of twelve milestone-slots are green.** All five signature phenomena are
+live; cells behave, look like organisms, divide reproducibly, die, and report
+telemetry. **Next up: M9c — Life: clock, compaction, charts.**
+
+**This is a simulator and visualisation, not a game.** No win state, no story mode,
+no asset files — everything procedural or generated.
+
+**Scope is deliberately cell-level and quasi-2D.** No ships, no Petrova arc, no Tau
+Ceti, no interstellar view. The single exception is a planned `spin-drive-face`
 scenario, which belongs because a spin drive *is* a cell-scale machine and the
 microscope is the right instrument for it. Do not let scope creep upward.
 
 ---
 
-## Step 1 — orient yourself against reality, not against docs
+## 1. Orient against reality, not against docs
 
 ```bash
 git -C C:\Astrophage tag --list
 ```
 
-**The last `m<N>-green` tag is the ground truth.** Not a doc, not a log, not this
-file. If anything here disagrees with the tags, believe the tags and fix the doc.
+**The last `m<N>-green` tag is ground truth.** Not a doc, not a log, not this file.
+If anything here disagrees with the tags, believe the tags and fix the doc.
 
-As of writing: **`m0-green` … `m9a-green`**. Nine of twelve milestones done (M8b and M9a are splits).
-**Next up: M9b — Life: disposition, clock, charts.**
+As of writing: `m0-green` … `m8-green`, `m8b-green`, `m9a-green`, `m9b-green`.
 
-Then verify the baseline before changing anything:
+Then verify the baseline **before changing anything**:
 
 ```bash
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/gate.ps1 -Milestone M9a
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/gate.ps1 -Milestone M9b
 ```
 
-That does a clean rebuild and re-runs every gate M0–M8b plus the golden images. It
-takes ~12 minutes. **Run it in the background** and read while it goes.
+That does a clean rebuild and re-runs every gate M0–M9b plus the golden images.
+It takes ~12–15 minutes. **Run it in the background** and read while it goes.
 
 Then look at the thing:
 
@@ -55,22 +63,22 @@ build/astrophage.exe
 Drag to pan the stage, scroll to zoom (cursor-anchored), `Home` to reset. Rack the
 **focal plane** slider and watch cells resolve and dissolve. Drag the **charge**
 slider past 3.0058 % and the culture reverses direction. `--ticks-per-frame 200`
-fast-forwards; the chamber stratifies fully in about two simulated minutes.
+fast-forwards.
 
 ---
 
-## Step 2 — read these, in this order, and nothing else
+## 2. Read these, in this order, and nothing else
 
 Context discipline is what makes this build converge across many sessions. A
 correct session loads roughly 25–50k tokens of documentation and spends the rest
 on code. **Never load the whole repo.**
 
-1. **`CLAUDE.md`** — the operating contract. Session ritual, ten Iron Rules,
-   module map, code standards, authority boundaries. Always.
+1. **`CLAUDE.md`** — the operating contract. Session ritual, ten Iron Rules, module
+   map, code standards, authority boundaries. Always.
 2. **`docs/ARCHITECTURE.md`** — module map, invariants INV-1…INV-8, the mandatory
    glossary, the tick sequence, the anti-drift machinery. Always.
 3. **`docs/MILESTONES.md` — the active milestone section only.** Not the file.
-4. **`docs/DECISIONS.md`** — 25 ADRs. Skim the index; read any ADR a task touches.
+4. **`docs/DECISIONS.md`** — 26 ADRs. Skim the index; read any ADR a task touches.
    **Every contradiction in the source material has already been adjudicated here,
    with reasoning and an escape hatch.** Re-litigating costs a session.
 5. **`docs/PHYSICS.md`** — only if touching `src/sim/` or `src/fields/`, and only
@@ -84,14 +92,13 @@ on code. **Never load the whole repo.**
 fix the contract.
 
 `docs/SESSION_LOG.md` holds one entry per milestone with what went wrong and why.
-Read the last two entries. It is the most useful file in the repo for avoiding
-repeats.
+**Read the last two entries.** It is the most useful file in the repo.
 
 ---
 
-## Step 3 — the state, in numbers
+## 3. The state, in numbers
 
-**19 tests green, 9 golden images, 10 audit invariant checks.**
+**20 tests green, 9 golden images, 10 audit invariant checks, 26 ADRs.**
 
 ```
 test_canon ......... generated constants consistent; the right params carry the canon lock
@@ -109,10 +116,12 @@ test_contact ....... pair force, packed cluster, containment, adhesion, determin
 test_fields ........ stability, T25 conservation, 2D Gaussian oracle, BCs, deposits
 test_thermal ....... P2 thermostat, P3 latch, P4 motility, T5/T7/T9/T10/T12/T19
 test_emission ...... P5 exact + statistical, Komorov T15, band separation T16/T17/T20
-test_taxis ......... T26: run-and-tumble, the state machine, the emission ledger,
-                     migration at 20.3 sigma, darkness bit-identical to the null
+test_taxis ......... T26: run-and-tumble, state machine, emission ledger, migration
+                     at 26.0 sigma, darkness bit-identical to the null
 test_morphology .... T27: area-preserving silhouettes to 1.6e-14, bounded, distinct
 test_lifecycle ..... T18 doubling 1.996, CO2 exhaustion, T22 bit-reproducible division
+test_stats ......... T23: reduction bit-identical across 8 runs, energy ledger vs host,
+                     death paths, store disposition (void 40 kg/m^3 vs retain 25,500)
 determinism_replay . real World, seed- and population-sensitive (INV-8)
 ```
 
@@ -125,175 +134,219 @@ writing an `if` to make one happen, stop — the model is wrong upstream.**
 |---|---|---|
 | **P1** | canon mass in a 10 μm sphere ⇒ 40 kg/m³, so an empty cell *rises* at 52 μm/s and a full one (32× water) *sinks* at 1681 μm/s; neutral at 3.006 % charge | drift velocity linear in charge to Pearson **−1.000000**, zero crossing **3.00577 %** |
 | **P2** | 96.415 °C is 3.585 K below boiling and heat output → 0 at the setpoint, so a culture pins its medium there and **can never boil it** | 2000 awake cells, 60 s insulated: max **369.56 K** vs setpoint 369.565. Driven to 400 K it relaxes back **while cell energy rises** |
-| **P3** | dormant cells are inert powder; crossing the setpoint wakes them **irreversibly** | 2000/2000 wake within 50 ms; still 2000 awake after being chilled to 20 °C |
+| **P3** | dormant cells are inert powder; crossing the setpoint wakes them **irreversibly** | 2000/2000 wake within 50 ms; still awake after chilling to 20 °C |
 | **P4** | a live cell holds its *surface* at the setpoint, so viscosity drops 3.4× and mobility rises | motility ratio **4.357**, matching the oracle |
-| **P5** | albedo is exactly 0, so shadowing is **total** | adjacent collinear pair: rear cell at **bitwise `0.0`**. 8000 cells: charge-vs-depth **r = −0.879**, 8× lit/far |
+| **P5** | albedo is exactly 0, so shadowing is **total** | adjacent collinear pair: rear cell at **bitwise `0.0`**. 8000 cells: charge-vs-depth **r = −0.879** |
+
+### Behaviour and life, added since
+
+| | measured |
+|---|---|
+| **taxis** | migration **−262.6 μm = 26.0σ** up-gradient; darkness **bit-identical** to the taxis-off null |
+| **morphology** | irregular silhouettes, area-preserving to **1.6e-14**; all 8 measurement goldens **unchanged at mean 0.0000** |
+| **division** | doubling **1.996** in one `LIFE_DOUBLING_TIME`; a 2,000 → **50,508** cell run is **bit-reproducible** |
+| **death** | `void` corpses at **40.1 kg/m³** (rise), `retain` at **~25,500** (sink) |
+| **telemetry** | 8 reductions of one state → **identical bit pattern**; ledger matches a host sum to 1e-9 |
 
 ### Performance
 
-200k cells at ~281 ticks/s (**0.28× real time**) as of M4; M6 and M7 added stages
-on top. The frame rate is comfortably above target; the *real-time factor* is the
-number that matters and it is below 1.
+200k cells at **185.5 fps** (5.39 ms/frame) with the HUD live, against a 144 fps
+target — 29 % margin. Real-time factor 0.19×, which is the number that actually
+matters and is still below 1.
 
 ---
 
-## Step 4 — the meta-lessons. Read these twice.
+## 4. The meta-lessons. Read these twice.
 
 These are worth more than any individual fact in the codebase. Each was paid for.
 
 ### 1. When a claim is about individual bodies, the grid is the wrong instrument
 
-**This pattern has produced three separate bugs (ADR-019, ADR-020, ADR-021).** The
+**This pattern produced three separate bugs (ADR-019, ADR-020, ADR-021).** The
 field grids are depth-averaged, 2D, and represent the **far field**. So:
 
-- A 2D grid **cannot** reproduce a 3D `1/r` point-source profile — it relaxes
-  logarithmically (ADR-019).
+- A 2D grid **cannot** reproduce a 3D `1/r` point-source profile.
 - A grid cell **cannot** hold the near-field temperature — its thermal time
-  constant equals the diffusion substep, so diffusion drains it as fast as a
-  source fills it. Conducting against it with a "corrected" shell conductance
-  produced a **1.76 × 10⁶ K runaway** (ADR-020).
+  constant equals the diffusion substep. Conducting against it with a "corrected"
+  shell conductance produced a **1.76 × 10⁶ K runaway**.
 - A depth-averaged grid **cannot** produce an exact shadow — one cell blocks only
-  16.8 % of a grid column's face (ADR-021).
+  16.8 % of a grid column's face.
 
 The answer every time: **exact per-cell physics via the spatial hash for the near
 field, statistical grid behaviour for the far field.**
 
-**M8 will meet this again.** A cell's own CO₂ uptake will contaminate the grid cell
-it samples, exactly as its own heat did in M6. Decide up front whether the taxis
-signal is far-field (grid) or near-field (per-cell), and **do not let a cell chase
-its own depletion halo.**
+**M8 met it a fourth time and decided the other way ON PURPOSE** (ADR-022 §1):
+"follow the CO₂ lines to find breeding grounds" is a *region-scale* claim, so the
+grid is the right instrument there. Knowing when the pattern does *not* apply is
+part of the lesson.
 
 ### 2. Do not guess a numeric threshold — derive it
 
 Every invented cutoff in this build has been wrong. `r > 4a` failed at the true
-3.9a. `peak < 0.06` failed at 0.0617. `CONTACT_STIFFNESS` was off by 1587 %. Size
-a test from the physics: run length from `store / conduction rate`, blur from
-`dz·NA/n`, stiffness from the stability bound `γ/dt`.
+3.9a. `peak < 0.06` failed at 0.0617. `CONTACT_STIFFNESS` was off by 1587 %.
+
+Recent practice: the clamped tumble mean is **derived** in `derive.py` and asserted
+directly rather than hidden behind a wide tolerance; `TAXIS_RUN_MAX` is derived
+from `TAXIS_MEMORY_TIME` so the two cannot drift apart; `LIFE_CO2_UPTAKE_MAX` is
+derived from the canon doubling time so T18 asserts the implementation reproduces
+its own definition. **And sometimes the answer is to invent nothing at all** — CO₂
+availability is just `co2 > 0`, because a temporal comparison on an identically
+zero field is identically zero.
 
 ### 3. When a gate fails, first ask whether it asks the right question
 
-**Four times now the failing threshold was the *test's* fault, and each corrected
-test came out stricter, not looser.**
-
-- T14's Pearson correlation capped at 0.84 — not from wall saturation (my first
-  guess, which Spearman disproved in one run) but because cells near neutral
-  buoyancy have near-zero drift and never leave their spawn point. Correct physics.
-  Replaced with a velocity test that is immune to initial conditions.
-- The M5 gate asked a 2D grid for a 3D law. Replaced with the exact 2D Gaussian
-  solution, which pins the diffusivity itself.
-- T13's "exactly zero" survives one tick and not two hundred: integration drifts a
-  collinear pair apart by ~1e-13 m. That residual is *correct*.
-- The starvation test needed a perfect cold bath, because an ordinary chamber
-  **cannot** starve a culture — the cells warm their own medium to the setpoint and
-  stop spending. That is P2 doing its job.
+**Five times now the failing threshold was the *test's* fault, and each corrected
+test came out stricter, not looser.** T14's Pearson cap, the M5 3D-law-on-a-2D-grid,
+T13's "exactly zero" across 200 ticks, the starvation test needing a perfect cold
+bath, and T18.3's absolute growth bound.
 
 **Never weaken a gate to pass it** (Iron Rule 1). If a gate seems wrong, fix it
 with an ADR.
 
-### 4. The oracle is authoritative
+### 4. …and the inverse, which is worse: a gate that PASSES while the thing is broken
+
+M9a's CO₂ test asserted the **total** field stayed positive. Negative pockets clear
+that trivially by hiding behind positive ones elsewhere — the field was at
+**−0.128 kg/m³** the whole time and the suite was green. It asserts the **minimum**
+now.
+
+**Ask what your assertion cannot see.**
+
+### 5. A measured symptom is not a diagnosis
+
+M8 measured 54 % of cells reorienting every tick and blamed the memory window.
+Retuning the window **raised** it to 69 % — because a shorter memory makes the EMA
+track more closely, so Δ crosses zero more often. The tumble rate is set by the
+*rule*, not the window. The number was real; the causal story attached to it was
+not, and only **re-measuring after the change** exposed it.
+
+**Predict, change, re-measure.** The prediction is not the result.
+
+### 6. The oracle is authoritative
 
 `docs/VERIFICATION.md` is **generated** by `scripts/derive.py` from first
 principles, independently of the simulator. **If they disagree, the simulator is
-wrong.** It has caught five real errors, including one where the integrator this
-project's own spec called for gave **47× too much diffusion** (ADR-016) — caught by
+wrong.** It has caught five real errors, including an integrator this project's own
+spec called for that gave **47× too much diffusion** (ADR-016) — caught by
 arithmetic before a line of it was written.
 
-### 5. Fusing across a documented tick-stage boundary is a correctness change
+### 7. Correctness tests cannot see performance, and the benchmark can
+
+M9b went RED on **M1.5** (the 200k-cell render benchmark) with all 13 correctness
+checks green. Two real regressions: `world_stats` called every frame (it ends in a
+*synchronous* D2H), and `scan_kernel` — which is `<<<1,1>>>`, a serial loop over the
+whole population — running unconditionally to build a prefix that is almost always
+all zeros. Fixing both took 145.2 → **185.5 fps**, and **T22's hash was unchanged**,
+which is what proves an optimisation behaviour-preserving rather than merely
+plausible.
+
+### 8. Fusing across a documented tick-stage boundary is a correctness change
 
 Not an optimisation. M2 fused stages 5 and 6 for register reuse; when M4 added
 contact, that kernel read neighbour positions the same kernel was writing and
 **2709 of 3000 positions differed between two identical runs** (ADR-018). The stage
 boundaries in `ARCHITECTURE.md` §3.4 are load-bearing.
 
-### 6. Match the sample to the source
+### 9. Match the sample — and the UNITS — to the source
 
 A **lumped** exchange needs `grid_sample_nearest` / `grid_deposit_nearest`.
 Bilinear spreads a deposit over four cells but reads back only `Σw²` of it — 0.25
-at a grid node — so a lumped model sees a quarter of its feedback. Bilinear is
-correct for smooth sources.
+at a grid node — so a lumped model sees a quarter of its feedback.
 
-### 7. Determinism on a GPU is not free
+M9a added the harder half: CO₂ demand was booked in **kilograms** against a
+`deposit_scale` calibrated for **concentration**. A 6e-16 kg demand rounds to zero
+in fixed point, so the rationing silently never fired and the field went negative
+*with the ration in place*. **Check the units of the accumulator, not just the
+sampling mode.**
 
-Three decisions exist purely to buy it, and all three are non-negotiable:
+### 10. Determinism on a GPU is not free
+
+Four decisions exist purely to buy it, and none is negotiable:
 
 - **Per-cell PCG32 streams** keyed on a stable cell `id`, never a slot or thread
-  index. A global generator makes any run with a division irreproducible
-  (ADR-014).
+  index (ADR-014).
 - **64-bit fixed-point accumulation** for every field deposit and statistic.
   `atomicAdd(float*)` is order-dependent (ADR-013).
-- **A stable radix sort** for the spatial hash. The textbook `atomicAdd` counting
-  scatter randomises within-bucket order, which sets contact-force summation
-  order, which breaks reproducibility *intermittently* (ADR-018).
+- **A stable radix sort** for the spatial hash (ADR-018).
+- **Prefix-sum slot allocation** for daughters, never `atomicAdd` (ADR-025). The
+  snapshot hash is taken over the SoA *in slot order*, so it is the **allocation**
+  that must be order-free, not just the arithmetic. Plain integer **counts** via
+  `atomicAdd` are fine — addition of ones is associative.
+
+### 11. Look at the output
+
+Every test was green while the renderer drew a field of **snowflakes**. The rim
+treatment modulated edge softness per angle, and a radially-varying falloff
+distance renders as radial spokes. Plotting the pure `shape_radius` function in 20
+lines of Python localised it immediately by showing the silhouette was already
+correct.
 
 ---
 
-## Step 5 — the process rules that are actually enforced
+## 5. The process rules that are actually enforced
 
 - **A milestone is done only when `gate.ps1 -Milestone M<N>` exits 0.** Then
   `git tag m<N>-green`. Every gate re-runs all earlier gates. Gates never weaken.
 - **Run `scripts/audit.ps1` before and after each step.** Ten checks: canon
-  freshness, warnings-as-errors, ctest, determinism replay, no presentation code
-  in `sim`/`fields`, no host RNG, no fast-math, module inventory, **no physical
+  freshness, warnings-as-errors, ctest, determinism replay, no presentation code in
+  `sim`/`fields`, no host RNG, no fast-math, module inventory, **no physical
   literals in `sim`/`fields`**, no render size fudge.
-- **No physical literal outside `scripts/canon.py`.** Every constant is generated
-  into `src/core/canon_generated.h`. A9 greps three patterns and *will* catch you.
-  Maths constants (π) go in `core/units.h`, not canon.
+- **No physical literal outside `scripts/canon.py`.** A9 greps three patterns and
+  *will* catch you. It has no waiver in use — if it flags something, prefer
+  removing the need for it. (M8's `log(0)` guard vanished by sampling `1 − u`
+  instead of `u`; M9a's hash salt vanished by double-mixing `splitmix64`.)
 - **`build.ps1 -App`** whenever the executable matters. Without `-App` the core and
   tests build with no network and no dependencies.
 - **Regenerating goldens requires a `DECISIONS.md` entry in the same commit**
-  (Iron Rule 10). Never edit goldens by hand.
+  (Iron Rule 10). Never edit goldens by hand. Note: after `-Generate`, `git status`
+  may show all goldens modified while `imgdiff` reports mean 0.0000 — that is 1-LSB
+  raster noise. Revert them and keep only genuinely new ones; committing churn
+  makes a future real change invisible in the diff.
 - **Diff budget ≤ 600 LOC** per change unless the milestone authorises more.
 - **Spec reconciliation in the same commit** as any contract or boundary change.
 - **One milestone per session.** If it will not fit, split it in `MILESTONES.md`
-  *before* starting and give each half a gate.
+  *before* starting and give each half a gate. `gate.ps1` accepts split names
+  (`M8b`, `M9a`, `M9c`) — both its `ValidatePattern` and its parser handle a
+  trailing letter.
 - **End every session** by running the gate, appending a `SESSION_LOG.md` entry,
-  tagging if green, and **rewriting `_run_state/NEXT_SESSION.md`**. That last one is
-  the most valuable thing you do.
+  tagging if green, and **rewriting `_run_state/NEXT_SESSION.md`**.
 
 **Ask before:** `git push` to any remote, anything outside `C:\Astrophage\`,
 network access beyond dependency fetch, Windows settings, spending money.
 
 ---
 
-## Step 6 — what is next
+## 6. What is next — M9c
 
-### M9b — Life: disposition, clock, charts (the immediate milestone)
+**Scope.** `PHYSICS.md` §12. The multi-rate clock with its four presets (ADR-011),
+**the Q19 decision**, slot reuse and compaction, and the population/energy/
+temperature charts.
 
-`docs/PHYSICS.md` §10 and §12. Biomass, CO₂ uptake, mitosis with energy halving and
-RNG splitting, death paths, corpse rendering, the store-disposition toggle (ADR-004),
-the multi-rate clock (ADR-011), charts.
+**Gate.** M9b gate + each preset advances biology and physics at its stated ratio;
+a run with compaction enabled is still bit-reproducible (T22 re-run).
 
-**Gate:** M8 gate + T18 (doubling matches `LIFE_DOUBLING_TIME` within 2 % under
-non-limiting CO₂); growth halts within one doubling of CO₂ exhaustion; **T22 — a run
-in which cells divide is bit-reproducible**, which is the real test of ADR-014.
+**Three things M9c must confront:**
 
-**Three things M9 inherits from M8, all in ADR-022:**
-
-1. **CO₂ uptake is the depletion halo M8 guarded against in advance.** Two protections
-   exist and must survive: taxis samples at stage 3 *before* the cell's own deposit at
-   stage 7, and temporal comparison is blind to a roughly-constant self-offset.
-   `TAXIS_RUN_MAX` is the backstop for a cell that outruns its own halo — it is not
-   decoration.
-2. **Stage 2 (`field_sample`) is fused into `motion_step`**, so taxis reads a
-   `co2_local` one tick old. Negligible at M8; re-examine when uptake lands. Unfusing
-   a stage is a correctness change in *both* directions (ADR-018).
-3. **Stage 11 (`stats`) has never shipped.** `world_stats` returns only tick, time and
-   counts. M9's charts are its first consumer. Needs a deterministic device reduction
-   — tree or fixed-point, **never `atomicAdd` on float** (INV-2).
-
-**Read ADR-022 before touching `src/sim/taxis.*`.** M8 met the grid-vs-per-cell pattern
-a fourth time and **decided the other way on purpose**: BREED is a region-scale claim,
-so the grid is the right instrument there. That is a decision, not an oversight.
-
-**M8's own known defect, Q16, is written up in `NEXT_SESSION.md` with the numbers** —
-`TAXIS_MEMORY_TIME` is 3.1× the time an awake cell takes to cross the whole chamber, so
-over half the population reorients every tick. The gate passes at 20σ regardless. The
-fix is a constants decision needing its own ADR, not a controller change.
+1. **Q19 — `biology_rate` does not scale diffusion, and M9c owns the clock.**
+   ADR-011 assumed biology clocks are "local and non-stiff". **CO₂ uptake is not
+   purely local** — it is an exchange with a field that diffuses on *physics* time.
+   At `biology_rate` = 2e7 a cell eats 2×10⁴ s of CO₂ per tick while the medium
+   diffuses 10⁻³ s worth, so a cell strips its own grid cell and waits. Measured:
+   growth goes locally diffusion-limited at 25 % consumption, and even a
+   *saturating* control slows once dense. Decide whether fast presets scale CO₂
+   diffusion alongside, or whether the HUD simply states the limitation.
+   **Do not read the slowdown as a growth bug.**
+2. **Compaction was deliberately deferred twice.** Reordering the SoA reorders
+   contact-force summation — ADR-018's hazard — and it must not ride along with
+   mitosis. It needs its own determinism argument and a T22 re-run.
+3. **Q20 — `scan_kernel` is still single-threaded** when divisions actually occur.
+   A CUB `DeviceScan` is the right answer, CUB is already an allowed dependency,
+   and compaction needs the same primitive. Do them together.
 
 ### Then M10 → M12
 
-- **M10 Predation** — Taumoeba, engulfment, N₂ lethality, heritable tolerance.
-  The gate wants the **Taumoeba-82.5** strain to emerge by genuine directional
+- **M10 Predation** — Taumoeba, engulfment, N₂ lethality, heritable tolerance. The
+  gate wants the **Taumoeba-82.5** strain to emerge by genuine directional
   selection, not by script.
 - **M11 Content** — scenario loader, all eight scenarios from `docs/SCENARIOS.md`,
   the parameter inspector with provenance badges and canon locks, the cell
@@ -302,112 +355,94 @@ fix is a constants decision needing its own ADR, not a controller change.
 
 ---
 
-## Step 7 — deferred work, with reasons
+## 7. Open questions, with reasons
 
 **Recorded rather than glossed. Any of these is a legitimate thing to pick up.**
 
-### M7b — the view modes that did not land
-
-**Bloom and the Petrovascope / Thermal-IR view modes were in M7's scope and are not
-done.** The physics gate took the milestone. The enum values and the `u_mode`
-uniform are plumbed; `src/render/cells_pass.cpp` currently renders modes 1–4
-through the Analysis branch. Spec is `docs/RENDERING.md` §4–§5.
-
-**The constraint that matters:** Thermal IR and Petrovascope must read
-*differently*. The Petrova line is a discrete quantum annihilation line at
-25.984 μm; the thermal blackbody peak at the setpoint is 7.841 μm — **3.31× apart**.
-A live idle cell glows in Thermal and is **dark** in Petrovascope; a discharging
-cell blazes in Petrovascope. If the two modes ever collapse into one another, a
-real physical distinction has been lost. This is the simulator's best teaching
-moment and it is currently missing.
-
-Do it as a standalone M7b, or fold it into M11 with the rest of the UI.
-
-### Performance levers, both untouched
-
-- **Q9 — the best lever available.** The neighbour walk visits **27 buckets when 8
-  would do**: the hash cell is 22 μm and the contact/occlusion range is 10 μm, so a
-  2×2×2 walk is correct whenever `cell_size ≥ 2 × range`, which holds. ~3.4× on the
-  dominant cost — and it is now used by **both** contact and occlusion, so the win
-  has doubled since it was first identified.
-
-### Open questions
-
 - **Q1** — App `--headless` (hidden window) and `tools/headless` (never links GL)
   stay separate deliberately; merging would drag GL into the determinism oracle.
-- **Q5** — When M9 adds slot reuse, confirm `spawn_kernel` clears `vx/vy/vz`. It
+- **Q5** — When M9c adds slot reuse, confirm `spawn_kernel` clears `vx/vy/vz`. It
   does today, but only incidentally.
 - **Q6** — `MotionConfig` flags (`thermal_noise`, `contact_enabled`,
-  `adhesion_enabled`, `thermal_enabled`, `emission_enabled`, `occlusion_exact`) are
-  test-only. A scenario wanting them needs fields in `contracts/scenario_v1.h`.
-- **Q7** — `src/render/optics.h` and the GLSL in `cells_pass.cpp` duplicate four
-  formulas with no compiler check between them (ADR-017). If a third consumer
-  appears, generate the GLSL from the header rather than adding another copy.
-- **Q10** — Contact **cannot** hold a fully charged cell at `dt` = 1 ms: stability
-  caps stiffness 3.36× below what rigidity needs (ADR-018 §3). Bounded and tested
-  at < 200 % overlap. Needs contact substepping or `dt ≤ 0.3 ms` if M9 produces
-  dense charged cultures.
-- **Q11** — The SoA is **not** reordered by bucket, contrary to M4's stated scope: a
+  `adhesion_enabled`, `thermal_enabled`, `emission_enabled`, `taxis_enabled`,
+  `occlusion_exact`, `store_disposition`) are test-only. A scenario wanting them
+  needs fields in `contracts/scenario_v1.h`.
+- **Q7 / ADR-017** — `optics.h`, `morphology.h` and the GLSL in `cells_pass.cpp`
+  duplicate **five** formulas with no compiler check between them. Q7's trigger has
+  been met: the next consumer should **generate the GLSL from the header** rather
+  than hand-keeping a sixth copy.
+- **Q9** — the neighbour walk visits **27 buckets when 8 would do** (`cell_size`
+  22 μm ≥ 2 × 10 μm range). Used by contact *and* occlusion. Still the single best
+  remaining performance lever.
+- **Q10** — contact cannot hold a fully charged cell at `dt` = 1 ms (ADR-018 §3);
+  needs substepping if a scenario makes dense charged cultures.
+- **Q11** — the SoA is **not** reordered by bucket, contrary to M4's stated scope: a
   determinism hazard for a speculative gain. Revisit only with profiling evidence.
 - **Q12** — `shell_conductance` is kept in `thermal.cuh` but **deliberately
-  unused**, with its reasoning preserved. Read ADR-020 before reaching for it.
-- **Q13** — Light is axis-aligned only (ADR-021). A sheared sweep collides threads
-  on shared cells and needs atomics or a rotated buffer. Fine for P5; revisit only
-  if a scenario needs oblique illumination.
-- **Q14** — Dormant cells **charge**: `feed_kernel` checks `OCCUPIED|ALIVE` only.
+  unused**. Read ADR-020 before reaching for it.
+- **Q13** — light is axis-aligned only (ADR-021). A sheared sweep collides threads
+  on shared cells and needs atomics or a rotated buffer.
+- **Q14** — dormant cells **charge**: `feed_kernel` checks `OCCUPIED|ALIVE` only.
   Absorption is not optional (albedo 0), but the consistent alternative is that
-  absorbed light *warms* a dormant cell and ignites it at 96.415 °C — light-driven
-  ignition, canon-consistent and lovely. New behaviour; needs its own ADR.
-- **Q15** — Re-aiming is **instantaneous**; `PETROVA_SLEW_RATE` is unused by taxis.
+  absorbed light *warms* a dormant cell and ignites it at 96.415 °C —
+  **light-driven ignition**, canon-consistent and lovely. Needs its own ADR.
+- **Q15** — re-aiming is **instantaneous**; `PETROVA_SLEW_RATE` is unused by taxis.
   Rate-limiting needs the commanded heading stored apart from the current axis, and
   `cell_store_v1.h` has no such field — a v2 bump. Error direction is known:
-  instantaneous re-aim makes taxis *strictly more effective*, so M8's 20.3σ is an
-  upper bound.
-- **Q17 is DONE (M8b), and so is Q8.** Irregular morphology and vertex-stage
-  defocus culling both shipped; see ADR-023. The invariant to preserve: every
-  measurement golden pins `--morphology sphere --aperture 0`, and all eight verify
-  at mean difference **0.0000**, so appearance provably cannot move an oracle.
-  Still open from `RENDERING.md` Sec 8: chromatic aberration and medium texture
-  (both carry honesty caveats), and faceting -- the outlines are lobed, not angular.
-- **Q16 is RESOLVED (ADR-024).** `TAXIS_MEMORY_TIME` 2 s → 0.1 s; the criterion
-  `TAXIS_MEMORY_CHAMBER_RATIO` (memory / chamber-traversal) is derived and
-  asserted below 0.5, down from 3.05. Migration 20.3σ → **26.0σ**.
-- **Q18 — the tumble rule has no refractory period.** `taxis_should_tumble` fires
-  whenever `Δ ≤ 0` on any tick, so motion is a biased random walk decorrelating
-  every millisecond rather than run-and-tumble: only **3.6 %** of cells are on a
-  run outlasting one comparison window. The fix is a **rate-based** tumble
-  (Poisson, intensity modulated by Δ), NOT a hard minimum run -- a floor at
-  `TAXIS_TUMBLE_SLEW_TIME` = 1.19 s commits a cell to 7.3 mm of travel in a 4 mm
-  chamber and would break the milestone. Entangled with Q15 and ADR-005.
+  instantaneous re-aim makes taxis *strictly more effective*, so 26.0σ is an upper
+  bound.
+- **Q18** — the tumble rule has **no refractory period**: `Δ ≤ 0` fires on any tick,
+  so motion is a biased random walk decorrelating every millisecond rather than
+  run-and-tumble — only **3.6 %** of cells are on a run outlasting one comparison
+  window. The fix is a **rate-based Poisson tumble**, NOT a hard minimum run: a
+  floor at `TAXIS_TUMBLE_SLEW_TIME` = 1.19 s commits a cell to 7.3 mm of travel in a
+  4 mm chamber. Entangled with Q15 and ADR-005.
+- **Q19** — see §6.1. M9c's.
+- **Q20** — `scan_kernel` is single-threaded. See §6.3.
+- **Deferred render work** — bloom and the **Petrovascope / Thermal-IR view modes**
+  were in M7's scope and are still not done. The enum values and `u_mode` are
+  plumbed. The constraint that matters: Thermal IR and Petrovascope must read
+  *differently* (7.841 μm blackbody vs a 25.984 μm quantum line — a live idle cell
+  glows in one and is **dark** in the other). That is the simulator's best teaching
+  moment and it is missing. `RENDERING.md` §4–§5.
+- **Still open in `RENDERING.md` §8** — lateral chromatic aberration and procedural
+  medium texture, both with honesty caveats (aberration displaces pixels and must
+  never reach a measurement golden; a debris speck miscounted as a cell is a bug in
+  a simulator built to count cells). Faceting too: silhouettes are lobed pebbles
+  rather than the angular grains in the reference photography.
+- **Test suite cost** — `ctest` is ~4 minutes; `test_taxis` alone is 41.5 s. Kept
+  deliberately. If it becomes a problem that is an ADR, not a quiet trim.
+
 ### Known flake
 
-`gate.ps1`'s **M0.2** step does a clean reconfigure, which re-fetches
-GLFW/GLAD/ImGui over the network. It has failed transiently twice (once as
-`ninja: failed recompaction: Permission denied`) while every later gate passed on
-the resulting artifacts. If it recurs, make `build.ps1` retry the reconfigure
-rather than let a file-lock or network hiccup read as a milestone failure.
+`gate.ps1`'s **M0.2** does a clean reconfigure, re-fetching GLFW/GLAD/ImGui over the
+network. It has failed transiently twice (once as `ninja: failed recompaction:
+Permission denied`) while every later gate passed on the resulting artifacts. If it
+recurs, make `build.ps1` retry the reconfigure rather than let a file-lock or
+network hiccup read as a milestone failure.
 
 ---
 
-## Step 8 — what NOT to do
+## 8. What NOT to do
 
-- No interstellar, solar-system, or spacecraft scale. No orbital mechanics. No
-  relativistic travel. The `spin-drive-face` scenario is the sole exception and is
-  cell-scale by nature.
+- No interstellar, solar-system, or spacecraft scale. No orbital mechanics. The
+  `spin-drive-face` scenario is the sole exception and is cell-scale by nature.
 - No game mechanics or objectives beyond scenario acceptance checks.
 - No asset files — everything procedural or generated.
 - No web/browser tech. No Vulkan, no D3D, no second windowing framework.
 - No `-use_fast_math` in `sim`/`fields` (INV-6).
-- No new dependency without an ADR. Current allowed set: CUDA Toolkit (incl. CUB),
-  GLFW, GLAD, Dear ImGui.
+- No new dependency without an ADR. Allowed: CUDA Toolkit (incl. CUB), GLFW, GLAD,
+  Dear ImGui.
 - No skipping the change manifest. No loading the entire repo into context.
-- No forbidden synonyms — the glossary in `ARCHITECTURE.md` §2 is mandatory. It is
-  **Cell**, **Chamber**, **Scope**, **Charge**, **Petrova**, **Tick**, never
+- **No forbidden synonyms** — the glossary in `ARCHITECTURE.md` §2 is mandatory. It
+  is **Cell**, **Chamber**, **Scope**, **Charge**, **Petrova**, **Tick**, never
   particle / world / camera / fuel / IR / frame.
+- **Never special-case a signature phenomenon.** If you are writing an `if` to make
+  P1–P5 happen, the model is wrong upstream.
 
 ---
 
-## Step 9 — how the repo generates itself
+## 9. How the repo generates itself
 
 Worth understanding before touching anything, because it is the mechanism that
 keeps a dozens-of-sessions build honest.
@@ -424,14 +459,24 @@ stale. Every parameter carries a provenance tag — `CANON`, `DERIVED`, `REAL`,
 `INVENTED` — and that tag follows it into the UI. Canon values are locked;
 unlocking one flags the run as non-canon in the HUD and in every telemetry export.
 
+**Provenance discipline matters and is easy to get wrong.** A behavioural
+measurement of a *different organism* is `INVENTED`, not `REAL` — `REAL` means a
+real-world *physical* constant. Both `TAXIS_TUMBLE_ANGLE_MEAN` (E. coli's 68°) and
+`LIFE_CO2_HALF_SATURATION` (algal half-saturation) are tagged INVENTED with the
+analogy spelled out in the note.
+
 The novel contradicts itself twice, materially, and **both readings ship as
 playable options** rather than as silent decisions (ADR-002 cell density, ADR-003
-dormancy). That honesty is a feature of the product, not just of the docs.
+dormancy). ADR-023 added a third of the same kind: the novel says spheres, reference
+photography shows irregular grains, so **both morphologies ship**.
 
 ---
 
-## Suggested first message back
+## 10. Suggested first message back
 
-State which milestone you are taking, produce the **change manifest** Iron Rule 7
-requires (files to touch, contract changes y/n, tests to add, rollback plan, diff
-budget), and confirm the M7 gate is green before you change anything.
+State which milestone you are taking, produce the **change manifest** the session
+ritual requires (files to touch, contract changes y/n, tests to add, rollback plan,
+diff budget), and confirm the M9b gate is green before you change anything.
+
+If you are picking up M9c, say up front which way you are going on **Q19** — it is a
+decision, not a bug, and it needs an ADR either way.

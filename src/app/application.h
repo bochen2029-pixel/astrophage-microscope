@@ -23,6 +23,9 @@ struct Application {
 
     double accumulator = 0.0;   // fixed-tick residue, seconds
     int    frames_done = 0;
+    // Refreshed at HUD rate, not per frame: the stage-11 reduction ends in a
+    // synchronous D2H (ARCHITECTURE.md Sec 3.1).
+    contract::Stats stats_cache{};
 
     // Benchmark accounting, in milliseconds.
     double bench_total_ms = 0.0;

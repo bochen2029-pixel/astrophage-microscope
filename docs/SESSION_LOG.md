@@ -6,6 +6,23 @@ Format: milestone · what landed · what is pending · open questions · gotchas
 
 ---
 
+## 2026-08-02 — M9b (Life: death) — GREEN · **stage 11 finally ships**
+
+**Landed.** Death by overheating, the three-way store disposition (ADR-004), and **tick stage 11 — the telemetry reduction, unshipped for nine milestones** while `contract::Stats` sat fully specified and entirely unfilled. 20 tests green. No contract change.
+
+**T23 is the claim.** Eight reductions of one identical state produce an **identical bit pattern**, and the energy ledger matches a sorted host-side sum to 1e-9. Fixed point is not about accuracy here — a float sum would be *order-dependent*, so the HUD's last digits would flicker with occupancy and no two runs would agree on the ledger.
+
+**ADR-004 is observable rather than nominal.** Under `void` a corpse falls to `CELL_DENSITY_DRY` = 40.1 kg/m³ and *rises*; under `retain` it stays at ~25,500 kg/m³ and rains to the coverslip. Both are just `mass = biomass + energy/c²` with the store gone or kept — no special case.
+
+**Gotchas.**
+- **A lethal bath does not sterilise, and that is P2.** 4,000 dormant cells dropped into 623 K — 50 K above lethal — lose only 3,411. Every one ignites (P3), and the survivors drag the medium from 623 K down to **601 K**, because the thermostat is bidirectional and *absorbs* heat above the setpoint. It surfaced as a confound in a disposition test; the right answer was to isolate that test **and assert the contest separately** (T23.5), not to suppress it.
+- **The first death counter shared the stats accumulator** it was meant to be independent of. Divisions are already known on the host in `lifecycle_step`, and deaths difference against the previous reduction — so the window counters need no device buffer and no per-tick D2H at all.
+- **`AWAKE` is not cleared on death.** The glossary makes alive/dead orthogonal to awake/dormant; a corpse that *was* awake is a fact about its history. Corpses stop emitting and stop taxis for free, since both stages already gate on `ALIVE`.
+- **The M1.5 render benchmark caught two performance regressions no correctness test could.** `world_stats` was being called every frame and ends in a synchronous D2H; and `scan_kernel` is `<<<1,1>>>`, a serial loop over the whole population, running unconditionally to build a prefix that is almost always all zeros. Counting first and skipping the scan took 200k cells from **145.2 to 185.5 fps** — margin over target from 0.8 % to 29 % — with **T22's hash unchanged**, which is what proves it behaviour-preserving. Q20: the scan is still serial when divisions do happen; CUB `DeviceScan` belongs with M9c's compaction.
+- **README screenshots regenerated** now that cells are grains rather than dots — hero and the 100× focus sweep. `p1-buoyancy` is left alone deliberately: it is a 10× survey montage where a cell is one or two pixels, so morphology cannot show and regenerating would only churn the file.
+
+---
+
 ## 2026-08-02 — M9a (Life: division) — GREEN · **cells divide, reproducibly**
 
 **Landed.** CO₂ uptake, mitosis with energy halving and `pcg_split`, and prefix-sum daughter slots. 19 tests green. **No contract change** — `biomass`, `co2_held` and `CELL_FLAG_DIVIDING` were all already in `cell_store_v1.h`.

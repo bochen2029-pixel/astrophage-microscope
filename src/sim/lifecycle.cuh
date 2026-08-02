@@ -9,6 +9,8 @@
 #include <cmath>
 #include <cstdint>
 
+#include "contracts/cell_store_v1.h"
+#include "contracts/scenario_v1.h"
 #include "core/canon_generated.h"
 #include "core/rng.cuh"
 #include "core/units.h"
@@ -43,6 +45,28 @@ ASTRO_HD inline bool ready_to_divide(double co2_held) {
 ASTRO_HD inline double daughter_energy(double parent_energy) {
     const double half = 0.5 * (parent_energy - canon::LIFE_DIVISION_ENERGY_COST);
     return half > 0.0 ? half : 0.0;
+}
+
+// Death by heat. Starvation already lands via the M6 thermal path; this is the
+// other end, and it is what makes the torch-the-slide escape hatch real.
+ASTRO_HD inline bool lethal_temperature(double t_local) {
+    return t_local > canon::CELL_LETHAL_TEMP;
+}
+
+// Where a dead cell's store goes -- canon is silent, so all three readings ship and
+// `void` is the default (ADR-004). Returns the energy the CORPSE retains.
+//
+// `flash` is the physically conserving one and it is not a detail: one full cell is
+// 358.5 g of TNT equivalent, so a mass death event is a containment failure rather
+// than something a slide shrugs off. M9b discharges it as emission over one tick;
+// the scripted end state belongs with the scenario system at M11.
+ASTRO_HD inline double corpse_energy(contract::StoreDisposition d, double energy) {
+    switch (d) {
+        case contract::StoreDisposition::Retain: return energy;   // inert ballast
+        case contract::StoreDisposition::Flash:  return 0.0;      // radiated away
+        case contract::StoreDisposition::Void:
+        default:                                 return 0.0;      // vanishes
+    }
 }
 
 // The daughter's stream must depend on nothing but (parent state, daughter id) --

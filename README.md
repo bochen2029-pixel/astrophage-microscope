@@ -7,14 +7,14 @@ A sealed 4 mm chamber of water. Cells 10 μm across, black at every wavelength, 
 Deliberately **not** the interstellar scale — no ships, no Petrova arc, no Tau Ceti. Just what you would see down the eyepiece.
 
 ```
-Status:  M9a of M12 green  ·  C++20 + CUDA 13.1  ·  sm_89  ·  Windows 11
+Status:  M9b of M12 green  ·  C++20 + CUDA 13.1  ·  sm_89  ·  Windows 11
          ALL FIVE signature phenomena are live.
          Remaining milestones add taxis, life cycle, predation, and content.
 ```
 
 ![Astrophage at the 40× working objective](docs/images/brightfield-40x.png)
 
-*25,000 cells in brightfield at the 40× working objective. Sharp cells sit within the 1.53 μm depth of field; everything else is energy-conserving defocus. The chamber is 4 mm across — this view is 550 μm of it.*
+*25,000 cells in brightfield at the 40× working objective, inside the field diaphragm. Silhouettes are irregular and unique per cell, and area-preserving to machine precision — so an irregular cell absorbs exactly as much light as the sphere the physics models (ADR-023). Sharp cells sit within the 1.53 μm depth of field; everything else is energy-conserving defocus. The chamber is 4 mm across — this view is 550 μm of it.*
 
 ---
 
@@ -64,7 +64,7 @@ Albedo is exactly zero at every wavelength ("super cross-sectionality"). In a li
 
 ![Focus sweep at 100× oil](docs/images/m3-focus-sweep.png)
 
-*The same field at the 100× oil objective with the focal plane at 0, 2, 6 and 15 μm. Different cells resolve in each panel.*
+*The same field at the 100× oil objective with the focal plane at 0, 2, 6 and 15 μm. Different cells resolve in each panel — the depth of field is 0.61 μm inside a 60 μm chamber, so racking focus is how you find anything.*
 
 The depth of field at the working objective is **1.53 μm inside a 60 μm chamber** — about 2.5 % of the culture is sharp at any moment. Racking focus is a primary control, not a garnish.
 
@@ -171,6 +171,7 @@ Without `-App`, the core library and the full test suite build with **no network
 | M8 | Taxis: run-and-tumble phototaxis and chemotaxis | ✅ `m8-green` |
 | M8b | Presentation: irregular cell morphology, field diaphragm, defocus culling | ✅ `m8b-green` |
 | M9a | Life: CO₂ uptake, mitosis, reproducible division | ✅ `m9a-green` |
+| M9b | Life: death, store disposition, telemetry reduction | ✅ `m9b-green` |
 | M9 | Life: mitosis, death, corpses, multi-rate clock | ☐ |
 | M10 | Predation: Taumoeba, nitrogen lethality, heritable tolerance | ☐ |
 | M11 | Content: eight scenarios, inspector panels, telemetry | ☐ |

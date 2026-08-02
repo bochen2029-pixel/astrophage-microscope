@@ -17,7 +17,8 @@ Every gate re-runs all earlier gates. Gates never weaken.
 | M8 | Taxis | run-and-tumble, phototaxis, CO₂ field, chemotaxis | M8 | ✅ `m8-green` |
 | M8b | Presentation | irregular morphology, field diaphragm, defocus culling | M8b | ✅ `m8b-green` |
 | M9a | Life: division | biomass, CO₂ uptake, mitosis, RNG splitting, prefix-sum slots | M9a | ✅ `m9a-green` |
-| M9b | Life: content | corpses, disposition, multi-rate clock, stats reduction, compaction, charts | M9b | ☐ |
+| M9b | Life: death | overheat death, corpses, store disposition, stage-11 stats reduction | M9b | ✅ `m9b-green` |
+| M9c | Life: clock | multi-rate presets, Q19 decision, compaction, charts | M9c | ☐ |
 | M10 | Predation | Taumoeba, N₂, heritable tolerance, evolution | M10 | ☐ |
 | M11 | Content | scenario system, all 8 scenarios, UI panels, charts, telemetry | M11 | ☐ |
 | M12 | Ship | snapshot/replay, perf pass, packaging | `v1.0` | ☐ |
@@ -187,11 +188,19 @@ Three findings, all in ADR-018:
 
 **The trap M8 left for it (ADR-022 §1).** CO₂ uptake creates the depletion halo the taxis controller was built to tolerate. Two guards exist and must survive: taxis samples at stage 3 *before* the cell's own deposit at stage 7, and temporal comparison is blind to a roughly-constant self-offset. `TAXIS_RUN_MAX` is the backstop for a cell that outruns its own halo — it is not decoration.
 
-### M9b — Life: disposition, clock, charts
+### M9b — Life: death, disposition, and the stats reduction
 
-**Scope.** `PHYSICS.md` §10 death half and §12. Corpse rendering, the three-way store-disposition toggle (ADR-004), the multi-rate clock with its four presets (ADR-011), **tick stage 11 (`stats`) — which has never shipped** and whose first real consumer is here, slot reuse and compaction (deferred out of M9a because reordering the SoA reorders contact-force summation — ADR-018's hazard), plus the population/energy/temperature charts.
+**Split again before starting.** The original M9b carried a determinism problem (the reduction), a physics problem (death and disposition), a risky SoA reorder (compaction) and a UI problem (charts). The first two belong together; the last two do not.
 
-**Gate.** M9a gate + the stats reduction is deterministic across block sizes (INV-2: tree or fixed-point, never `atomicAdd` on float); each clock preset advances biology and physics at its stated ratio; `retain` disposition leaves corpses at ~32,000 kg/m³ and `void` does not.
+**Scope.** `PHYSICS.md` §10, death half. Death by overheating (`temp_cell > CELL_LETHAL_TEMP`; starvation already lands via the M6 path), corpses that stop emitting, stop taxis and let the thermostat disengage, the three-way store-disposition toggle (ADR-004), and **tick stage 11 (`stats`) — which has never shipped in nine milestones.**
+
+**Gate.** M9a gate + T23: the stats reduction is **bit-identical across block sizes** (INV-2: fixed-point or tree, never `atomicAdd` on float) and its energy ledger matches a host-side sum; `retain` disposition leaves corpses at ~32,000 kg/m³ while `void` leaves them at the dry density and they stop sinking.
+
+### M9c — Life: clock, compaction, charts
+
+**Scope.** `PHYSICS.md` §12. The multi-rate clock with its four presets (ADR-011), **the Q19 decision** — whether fast presets scale CO₂ diffusion alongside biology, or whether the HUD simply states the limitation — slot reuse and compaction, and the population/energy/temperature charts.
+
+**Gate.** M9b gate + each preset advances biology and physics at its stated ratio; a run with compaction enabled is still bit-reproducible (T22 re-run) — compaction reorders the SoA, which reorders contact-force summation, and that is ADR-018's hazard, so it needs its own argument rather than riding along with mitosis.
 
 ---
 
@@ -199,7 +208,7 @@ Three findings, all in ADR-018:
 
 **Scope.** `PHYSICS.md` §11. `TaumoebaStore`, crawl, engulfment, digestion, N₂ field and lethality, heritable tolerance with mutation, the mean-tolerance chart.
 
-**Gate.** M9b gate + a predator introduction crashes the population; under a slowly rising N₂ ramp the mean tolerance rises monotonically on a 5-generation moving average and a strain with tolerance ≥ 0.825 appears within 40 generations at default `TAU_MUTATION_SIGMA`.
+**Gate.** M9c gate + a predator introduction crashes the population; under a slowly rising N₂ ramp the mean tolerance rises monotonically on a 5-generation moving average and a strain with tolerance ≥ 0.825 appears within 40 generations at default `TAU_MUTATION_SIGMA`.
 
 ---
 

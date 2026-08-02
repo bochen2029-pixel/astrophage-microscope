@@ -7,6 +7,7 @@
 
 #include <cstdint>
 
+#include "contracts/scenario_v1.h"
 #include "contracts/telemetry_v1.h"
 #include "core/canon_generated.h"
 #include "core/result.h"
@@ -30,6 +31,16 @@ struct Fields {
 
 enum class BrushKind : uint8_t { Heat = 0, Chill = 1, InjectCO2 = 2, InjectN2 = 3 };
 
+// Device-side telemetry accumulators, all 64-bit FIXED POINT (INV-2). Float
+// atomicAdd is order-dependent, so a float reduction would report a different mean
+// depending on how blocks retired. Counts are plain integers, which are already
+// order-independent.
+struct StatsAccum {
+    unsigned long long energy = 0, temp_cell = 0, temp_medium = 0;
+    unsigned long long co2 = 0, n2 = 0, max_temp = 0;
+    unsigned int n_alive = 0, n_dead = 0, n_awake = 0, n_dormant = 0;
+};
+
 // Everything the motion stages need. Passed by value into kernels, so POD.
 struct MotionConfig {
     Boundary    boundary_x = Boundary::Reflecting;
@@ -48,6 +59,9 @@ struct MotionConfig {
     // Exact per-cell 3D shadowing on top of the grid's far-field extinction.
     bool        occlusion_exact = true;
     double      ambient_temp = canon::AMBIENT_TEMP_DEFAULT;
+    // Where a dead cell's 1.5 MJ goes. Canon is silent, so all three readings ship
+    // and `void` is the default (ADR-004).
+    contract::StoreDisposition store_disposition = contract::StoreDisposition::Void;
 };
 
 struct WorldDesc {
@@ -76,6 +90,10 @@ struct World {
     // cells sharing one grid cell take N times its contents and drive the field
     // negative (ADR-025).
     unsigned long long* d_co2_demand = nullptr;
+    StatsAccum*  d_stats = nullptr;      // tick stage 11
+    StatsAccum   stats_host{};           // last D2H copy
+    int32_t      divisions_this_window = 0;
+    int32_t      deaths_this_window = 0;
     Chamber      chamber{};
     MotionConfig motion{};
     uint64_t     tick = 0;
@@ -101,9 +119,12 @@ void emission_step(World& w, double dt);
 // debits the store for what it emits.
 void taxis_step(World& w, double dt);
 
-// Tick stage 10 (src/sim/lifecycle.cu). CO2 uptake and mitosis. MUTATES THE STORE
-// -- it must stay last, because anything after it reads stale indices.
+// Tick stage 10 (src/sim/lifecycle.cu). CO2 uptake, death and mitosis. MUTATES THE
+// STORE -- it must stay last, because anything after it reads stale indices.
 void lifecycle_step(World& w, double dt);
+
+// Tick stage 11 (src/sim/stats.cu). Deterministic fixed-point reduction.
+void stats_step(World& w);
 
 // Applied at a tick boundary from the app, never from an input handler --
 // writing device memory mid-tick would break INV-8 (src/app/MODULE.md).
@@ -120,6 +141,8 @@ void  world_step(World& w);
 double world_sim_time(const World& w);
 
 // Snapshot of what the UI shows. Cheap at M1; becomes a device reduction in M6.
-contract::Stats world_stats(const World& w);
+// Runs the stage-11 reduction and copies the result D2H, so it is NOT free --
+// call it at HUD rate, not every tick (ARCHITECTURE.md Sec 3.1).
+contract::Stats world_stats(World& w);
 
 } // namespace astro::sim

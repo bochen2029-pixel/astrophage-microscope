@@ -210,7 +210,13 @@ int app_run(Application& a) {
                                    a.options.aperture);
 
         if (!a.options.no_ui) {
-            const contract::Stats stats = sim::world_stats(a.world);
+            // HUD RATE, NOT FRAME RATE. world_stats runs the stage-11 reduction and
+            // ends in a synchronous D2H, which stalls the pipeline; calling it every
+            // frame cost enough to fail the 200k-cell benchmark outright. This is
+            // what ARCHITECTURE.md Sec 3.1 has always specified -- "~30 Hz, not
+            // every tick" -- and the HUD cannot show the difference.
+            if ((a.frames_done & 3) == 0) a.stats_cache = sim::world_stats(a.world);
+            const contract::Stats stats = a.stats_cache;
             ui::hud_draw(a.hud, stats, a.camera, a.cells_pass.capacity,
                          a.world.chamber.w, a.world.chamber.h, a.world.chamber.d);
             ui::draw_scale_bar(a.camera, a.gl.fb_width, a.gl.fb_height);
