@@ -113,6 +113,9 @@ Error app_init(Application& a, const Options& o) {
     ASTRO_TRY(render::cells_pass_create(a.cells_pass, count));
     ASTRO_TRY(spawn_population(a.world, count, o.charge, o.seed));
 
+    if (o.objective >= 0 && o.objective < canon::OBJECTIVE_COUNT) a.camera.objective = o.objective;
+    if (o.zoom > 0.0f) a.camera.zoom = o.zoom;
+
     a.hud.respawn_count = count;
     a.hud.respawn_charge = o.charge;
     std::printf("[app] chamber %.2f x %.2f mm, %.0f um deep | %d cells | seed %llu\n",

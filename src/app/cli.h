@@ -11,6 +11,10 @@ struct Options {
     float    charge     = 0.0f;      // initial charge fraction for every cell
     int      width      = 1600;
     int      height     = 1000;
+    // Scope state from the command line, so golden images (M3) are reproducible
+    // without driving the UI.
+    int      objective  = -1;        // -1 = canon::OBJECTIVE_DEFAULT
+    float    zoom       = 1.0f;
 
     bool     headless   = false;     // hidden window; still a real GL context
     bool     gl_debug   = false;     // GL_DEBUG_OUTPUT; nonzero errors fail

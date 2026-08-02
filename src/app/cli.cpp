@@ -14,6 +14,8 @@ void print_usage() {
         "  --cells N          initial population (default: canon DEFAULT_CELLS)\n"
         "  --seed N           master seed\n"
         "  --charge F         initial charge fraction, 0..1\n"
+        "  --objective N      0 = 10x survey, 1 = 40x working, 2 = 100x detail\n"
+        "  --zoom F           digital zoom on top of the objective\n"
         "  --width N          window width\n"
         "  --height N         window height\n"
         "  --frames N         run N frames then exit (0 = until closed)\n"
@@ -39,9 +41,14 @@ Options parse_args(int argc, char** argv) {
         else if (want("--width"))      o.width  = static_cast<int>(next_int(o.width));
         else if (want("--height"))     o.height = static_cast<int>(next_int(o.height));
         else if (want("--frames"))     o.frames = static_cast<int>(next_int(o.frames));
+        else if (want("--objective")) o.objective = static_cast<int>(next_int(-1));
         else if (want("--charge")) {
             if (i + 1 >= argc) o.bad = true;
             else o.charge = static_cast<float>(std::atof(argv[++i]));
+        }
+        else if (want("--zoom")) {
+            if (i + 1 >= argc) o.bad = true;
+            else o.zoom = static_cast<float>(std::atof(argv[++i]));
         }
         else if (want("--headless"))   o.headless  = true;
         else if (want("--gl-debug"))   o.gl_debug  = true;
