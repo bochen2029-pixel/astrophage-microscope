@@ -75,7 +75,11 @@ __global__ void thermal_kernel(CellStoreView v, FieldView temp, double dt_sub,
 void thermal_step(World& w, double dt) {
     const int32_t n = w.cells.count;
     auto& temp = w.fields.temperature;
-    const int32_t substeps = temp.substeps > 0 ? temp.substeps : 1;
+    // Substeps follow the ACTUAL dt (physics_rate scales it), not the count baked
+    // for a 1 ms tick -- otherwise a fast clock overshoots the stability bound and
+    // the near-field deposit sails past boiling (ADR-020, ADR-027). At DT_PHYSICS
+    // this is the baked count, so physics_rate == 1 is unchanged.
+    const int32_t substeps = astro::fields::substeps_for_dt(temp.dx, temp.diffusivity, dt);
     const double dt_sub = dt / substeps;
 
     // The heat capacity of one grid cell of medium: dx^2 * chamber depth.

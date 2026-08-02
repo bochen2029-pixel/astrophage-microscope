@@ -38,6 +38,7 @@ __global__ void field_sample_kernel(CellStoreView v, FieldView temp, FieldView c
 // differed between two identical runs. ARCHITECTURE.md Sec 3.4 lists forces and
 // integrate as separate stages for exactly this reason (ADR-018).
 __global__ void forces_kernel(CellStoreView v, HashView hash, MotionConfig cfg,
+                              double contact_stiffness,
                               double* fx, double* fy, double* fz) {
     const int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i >= v.count) return;
@@ -58,7 +59,7 @@ __global__ void forces_kernel(CellStoreView v, HashView hash, MotionConfig cfg,
         const Vec3 pos{v.x[i], v.y[i], v.z[i]};
         ASTRO_FOR_EACH_NEIGHBOUR(hash, pos.x, pos.y, pos.z, j, {
             if (j != i && (v.flags[j] & CELL_FLAG_OCCUPIED)) {
-                force += contact_force(pos, Vec3{v.x[j], v.y[j], v.z[j]});
+                force += contact_force(pos, Vec3{v.x[j], v.y[j], v.z[j]}, contact_stiffness);
             }
         });
     }
@@ -151,8 +152,13 @@ void motion_step(World& w, double dt) {
                                          astro::fields::grid_view(w.fields.temperature),
                                          astro::fields::grid_view(w.fields.co2),
                                          astro::fields::grid_view(w.fields.n2));
+    // Contact stiffness scales as 1/physics_rate to hold ADR-018's stability ratio
+    // at a fast clock: an explicit overdamped spring diverges once k*dt/gamma
+    // exceeds ~2, and a divergent spring ejects cells, violating containment. At
+    // physics_rate == 1 this is CONTACT_STIFFNESS exactly (ADR-027).
+    const double k_contact = canon::CONTACT_STIFFNESS / w.physics_rate;
     forces_kernel<<<grid, block>>>(w.cells.view, hash_view(w.hash), w.motion,
-                                   w.d_fx, w.d_fy, w.d_fz);
+                                   k_contact, w.d_fx, w.d_fy, w.d_fz);
     integrate_kernel<<<grid, block>>>(w.cells.view, w.motion, w.chamber,
                                       w.d_fx, w.d_fy, w.d_fz, dt);
 }

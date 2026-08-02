@@ -42,6 +42,16 @@ constexpr int substeps_for(double extent, int n, double diffusivity, double dt) 
     return static_cast<int>(dt / explicit_dt_max(extent, n, diffusivity)) + 1;
 }
 
+// Substeps to keep an explicit FTCS step stable at an ARBITRARY dt, rather than
+// the count baked at grid_create for a 1 ms tick. physics_rate raises the dt
+// world_step hands each field, so the count must rise with it or the coefficient
+// passes 0.25 and the field oscillates and then goes NaN (ADR-027). At DT_PHYSICS
+// this returns exactly the baked substeps, so physics_rate == 1 is bit-identical
+// to M9b.
+constexpr int substeps_for_dt(double dx, double diffusivity, double dt) {
+    return static_cast<int>(dt / (dx * dx / (4.0 * diffusivity))) + 1;
+}
+
 inline constexpr int TEMP_SUBSTEPS = substeps_for(
     canon::CHAMBER_W, canon::FIELD_N_TEMP, canon::WATER_THERMAL_DIFFUSIVITY, canon::DT_PHYSICS);
 inline constexpr int CO2_SUBSTEPS = substeps_for(

@@ -63,6 +63,18 @@ inline constexpr double WALL_STUCK_DRAG_MULT = 20; // [-] INVENTED -- Drag multi
 inline constexpr double WALL_RELEASE_FORCE = 5.0000000000000002e-11; // [N] INVENTED -- Normal force needed to pull an adhered cell off the glass. Sits between a full cell's buoyant weight (1.6e-10 N) and an empty one's (4.9e-12 N), so charge state decides whether a cell can free itself.
 inline constexpr double HASH_CELL_FACTOR = 2.2000000000000002; // [-] INVENTED -- Spatial hash cell size in units of CELL_DIAMETER.
 inline constexpr double DT_PHYSICS = 0.001; // [s] INVENTED -- Fixed physics timestep. Never varies with frame rate.
+inline constexpr double CLOCK_PHYSICS_MIN = 0.10000000000000001; // [-] INVENTED -- Slowest physics multiplier.
+inline constexpr double CLOCK_PHYSICS_MAX = 100; // [-] INVENTED -- Fastest physics multiplier (stiff; stay near 1).
+inline constexpr double CLOCK_BIOLOGY_MIN = 1; // [-] INVENTED -- Slowest biology multiplier.
+inline constexpr double CLOCK_BIOLOGY_MAX = 1000000; // [-] INVENTED -- Fastest biology multiplier (non-stiff; free).
+inline constexpr double CLOCK_REALTIME_PHYSICS = 1; // [-] INVENTED -- Realtime preset: honest microscopy.
+inline constexpr double CLOCK_REALTIME_BIOLOGY = 1; // [-] INVENTED -- Realtime preset biology rate.
+inline constexpr double CLOCK_MOTION_PHYSICS = 10; // [-] INVENTED -- Motion preset: sedimentation, taxis, migration.
+inline constexpr double CLOCK_MOTION_BIOLOGY = 1; // [-] INVENTED -- Motion preset biology rate.
+inline constexpr double CLOCK_METABOLIC_PHYSICS = 1; // [-] INVENTED -- Metabolic preset: charging, feeding, equilibrium.
+inline constexpr double CLOCK_METABOLIC_BIOLOGY = 10000; // [-] INVENTED -- Metabolic preset biology rate.
+inline constexpr double CLOCK_GENERATIONAL_PHYSICS = 0.5; // [-] INVENTED -- Generational preset: division, population, evolution.
+inline constexpr double CLOCK_GENERATIONAL_BIOLOGY = 1000000; // [-] INVENTED -- Generational preset biology rate.
 inline constexpr double TAXIS_MEMORY_TIME = 0.10000000000000001; // [s] INVENTED -- Run-and-tumble temporal comparison window. Must stay SHORT compared to the time a thrusting cell takes to cross the chamber (0.655 s), because no gradient can be larger than the chamber: a longer window compares against a baseline older than any structure the cell could be climbing. The original 2.0 s was 3.05 chamber crossings and left 54 % of cells reorienting every tick. See ADR-007 and ADR-024; TAXIS_MEMORY_CHAMBER_RATIO is the check.
 inline constexpr double TAXIS_DARK_THRESHOLD = 0.001; // [W/m^2] INVENTED -- Below this irradiance a cell does not move (canon: 'does not move in darkness').
 inline constexpr double TAXIS_SEEK_FEED_BELOW = 0.94999999999999996; // [-] INVENTED -- Charge fraction below which a cell seeks light.
@@ -180,6 +192,18 @@ inline constexpr ParamMeta PARAM_TABLE[] = {
     { "WALL_RELEASE_FORCE", 5.0000000000000002e-11, "N", Provenance::Invented, "Normal force needed to pull an adhered cell off the glass. Sits between a full cell's buoyant weight (1.6e-10 N) and an empty one's (4.9e-12 N), so charge state decides whether a cell can free itself.", true, 1e-13, 1e-08, true },
     { "HASH_CELL_FACTOR", 2.2000000000000002, "-", Provenance::Invented, "Spatial hash cell size in units of CELL_DIAMETER.", true, 1.05, 8, false },
     { "DT_PHYSICS", 0.001, "s", Provenance::Invented, "Fixed physics timestep. Never varies with frame rate.", true, 1.0000000000000001e-05, 0.01, true },
+    { "CLOCK_PHYSICS_MIN", 0.10000000000000001, "-", Provenance::Invented, "Slowest physics multiplier.", false, 0.0, 0.0, false },
+    { "CLOCK_PHYSICS_MAX", 100, "-", Provenance::Invented, "Fastest physics multiplier (stiff; stay near 1).", false, 0.0, 0.0, false },
+    { "CLOCK_BIOLOGY_MIN", 1, "-", Provenance::Invented, "Slowest biology multiplier.", false, 0.0, 0.0, false },
+    { "CLOCK_BIOLOGY_MAX", 1000000, "-", Provenance::Invented, "Fastest biology multiplier (non-stiff; free).", false, 0.0, 0.0, false },
+    { "CLOCK_REALTIME_PHYSICS", 1, "-", Provenance::Invented, "Realtime preset: honest microscopy.", false, 0.0, 0.0, false },
+    { "CLOCK_REALTIME_BIOLOGY", 1, "-", Provenance::Invented, "Realtime preset biology rate.", false, 0.0, 0.0, false },
+    { "CLOCK_MOTION_PHYSICS", 10, "-", Provenance::Invented, "Motion preset: sedimentation, taxis, migration.", false, 0.0, 0.0, false },
+    { "CLOCK_MOTION_BIOLOGY", 1, "-", Provenance::Invented, "Motion preset biology rate.", false, 0.0, 0.0, false },
+    { "CLOCK_METABOLIC_PHYSICS", 1, "-", Provenance::Invented, "Metabolic preset: charging, feeding, equilibrium.", false, 0.0, 0.0, false },
+    { "CLOCK_METABOLIC_BIOLOGY", 10000, "-", Provenance::Invented, "Metabolic preset biology rate.", false, 0.0, 0.0, false },
+    { "CLOCK_GENERATIONAL_PHYSICS", 0.5, "-", Provenance::Invented, "Generational preset: division, population, evolution.", false, 0.0, 0.0, false },
+    { "CLOCK_GENERATIONAL_BIOLOGY", 1000000, "-", Provenance::Invented, "Generational preset biology rate.", false, 0.0, 0.0, false },
     { "TAXIS_MEMORY_TIME", 0.10000000000000001, "s", Provenance::Invented, "Run-and-tumble temporal comparison window. Must stay SHORT compared to the time a thrusting cell takes to cross the chamber (0.655 s), because no gradient can be larger than the chamber: a longer window compares against a baseline older than any structure the cell could be climbing. The original 2.0 s was 3.05 chamber crossings and left 54 % of cells reorienting every tick. See ADR-007 and ADR-024; TAXIS_MEMORY_CHAMBER_RATIO is the check.", true, 0.0050000000000000001, 60, true },
     { "TAXIS_DARK_THRESHOLD", 0.001, "W/m^2", Provenance::Invented, "[REF 1.5] Below this irradiance a cell does not move (canon: 'does not move in darkness').", true, 0, 1000, true },
     { "TAXIS_SEEK_FEED_BELOW", 0.94999999999999996, "-", Provenance::Invented, "Charge fraction below which a cell seeks light.", true, 0, 1, false },
@@ -223,6 +247,6 @@ inline constexpr ParamMeta PARAM_TABLE[] = {
     { "TNT_GRAMS_PER_FULL_CELL", 358.50860420650093, "g", Provenance::Derived, "= E_max / 4184 J/g", false, 0.0, 0.0, false },
     { "WIEN_LAMBDA_AT_SETPOINT", 7.8410346082556516e-06, "m", Provenance::Derived, "= Wien b / T -- the THERMAL peak, distinct from the Petrova line", false, 0.0, 0.0, false },
 };
-inline constexpr int PARAM_COUNT = 86;
+inline constexpr int PARAM_COUNT = 98;
 
 } // namespace astro::canon

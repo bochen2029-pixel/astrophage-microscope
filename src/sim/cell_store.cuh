@@ -40,17 +40,32 @@ struct CellStore {
     int32_t  capacity    = 0;
     int32_t  count       = 0;              // host mirror of view.count
     uint64_t next_id     = 1;              // 0 is reserved as "no cell"
-    // Exclusive prefix sum over "divides this tick", one entry per slot. NOT a
-    // free list: daughter slots are ALLOCATED by this scan rather than reclaimed,
-    // because the snapshot hash is taken over the SoA in slot order and an
-    // order-dependent assignment would vary it run to run (ADR-025). Slot reuse
-    // and compaction arrive with M9b.
+    // Scan buffers, one entry per slot. `d_scan_flags` holds the 0/1 predicate
+    // (divides-this-tick, or survives-compaction); an exclusive prefix sum
+    // (cub::DeviceScan) writes the destination slots into `d_birth_prefix`. The
+    // allocation MUST be order-free -- the snapshot hash is over the SoA in slot
+    // order, so an atomicAdd assignment would vary it run to run (ADR-025/ADR-028).
+    int32_t* d_scan_flags   = nullptr;
     int32_t* d_birth_prefix = nullptr;
-    int32_t* d_birth_count = nullptr;
+    int32_t* d_birth_count  = nullptr;     // reused as the survivor total by compaction
+    int32_t* d_dead_count   = nullptr;     // occupied-but-dead slots, the compaction trigger
+    // Compaction scratch (ADR-028). `d_compact_src[k]` is the source slot of output
+    // slot k; `d_compact_scratch` is a capacity*8-byte gather buffer reused across
+    // every SoA array; `d_cub_temp` backs the exclusive-sum.
+    int32_t* d_compact_src     = nullptr;
+    void*    d_compact_scratch = nullptr;
+    void*    d_cub_temp        = nullptr;
+    size_t   cub_temp_bytes    = 0;
 };
 
 Error cell_store_create(CellStore& s, int32_t capacity);
 void  cell_store_destroy(CellStore& s);
+
+// Reclaim the slots of dead cells: pack OCCUPIED && ALIVE survivors into
+// [0, live) preserving relative order, and set count = live. Stable and
+// prefix-sum-allocated, so it is a pure function of the population and cannot
+// perturb determinism (ADR-028). Opt-in via MotionConfig::compaction_enabled.
+Error cell_store_compact(CellStore& s);
 
 // Appends `p.count` cells. Each gets its own PCG32 stream seeded from
 // (seed, cell_id), so a cell's trajectory depends on nothing but its id --

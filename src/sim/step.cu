@@ -49,8 +49,13 @@ Error world_create(World& w, const WorldDesc& d) {
     w.motion = d.motion;
     w.seed = d.seed;
     w.tick = 0;
+    w.sim_time_s = 0.0;
     w.physics_rate = 1.0;
     w.biology_rate = 1.0;
+    w.divisions_this_window = 0;
+    w.deaths_total = 0;
+    w.deaths_reported = 0;
+    w.dead_slots_prev = 0;
     return ok();
 }
 
@@ -96,17 +101,25 @@ void world_step(World& w) {
     //  11 stats           M9b  (src/sim/stats.cu). Run from world_stats at HUD
     //                           rate rather than every tick: it ends in a D2H copy
     //                           and nothing in the tick consumes it.
+    // The multi-rate clock (ADR-011, ADR-027). physics_rate scales the physics
+    // dt; every stage below advances by it. The diffusion substeps and the contact
+    // stiffness track this dt at their own source, so a fast clock stays stable and
+    // contained; at physics_rate == 1, dt == DT_PHYSICS and the tick is bit-
+    // identical to M9b. biology_rate scales only the growth clock, inside
+    // lifecycle_step, and compounds with this dt.
+    const double dt = canon::DT_PHYSICS * w.physics_rate;
+
     hash_build(w.hash, w.cells.view, w.cells.count);
 
     // Stage 4 is interleaved with the temperature field's own substeps, so it
     // owns stages 7 and 8 for that field. One cell deposits ~188 K into a single
     // grid cell per tick; applied all at once it would sail past boiling
     // (ADR-020). Do NOT diffuse temperature again below.
-    thermal_step(w, canon::DT_PHYSICS);
+    thermal_step(w, dt);
 
     // Stage 9. Rebuilt from scratch every tick -- irradiance is never
     // accumulated. Runs before motion so feeding and thrust see the same field.
-    if (w.motion.emission_enabled) emission_step(w, canon::DT_PHYSICS);
+    if (w.motion.emission_enabled) emission_step(w, dt);
 
     // Stage 3. Pinned BETWEEN those two by two hard data dependencies: it reads
     // the irradiance emission_step just wrote, and motion_step consumes the
@@ -117,26 +130,54 @@ void world_step(World& w) {
     // 1 ms against a field whose diffusion time across one grid cell is ~0.1 s,
     // i.e. negligible, and at M8 the only CO2 source is a brush. M9 adds uptake
     // and should re-examine whether stage 2 needs splitting out (ADR-022).
-    if (w.motion.taxis_enabled) taxis_step(w, canon::DT_PHYSICS);
+    if (w.motion.taxis_enabled) taxis_step(w, dt);
 
-    motion_step(w, canon::DT_PHYSICS);
+    motion_step(w, dt);
 
     // Stages 7 and 8 for the slow fields. Deposits fold in before diffusing, so
     // a source added this tick spreads this tick.
     fields::grid_flush_deposits(w.fields.co2);
     fields::grid_flush_deposits(w.fields.n2);
-    fields::grid_diffuse(w.fields.co2, canon::DT_PHYSICS);
-    fields::grid_diffuse(w.fields.n2, canon::DT_PHYSICS);
+    fields::grid_diffuse(w.fields.co2, dt);
+    fields::grid_diffuse(w.fields.n2, dt);
 
     // Stage 10. LAST, and it must stay last: it appends daughters and moves
     // `count`, so any stage reading indices after it would read stale ones.
-    lifecycle_step(w, canon::DT_PHYSICS);
+    lifecycle_step(w, dt);
 
     ++w.tick;
+    w.sim_time_s += dt;
 }
 
 double world_sim_time(const World& w) {
-    return static_cast<double>(w.tick) * canon::DT_PHYSICS * w.physics_rate;
+    return w.sim_time_s;
+}
+
+void clock_preset_rates(contract::ClockPreset preset, double& physics, double& biology) {
+    using CP = contract::ClockPreset;
+    switch (preset) {
+        case CP::Motion:
+            physics = canon::CLOCK_MOTION_PHYSICS;       biology = canon::CLOCK_MOTION_BIOLOGY;       break;
+        case CP::Metabolic:
+            physics = canon::CLOCK_METABOLIC_PHYSICS;    biology = canon::CLOCK_METABOLIC_BIOLOGY;    break;
+        case CP::Generational:
+            physics = canon::CLOCK_GENERATIONAL_PHYSICS; biology = canon::CLOCK_GENERATIONAL_BIOLOGY; break;
+        case CP::Realtime:
+        case CP::Custom:
+        default:
+            physics = canon::CLOCK_REALTIME_PHYSICS;     biology = canon::CLOCK_REALTIME_BIOLOGY;     break;
+    }
+}
+
+void world_set_clock(World& w, contract::ClockPreset preset,
+                     double custom_physics, double custom_biology) {
+    double physics = custom_physics, biology = custom_biology;
+    if (preset != contract::ClockPreset::Custom) clock_preset_rates(preset, physics, biology);
+    // Clamp to the ADR-011 ranges: physics is stiff, biology is free but bounded.
+    w.physics_rate = physics < canon::CLOCK_PHYSICS_MIN ? canon::CLOCK_PHYSICS_MIN
+                   : (physics > canon::CLOCK_PHYSICS_MAX ? canon::CLOCK_PHYSICS_MAX : physics);
+    w.biology_rate = biology < canon::CLOCK_BIOLOGY_MIN ? canon::CLOCK_BIOLOGY_MIN
+                   : (biology > canon::CLOCK_BIOLOGY_MAX ? canon::CLOCK_BIOLOGY_MAX : biology);
 }
 
 } // namespace astro::sim

@@ -7,9 +7,9 @@ A sealed 4 mm chamber of water. Cells 10 μm across, black at every wavelength, 
 Deliberately **not** the interstellar scale — no ships, no Petrova arc, no Tau Ceti. Just what you would see down the eyepiece.
 
 ```
-Status:  M9b of M12 green  ·  C++20 + CUDA 13.1  ·  sm_89  ·  Windows 11
-         ALL FIVE signature phenomena are live.
-         Remaining milestones add taxis, life cycle, predation, and content.
+Status:  M9c of M12 green  ·  C++20 + CUDA 13.1  ·  sm_89  ·  Windows 11
+         ALL FIVE signature phenomena are live; cells behave, divide, die,
+         and run on a multi-rate clock. Predation and content remain.
 ```
 
 ![Astrophage at the 40× working objective](docs/images/brightfield-40x.png)
@@ -126,7 +126,7 @@ CLAUDE.md                  operating contract; session ritual, iron rules
 docs/ARCHITECTURE.md       module map, invariants, glossary, anti-drift machinery
 docs/PHYSICS.md            the model
 docs/VERIFICATION.md       GENERATED physics oracle -- the numbers the sim must reproduce
-docs/DECISIONS.md          19 ADRs: every canon contradiction and engineering choice
+docs/DECISIONS.md          28 ADRs: every canon contradiction and engineering choice
 docs/MILESTONES.md         M0-M12, each with a machine-checkable gate
 docs/SESSION_LOG.md        what happened, and what went wrong
 _run_state/CONTINUATION_PROMPT.md   self-contained kickoff for a new session
@@ -172,7 +172,7 @@ Without `-App`, the core library and the full test suite build with **no network
 | M8b | Presentation: irregular cell morphology, field diaphragm, defocus culling | ✅ `m8b-green` |
 | M9a | Life: CO₂ uptake, mitosis, reproducible division | ✅ `m9a-green` |
 | M9b | Life: death, store disposition, telemetry reduction | ✅ `m9b-green` |
-| M9 | Life: mitosis, death, corpses, multi-rate clock | ☐ |
+| M9c | Life: multi-rate clock, slot compaction, charts | ✅ `m9c-green` |
 | M10 | Predation: Taumoeba, nitrogen lethality, heritable tolerance | ☐ |
 | M11 | Content: eight scenarios, inspector panels, telemetry | ☐ |
 | M12 | Ship: snapshot/replay, performance pass, packaging | ☐ |

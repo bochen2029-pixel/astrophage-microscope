@@ -117,12 +117,12 @@ contract::Stats world_stats(World& w) {
     s.n2_total_kg  = astro::from_fixed(a.n2,  SCALE_FIELD) * vn;
 
     // Window counters: divisions are tallied by lifecycle on the host; deaths are
-    // differenced against the previous reduction, so neither needs a device counter
-    // fighting the accumulator above for space.
+    // differenced against a CUMULATIVE total (not the live dead count, which
+    // compaction reclaims -- differencing that would go negative, ADR-028).
     s.divisions_this_window = w.divisions_this_window;
-    s.deaths_this_window = s.n_dead - w.deaths_this_window;
+    s.deaths_this_window = static_cast<int32_t>(w.deaths_total - w.deaths_reported);
     w.divisions_this_window = 0;
-    w.deaths_this_window = s.n_dead;
+    w.deaths_reported = w.deaths_total;
     // P2 asserts this never happens unaided; it is reported, never suppressed.
     s.boil_events = s.max_temp_medium_k >= canon::WATER_BOILING_POINT ? 1 : 0;
     return s;

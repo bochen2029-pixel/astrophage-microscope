@@ -157,8 +157,13 @@ Error grid_diffuse_substep(Grid2D& g, double dt_sub) {
 }
 
 Error grid_diffuse(Grid2D& g, double dt) {
-    if (g.substeps <= 0) return ok();
-    const double dt_sub = dt / g.substeps;
+    // Substeps track the ACTUAL dt, not the count baked for a 1 ms tick: a fast
+    // physics_rate hands a larger dt and needs proportionally more substeps to
+    // stay stable (ADR-027). At DT_PHYSICS this equals g.substeps exactly, so
+    // physics_rate == 1 reproduces M9b bit for bit.
+    const int32_t steps = substeps_for_dt(g.dx, g.diffusivity, dt);
+    if (steps <= 0) return ok();
+    const double dt_sub = dt / steps;
     const float coeff = static_cast<float>(g.diffusivity * dt_sub / (g.dx * g.dx));
 
     // The explicit stability bound. Tripping this means a resolution or timestep
@@ -168,7 +173,7 @@ Error grid_diffuse(Grid2D& g, double dt) {
 
     const dim3 block(16, 16);
     const dim3 grid((g.n + block.x - 1) / block.x, (g.n + block.y - 1) / block.y);
-    for (int32_t s = 0; s < g.substeps; ++s) {
+    for (int32_t s = 0; s < steps; ++s) {
         diffuse_kernel<<<grid, block>>>(g.value, g.scratch, g.n, coeff,
                                         static_cast<int>(g.bc),
                                         static_cast<float>(g.ambient),

@@ -20,6 +20,7 @@ struct Application {
     render::Camera     camera;
     sim::World         world;
     ui::HudState       hud;
+    ui::ChartState     charts;   // scrolling population / energy / temperature history
 
     double accumulator = 0.0;   // fixed-tick residue, seconds
     int    frames_done = 0;

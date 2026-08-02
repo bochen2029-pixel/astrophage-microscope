@@ -28,13 +28,39 @@ struct HudState {
     float   live_charge = 0.0f;
     bool    paused = false;
 
+    // Clock control (ADR-011, ADR-027). The panel sets these; the app applies them
+    // via sim::world_set_clock at a tick boundary. `clock_preset` indexes
+    // contract::ClockPreset; the custom rates are used only when it is Custom.
+    int     clock_preset = 0;
+    float   clock_physics = 1.0f;
+    float   clock_biology = 1.0f;
+    bool    clock_change_requested = false;
+
     float fps = 0.0f;
     float frame_ms = 0.0f;
 };
 
-// The parameter inspector, cell inspector, and charts arrive at M9/M11.
+// A scrolling history of the telemetry for the population / energy / temperature
+// charts (M9c). Fixed-size ring buffers -- no per-frame allocation, and the app
+// owns one for the whole run so the history survives across frames.
+struct ChartState {
+    static constexpr int CAPACITY = 240;
+    float live[CAPACITY]     = {};
+    float dead[CAPACITY]     = {};
+    float energy_gj[CAPACITY]= {};   // total store, gigajoules (kiloton scale)
+    float temp_c[CAPACITY]   = {};   // medium temperature, degrees Celsius
+    int      head  = 0;              // next write position
+    int      count = 0;              // samples recorded so far (<= CAPACITY)
+    uint64_t last_tick = ~0ull;      // append only when the sim tick advances
+};
+
+// The parameter inspector and cell inspector arrive at M11.
 void hud_draw(HudState& hud, const contract::Stats& stats, render::Camera& cam,
               int32_t capacity, double chamber_w, double chamber_h, double chamber_d);
+
+// Population / energy / temperature time series (M9c). Samples `stats` into the
+// ring buffers when the tick advances, then plots them.
+void chart_panel_draw(ChartState& charts, const contract::Stats& stats);
 
 // Overlay, drawn on ImGui's foreground list so it sits above everything.
 // A microscope without a scale bar is a lava lamp (docs/RENDERING.md Sec 7.6).

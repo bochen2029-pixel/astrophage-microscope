@@ -84,7 +84,19 @@ void hud_draw(HudState& hud, const Stats& stats, render::Camera& cam,
     format_sim_time(stats.sim_time_s, timebuf, sizeof(timebuf));
     ImGui::Text("t = %s   (tick %llu)", timebuf, static_cast<unsigned long long>(stats.tick));
     ImGui::Text("%.1f fps   %.2f ms/frame", hud.fps, hud.frame_ms);
-    ImGui::Text("cells: %d live / %d capacity", stats.n_live, capacity);
+    ImGui::Text("cells: %d live / %d dead / %d capacity", stats.n_live, stats.n_dead, capacity);
+    // Both clock multipliers, always visible: the user must never lose track of
+    // which clock they are on (ADR-011).
+    ImGui::Text("clock: physics %.3gx   biology %.0fx", stats.physics_rate, stats.biology_rate);
+    // The energy ledger is a permanent, honest readout -- the default population
+    // fully charged is kiloton-scale energy inside a droplet (RENDERING.md Sec 6).
+    {
+        const double gj = stats.total_energy_j / 1.0e9;
+        const double kt_tnt = stats.total_energy_j / canon::TNT_JOULE / 1.0e9;   // g -> kt
+        const bool hot = stats.total_energy_j > 1.0e9;
+        ImGui::TextColored(hot ? ImVec4(1.0f, 0.6f, 0.3f, 1.0f) : ImVec4(0.70f, 0.75f, 0.82f, 1.0f),
+                           "energy: %.3g GJ  (%.3g kt TNT)%s", gj, kt_tnt, hot ? "  [!]" : "");
+    }
 
     ImGui::SeparatorText("Objective");
     const auto& obj = canon::OBJECTIVES[cam.objective];
@@ -119,6 +131,30 @@ void hud_draw(HudState& hud, const Stats& stats, render::Camera& cam,
         if (hud.channel != AnalysisChannel::Charge)
             ImGui::TextDisabled("(only Charge is populated at M1)");
     }
+
+    ImGui::SeparatorText("Clock  (ADR-011: two independent rates)");
+    static const char* kClockNames[] = {"Realtime", "Motion", "Metabolic", "Generational", "Custom"};
+    if (ImGui::Combo("preset##clock", &hud.clock_preset, kClockNames, IM_ARRAYSIZE(kClockNames)))
+        hud.clock_change_requested = true;
+    constexpr int kCustomPreset = 4;
+    if (hud.clock_preset == kCustomPreset) {
+        if (ImGui::SliderFloat("physics##clock", &hud.clock_physics,
+                               static_cast<float>(canon::CLOCK_PHYSICS_MIN),
+                               static_cast<float>(canon::CLOCK_PHYSICS_MAX),
+                               "%.2fx", ImGuiSliderFlags_Logarithmic))
+            hud.clock_change_requested = true;
+        if (ImGui::SliderFloat("biology##clock", &hud.clock_biology,
+                               static_cast<float>(canon::CLOCK_BIOLOGY_MIN),
+                               static_cast<float>(canon::CLOCK_BIOLOGY_MAX),
+                               "%.0fx", ImGuiSliderFlags_Logarithmic))
+            hud.clock_change_requested = true;
+    }
+    // Q19 (ADR-027): biology_rate scales growth but NOT CO2 diffusion, so at a fast
+    // biology clock the medium cannot resupply and dense growth goes transport-
+    // limited. Stated, not hidden -- the honest lever to relieve it is physics_rate.
+    if (stats.biology_rate > 1.0)
+        ImGui::TextColored(ImVec4(0.72f, 0.70f, 0.48f, 1.0f),
+                           "biology outpaces CO2 transport: dense growth is diffusion-limited");
 
     ImGui::SeparatorText("Chamber");
     ImGui::Text("%.2f x %.2f mm, %.0f um deep", chamber_w * 1e3, chamber_h * 1e3, chamber_d * 1e6);

@@ -22,6 +22,9 @@ void print_usage() {
         "  --aperture F       field diaphragm radius, 0 = full rectangle\n"
         "  --ticks-per-frame N  fixed ticks per frame, ignoring wall clock;\n"
         "                       makes a capture reproducible on any machine\n"
+        "  --clock NAME       realtime | motion | metabolic | generational | custom\n"
+        "  --physics-rate F   physics clock multiplier (implies --clock custom)\n"
+        "  --biology-rate F   biology clock multiplier (implies --clock custom)\n"
         "  --width N          window width\n"
         "  --height N         window height\n"
         "  --frames N         run N frames then exit (0 = until closed)\n"
@@ -78,6 +81,26 @@ Options parse_args(int argc, char** argv) {
         else if (want("--focus")) {
             if (i + 1 >= argc) o.bad = true;
             else o.focus_um = static_cast<float>(std::atof(argv[++i]));
+        }
+        else if (want("--clock")) {
+            if (i + 1 >= argc) { o.bad = true; }
+            else {
+                const char* m = argv[++i];
+                if      (std::strcmp(m, "realtime") == 0)     o.clock_preset = 0;
+                else if (std::strcmp(m, "motion") == 0)       o.clock_preset = 1;
+                else if (std::strcmp(m, "metabolic") == 0)    o.clock_preset = 2;
+                else if (std::strcmp(m, "generational") == 0) o.clock_preset = 3;
+                else if (std::strcmp(m, "custom") == 0)       o.clock_preset = 4;
+                else                                          o.bad = true;
+            }
+        }
+        else if (want("--physics-rate")) {
+            if (i + 1 >= argc) o.bad = true;
+            else { o.physics_rate = std::atof(argv[++i]); o.clock_preset = 4; }
+        }
+        else if (want("--biology-rate")) {
+            if (i + 1 >= argc) o.bad = true;
+            else { o.biology_rate = std::atof(argv[++i]); o.clock_preset = 4; }
         }
         else if (want("--headless"))   o.headless  = true;
         else if (want("--gl-debug"))   o.gl_debug  = true;

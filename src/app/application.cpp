@@ -114,6 +114,14 @@ Error app_init(Application& a, const Options& o) {
     ASTRO_TRY(render::post_pass_create(a.post_pass));
     ASTRO_TRY(spawn_population(a.world, count, o.charge, o.seed));
 
+    // Apply the requested clock (ADR-011/ADR-027) and mirror the resolved rates
+    // into the HUD so the panel opens showing the clock the run actually started on.
+    sim::world_set_clock(a.world, static_cast<contract::ClockPreset>(o.clock_preset),
+                         o.physics_rate, o.biology_rate);
+    a.hud.clock_preset = o.clock_preset;
+    a.hud.clock_physics = static_cast<float>(a.world.physics_rate);
+    a.hud.clock_biology = static_cast<float>(a.world.biology_rate);
+
     if (o.objective >= 0 && o.objective < canon::OBJECTIVE_COUNT) a.camera.objective = o.objective;
     if (o.zoom > 0.0f) a.camera.zoom = o.zoom;
     a.camera.focal_plane = o.focus_um * 1e-6;
@@ -156,7 +164,13 @@ int app_run(Application& a) {
             // simulated time on any machine. Required for golden captures.
             for (int i = 0; i < a.options.ticks_per_frame; ++i) sim::world_step(a.world);
         } else {
-            a.accumulator += dt_real * a.world.physics_rate;
+            // Wall-time accumulator. physics_rate now lives INSIDE world_step (each
+            // tick advances DT_PHYSICS * physics_rate of simulated time, ADR-027), so
+            // the accumulator is raw wall time and steps once per DT_PHYSICS of it.
+            // A fast clock therefore compresses time by taking bigger steps, not by
+            // running more ticks -- so the 8-substep cap bounds cost the same at any
+            // rate. Scaling here as well would apply physics_rate twice.
+            a.accumulator += dt_real;
             int substeps = 0;
             while (a.accumulator >= canon::DT_PHYSICS && substeps < 8) {
                 sim::world_step(a.world);
@@ -172,6 +186,16 @@ int app_run(Application& a) {
                 std::printf("[app] set charge failed: %s\n", status_str(e.status));
                 return 1;
             }
+        }
+
+        if (a.hud.clock_change_requested) {
+            a.hud.clock_change_requested = false;
+            sim::world_set_clock(a.world,
+                                 static_cast<contract::ClockPreset>(a.hud.clock_preset),
+                                 a.hud.clock_physics, a.hud.clock_biology);
+            // Reflect any clamping / preset resolution straight back to the sliders.
+            a.hud.clock_physics = static_cast<float>(a.world.physics_rate);
+            a.hud.clock_biology = static_cast<float>(a.world.biology_rate);
         }
 
         if (a.hud.respawn_requested) {
@@ -219,6 +243,7 @@ int app_run(Application& a) {
             const contract::Stats stats = a.stats_cache;
             ui::hud_draw(a.hud, stats, a.camera, a.cells_pass.capacity,
                          a.world.chamber.w, a.world.chamber.h, a.world.chamber.d);
+            ui::chart_panel_draw(a.charts, stats);
             ui::draw_scale_bar(a.camera, a.gl.fb_width, a.gl.fb_height);
         }
 

@@ -22,6 +22,13 @@ struct Options {
     // what golden captures (M3) require. 0 = real-time accumulator.
     int      ticks_per_frame = 0;
 
+    // Multi-rate clock (ADR-011/ADR-027). clock_preset indexes ClockPreset
+    // (0 Realtime, 1 Motion, 2 Metabolic, 3 Generational, 4 Custom); the explicit
+    // rates apply only when Custom, and passing either flag selects Custom.
+    int      clock_preset  = 0;
+    double   physics_rate  = 1.0;
+    double   biology_rate  = 1.0;
+
     bool     headless   = false;     // hidden window; still a real GL context
     bool     gl_debug   = false;     // GL_DEBUG_OUTPUT; nonzero errors fail
     bool     benchmark  = false;     // timed run, exits nonzero if below target

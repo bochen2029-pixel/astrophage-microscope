@@ -62,6 +62,10 @@ struct MotionConfig {
     // Where a dead cell's 1.5 MJ goes. Canon is silent, so all three readings ship
     // and `void` is the default (ADR-004).
     contract::StoreDisposition store_disposition = contract::StoreDisposition::Void;
+    // Reclaim the slots of dead cells (corpses, wall-culls) by stable compaction
+    // (ADR-028). OFF by default so an untouched run is bit-identical to M9b; ON
+    // trades the persistent graveyard for unbounded growth and lower iteration cost.
+    bool        compaction_enabled = false;
 };
 
 struct WorldDesc {
@@ -93,13 +97,24 @@ struct World {
     StatsAccum*  d_stats = nullptr;      // tick stage 11
     StatsAccum   stats_host{};           // last D2H copy
     int32_t      divisions_this_window = 0;
-    int32_t      deaths_this_window = 0;
+    // Deaths are counted cumulatively so compaction (which reclaims corpses,
+    // ADR-028) cannot make the per-window count go negative. `deaths_total` is
+    // monotonic; world_stats differences it against `deaths_reported`.
+    // `dead_slots_prev` is the occupied-dead count carried into the next tick,
+    // which is 0 right after a compaction and `deads` otherwise.
+    int64_t      deaths_total = 0;
+    int64_t      deaths_reported = 0;
+    int32_t      dead_slots_prev = 0;
     Chamber      chamber{};
     MotionConfig motion{};
     uint64_t     tick = 0;
     uint64_t     seed = 0;
     double       physics_rate = 1.0;
     double       biology_rate = 1.0;
+    // Elapsed SIMULATED time, accumulated per tick. Accumulated rather than
+    // tick*DT*physics_rate so that changing the clock mid-run stays correct --
+    // dragging the rate slider must not rewrite how much culture time has passed.
+    double       sim_time_s = 0.0;
 
     contract::LightSource light{1.0f, 0.0f, 0.0f, 0.0f, 0};   // off by default
     float        ambient_irradiance = 0.0f;
@@ -139,6 +154,15 @@ void  world_step(World& w);
 
 // Simulated time in seconds. The ONLY clock the simulation has (INV-3).
 double world_sim_time(const World& w);
+
+// Named clock presets -> (physics_rate, biology_rate). ADR-011, ADR-027. Custom
+// returns the Realtime identity; a caller supplies its own rates for Custom.
+void clock_preset_rates(contract::ClockPreset preset, double& physics, double& biology);
+
+// Set the clock from a preset, or from explicit rates when preset == Custom,
+// clamping each to its ADR-011 range. The elapsed-time accumulator is untouched.
+void world_set_clock(World& w, contract::ClockPreset preset,
+                     double custom_physics = 1.0, double custom_biology = 1.0);
 
 // Snapshot of what the UI shows. Cheap at M1; becomes a device reduction in M6.
 // Runs the stage-11 reduction and copies the result D2H, so it is NOT free --

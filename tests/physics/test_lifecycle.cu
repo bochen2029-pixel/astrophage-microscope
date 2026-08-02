@@ -228,6 +228,57 @@ int main() {
         world_destroy(w2);
     }
 
+    // --- T22b (GATE): compaction is bit-reproducible (ADR-028) ----------------
+    {
+        // T22 re-run with slots reclaimed. Absorbing walls cull cells into corpses
+        // while saturating CO2 makes them divide, so the store grows AND shrinks and
+        // compaction runs on nearly every tick. Contact is ON on purpose: compaction
+        // reorders the SoA, which reorders contact-force summation -- ADR-018's exact
+        // hazard, and the whole reason compaction was kept out of M9a/M9b. Two runs
+        // must still hash identically, and the count must reflect reclamation.
+        const double rate = 2.0e7;
+        const int ticks = 2500;
+        uint64_t h[2] = {0, 0};
+        int32_t counts[2] = {0, 0};
+        int64_t deaths[2] = {0, 0};
+        for (int pass = 0; pass < 2; ++pass) {
+            World w{};
+            WorldDesc d;
+            d.capacity = 1 << 20;
+            d.seed = 20260802ull;
+            d.co2_init = canon::CO2_SAT_CONC_1ATM;
+            d.motion.emission_enabled = false;
+            d.motion.taxis_enabled = false;
+            d.motion.boundary_x = Boundary::Absorbing;
+            d.motion.boundary_y = Boundary::Absorbing;
+            d.motion.compaction_enabled = true;   // contact stays ON (default)
+            CHECK(!world_create(w, d));
+            w.biology_rate = rate;
+            SpawnParams p;
+            p.count = 3000;
+            p.placement = Placement::Uniform;
+            p.charge_dist = Distribution::Constant;
+            p.charge_a = 0.5;                      // sinks toward the -y wall and dies
+            p.awake = false;
+            CHECK(!cell_store_spawn(w.cells, p, w.chamber, d.seed));
+            for (int t = 0; t < ticks; ++t) world_step(w);
+            cudaDeviceSynchronize();
+            counts[pass] = w.cells.count;
+            deaths[pass] = w.deaths_total;
+            h[pass] = hash_population(w);
+            world_destroy(w);
+        }
+        std::printf("  T22b: compacted count %d, deaths %lld, hash %016llx vs %016llx\n",
+                    counts[0], static_cast<long long>(deaths[0]),
+                    static_cast<unsigned long long>(h[0]),
+                    static_cast<unsigned long long>(h[1]));
+        CHECK(deaths[0] > 0);                 // cells died and their slots were reclaimed
+        CHECK(deaths[0] == deaths[1]);        // the death count is itself reproducible
+        CHECK(counts[0] != 3000);             // the population changed (grew and/or shrank)
+        CHECK(counts[0] == counts[1]);
+        CHECK(h[0] == h[1]);                  // bit-reproducible through compaction + contact
+    }
+
     // --- T22.2: daughter streams are keyed on id, not on birth order ----------
     {
         // pcg_split must depend on (parent state, daughter id) alone. If it ever

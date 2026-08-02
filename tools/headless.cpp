@@ -35,6 +35,8 @@ struct Options {
     const char*        scenario = nullptr;
     bool               verbose = false;
     bool               report_extent = false;
+    bool               compaction = false;   // reclaim dead slots (ADR-028)
+    bool               absorbing = false;     // absorbing x/y walls, so cells actually die
 };
 
 // Hash order is the snapshot file layout order (contracts/snapshot_v1.h), so a
@@ -64,6 +66,14 @@ bool run(const Options& o, uint64_t& hash_out) {
     sim::WorldDesc d;
     d.capacity = o.cells;
     d.seed = o.seed;
+    d.motion.compaction_enabled = o.compaction;
+    if (o.absorbing) {
+        // Absorbing walls cull cells that reach them into corpses, so a run has
+        // something for compaction to reclaim (the default reflecting walls never
+        // remove a cell). Empty cells (charge 0) rise and are absorbed at +y.
+        d.motion.boundary_x = sim::Boundary::Absorbing;
+        d.motion.boundary_y = sim::Boundary::Absorbing;
+    }
     if (Error e = sim::world_create(w, d)) {
         std::printf("world_create failed: %s\n", status_str(e.status));
         return false;
@@ -130,6 +140,8 @@ void usage() {
         "  --cells N                 population (default 4096)\n"
         "  --charge F                initial charge fraction (default 0.02)\n"
         "  --assert-deterministic    run twice, require identical hashes (INV-8)\n"
+        "  --compaction              reclaim dead slots each tick (ADR-028)\n"
+        "  --absorbing               absorbing x/y walls, so cells die and can be reclaimed\n"
         "  --scenario ID             run a scenario headless (M11)\n"
         "  --verbose\n");
 }
@@ -150,6 +162,8 @@ int main(int argc, char** argv) {
         else if (a == "--assert-deterministic") o.assert_deterministic = true;
         else if (a == "--verbose")              o.verbose = true;
         else if (a == "--extent")               o.report_extent = true;
+        else if (a == "--compaction")           o.compaction = true;
+        else if (a == "--absorbing")            o.absorbing = true;
         else if (a == "--scenario")             o.scenario = (i + 1 < argc) ? argv[++i] : nullptr;
         else if (a == "--help" || a == "-h")  { usage(); return 0; }
         else { std::printf("unknown argument: %s\n", a.c_str()); usage(); return 2; }

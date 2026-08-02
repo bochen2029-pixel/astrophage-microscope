@@ -193,14 +193,20 @@ ASTRO_HD inline Vec3 cell_force(double mass, double emit_power,
 
 // Soft-sphere pair repulsion, the only cell-cell mechanical interaction.
 // Returns the force on `self` from a neighbour at `other`, zero beyond contact.
-ASTRO_HD inline Vec3 contact_force(Vec3 self, Vec3 other) {
+//
+// `stiffness` defaults to the canon value (M4's callers pass nothing). The motion
+// stage passes CONTACT_STIFFNESS/physics_rate so an explicit overdamped spring
+// keeps ADR-018's stability ratio at a fast clock instead of ejecting cells
+// (ADR-027); at physics_rate == 1 the default and the passed value coincide.
+ASTRO_HD inline Vec3 contact_force(Vec3 self, Vec3 other,
+                                   double stiffness = canon::CONTACT_STIFFNESS) {
     const Vec3 d = self - other;
     const double r2 = length_sq(d);
     const double two_a = canon::CELL_DIAMETER;
     if (r2 >= two_a * two_a || r2 <= 0.0) return Vec3{0.0, 0.0, 0.0};
     const double r = sqrt(r2);
     const double overlap = two_a - r;
-    return d * (canon::CONTACT_STIFFNESS * overlap / r);
+    return d * (stiffness * overlap / r);
 }
 
 // Rest overlap of two cells pressed together by a steady force. The M4 gate

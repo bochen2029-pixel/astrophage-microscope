@@ -198,6 +198,22 @@ if (($n -gt 9) -or ($n -eq 9 -and $suffix -ge 'b')) {
     }
 }
 
+# ------------------------------- M9c: clock, compaction, charts
+if (($n -gt 9) -or ($n -eq 9 -and $suffix -ge 'c')) {
+    Gate 'M9c.1' 'multi-rate clock: preset ratios and compounding (ADR-027)' {
+        return (Run-Test 'test_clock')
+    }
+    # Compaction reorders the SoA, which is ADR-018's determinism hazard, so it gets
+    # its own re-run of the T22 argument: a growing-and-dying culture with slots
+    # reclaimed must still be bit-reproducible. Absorbing walls guarantee the deaths.
+    Gate 'M9c.2' 'compaction is bit-reproducible (T22 re-run, ADR-028)' {
+        $exe = Find-Exe 'headless'
+        if (-not $exe) { return $false }
+        & $exe --cells 20000 --charge 0.0 --ticks 4000 --compaction --absorbing --assert-deterministic *>&1 | Out-Null
+        return ($LASTEXITCODE -eq 0)
+    }
+}
+
 # ------------------------------------------------------------ M10: predation
 if ($n -ge 10) { Gate 'M10.1' 'predation + nitrogen selection' { return (Run-Test 'test_predation') } }
 

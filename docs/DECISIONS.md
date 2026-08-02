@@ -132,6 +132,143 @@ Append-only. Every contradiction in the source material and every non-obvious en
 
 ---
 
+## ADR-028 — Compaction: stable, prefix-sum, out-of-place, opt-in — and CUB for Q20
+
+**Status:** accepted, 2026-08-02 (M9c).
+
+**Context.** Allocation has been append-only since M9a (ADR-025). Death only clears
+`ALIVE`; corpses keep their slots, and cells culled at an absorbing wall
+(`integrator.cu`) become corpses too. Nothing has ever reclaimed a slot, so the live
+count and the iteration bound `count` diverge over a long run: every kernel then wastes
+threads on dead slots, and the store marches toward `MAX_CELLS` while the living
+population may be small. M9c owns the reclamation that M9a and M9b each deferred.
+
+**Decision.** A **stable, prefix-sum, out-of-place stream compaction**, opt-in via
+`MotionConfig::compaction_enabled` (default **off**, so an untouched run is bit-identical
+to M9b). When on, `lifecycle_step` — after division — packs the survivors
+(`OCCUPIED && ALIVE`) into `[0, live)` and sets `count = live`.
+
+Three properties make it safe, and each is load-bearing:
+
+1. **The map is a pure function of the population, never of execution order.** The new
+   slot of survivor `i` is the exclusive prefix sum of the keep-flags at `i`
+   (`cub::DeviceScan::ExclusiveSum`). This is INV-2 one level up, exactly as daughter
+   slots are (ADR-025): it is the *allocation* that must be order-free, not just the
+   arithmetic. An `atomicAdd`-allocated compaction would reorder within-bucket contact
+   summation and drift the hash run to run — ADR-018's hazard, which is the whole reason
+   compaction was kept out of M9a/M9b.
+2. **It is stable.** Survivors keep their relative order, so the spatial hash's stable
+   radix sort produces the same within-bucket order it would have without the removed
+   corpses, and per-thread contact force sums stay reproducible.
+3. **It is out-of-place.** A parallel in-place compaction is a read/write race — thread
+   `i` writing slot `prefix[i] <= i` can clobber a source slot another thread has not yet
+   read. Survivors are gathered into a scratch buffer, then copied back, one SoA array at
+   a time, reusing a single `capacity`-sized scratch across all arrays.
+
+**Q20 falls out of the same primitive.** The serial `scan_kernel<<<1,1>>>` that computes
+the daughter birth prefix — a single-threaded loop over the whole population — is
+replaced by `cub::DeviceScan::ExclusiveSum`, which compaction needs anyway. CUB is
+already an allowed dependency (the hash uses `SortPairs`, ADR-018). The exclusive-sum
+values are identical, so the daughter slots and therefore T22's hash are unchanged.
+
+**What compaction reclaims, and the tradeoff.** Corpses are removed. Under `void`/`flash`
+their store is already gone; under `retain` they were inert ballast raining to the
+coverslip. Keeping every corpse forever and reusing its slot are mutually exclusive, so
+the toggle is the honest resolution: **leave compaction off to study a graveyard; turn it
+on for unbounded growth or throughput.** The HUD reports which.
+
+**Gate.** M9b's T22 re-run with `compaction_enabled` **and** absorbing walls (so deaths
+actually occur) is bit-reproducible, and `count` collapses from its peak to the live
+population. A different seed still diverges. `headless --compaction --absorbing
+--assert-deterministic` carries the same check into the continuous audit.
+
+**Deferred, on purpose.** A free-list that lets *daughters* reuse corpse slots without a
+full compaction pass (no survivor movement at all, so even cheaper) is a further step;
+compaction is the general primitive and ships first. Compaction runs only when there is
+something to reclaim (a dead-slot count piggybacked on the existing `mark_kernel` D2H),
+so a run with no deaths pays nothing beyond that count.
+
+---
+
+## ADR-027 — The multi-rate clock, and Q19: biology_rate does not scale CO₂ diffusion
+
+**Status:** accepted, 2026-08-02 (M9c). Implements ADR-011; resolves Q19.
+
+**Context.** ADR-011 specified two independent clock multipliers and four presets, but at
+M9b only `biology_rate` was wired (into `lifecycle`'s `dt_bio`) and `physics_rate` scaled
+nothing but the *reported* `world_sim_time` — the physics stages all ran at raw
+`DT_PHYSICS`. M9c wires the clock for real, and that forces two questions the earlier
+milestones could leave alone.
+
+### physics_rate scales the physics dt — and two things have to move with it
+
+`world_step` now advances every physics stage by `dt = DT_PHYSICS * physics_rate`. Two
+couplings make a naive multiply wrong, and both are handled at the source rather than
+clamped:
+
+- **Field diffusion substeps are derived from the actual dt, not baked.** Explicit FTCS
+  is stable only for `coeff = D*dt_sub/dx^2 <= 0.25`, and the substep count was fixed at
+  `grid_create` for a 1 ms tick. `grid_diffuse` and `thermal_step` now compute the count
+  from the dt they are handed (`fields::substeps_for_dt`), so a 10x dt runs 10x the
+  substeps and stays stable. At `physics_rate == 1` this returns exactly the baked count,
+  so the result is bit-identical to M9b.
+- **Contact stiffness scales as 1/physics_rate.** An overdamped explicit spring moves
+  `k*delta*dt/gamma` per step, so stability caps `k` at `gamma/dt` (ADR-018). Raising dt
+  without touching `k` pushes the stability ratio past 1 and, near `physics_rate = 100`,
+  past 2 — a divergent spring that *ejects cells from the chamber*, and containment is a
+  hard invariant that is never tuned around. So the integrator uses
+  `k_eff = CONTACT_STIFFNESS / physics_rate`, holding ADR-018's ratio fixed at every
+  rate. The honest cost is softer contact — dense packing overlaps more at high
+  `physics_rate` — which is squarely the "bounded, not exact" contact ADR-018 already
+  ships. At `physics_rate == 1`, `k_eff == CONTACT_STIFFNESS` exactly.
+
+`biology_rate` continues to scale only the biology dt, now compounding with physics:
+`dt_bio = DT_PHYSICS * physics_rate * biology_rate`. At the default `physics_rate = 1`
+this is unchanged from M9a, so T18 and T22 are untouched.
+
+### Presets
+
+`INVENTED`, from ADR-011's table, carried in canon so nothing reads a bare literal:
+
+| Preset | physics_rate | biology_rate | What you watch |
+|---|---|---|---|
+| Realtime | 1 | 1 | Brownian jitter, thrust, honest microscopy |
+| Motion | 10 | 1 | sedimentation, taxis, migration |
+| Metabolic | 1 | 1e4 | charging, thermal equilibrium, feeding |
+| Generational | 0.5 | 1e6 | division, population curves, evolution |
+
+Ranges `physics_rate in [0.1, 100]`, `biology_rate in [1, 1e6]`. The HUD always shows both
+multipliers and the elapsed **simulated** time in real units.
+
+### Q19 — biology_rate does NOT scale CO₂ diffusion. Decided.
+
+ADR-011 assumed biology clocks are "local and non-stiff", but CO₂ uptake is an exchange
+with a field that diffuses on *physics* time (ADR-025). At `biology_rate = 2e7` a cell
+eats 2e4 s of CO₂ per tick while the medium diffuses 1e-3 s worth, so growth goes locally
+diffusion-limited long before the medium is globally exhausted.
+
+The decision is to **leave it that way and state it, not to scale the diffusivity.**
+
+- **It is real physics, not a defect.** A culture that metabolises far faster than CO₂ can
+  resupply *is* transport-limited. ADR-025 already measured it (25 % consumed at a full
+  stall) and T18.3 already compares against a control for exactly this reason. Hiding it
+  behind a multiplied diffusivity would make the sim disagree with the transport it
+  claims to model — the failure the VERIFICATION oracle exists to prevent.
+- **There is already an honest lever.** To move the medium faster, raise `physics_rate`,
+  which scales CO₂ diffusion *correctly*, substeps and all. The two-knob design is the
+  escape hatch; a hidden third coupling would be the dishonest one.
+- **Scaling it is untenable anyway.** Matching diffusion to `biology_rate = 1e6` would
+  demand ~1e6x the CO₂ substeps or an unstable field.
+
+The HUD notes "biology outpaces CO₂ transport" whenever `biology_rate > 1`, so growth
+that stalls in a dense patch reads as the transport limit it is rather than as a bug.
+
+**Escape hatch.** Both multipliers stay `INVENTED` and tunable across their ADR-011
+ranges; a scenario or the sandbox may set any `physics_rate`/`biology_rate` via the
+`Custom` preset.
+
+---
+
 ## ADR-026 — The stage-11 reduction, and what a lethal bath actually does
 
 **Status:** accepted, 2026-08-02 (M9b).

@@ -147,6 +147,26 @@ BASE = [
      "Spatial hash cell size in units of CELL_DIAMETER.", None, (1.05, 8.0, False)),
     ("DT_PHYSICS", 1.0e-3, "s", INVENTED,
      "Fixed physics timestep. Never varies with frame rate.", None, (1e-5, 1e-2, True)),
+
+    # --- Multi-rate clock (ADR-011, ADR-027) --------------------------------
+    # Two independent multipliers, plus four named presets that drive both.
+    # physics_rate scales the physics dt (motion, heat, thrust, diffusion) and
+    # stays near 1 because it is stiff; biology_rate scales ONLY the growth clock
+    # and is free because biology is non-stiff. Q19: biology_rate does NOT scale
+    # CO2 diffusion -- the resulting transport limit is real, not a defect, and
+    # physics_rate is the honest lever to relieve it (ADR-027).
+    ("CLOCK_PHYSICS_MIN", 0.1, "-", INVENTED, "Slowest physics multiplier.", None, None),
+    ("CLOCK_PHYSICS_MAX", 100.0, "-", INVENTED, "Fastest physics multiplier (stiff; stay near 1).", None, None),
+    ("CLOCK_BIOLOGY_MIN", 1.0, "-", INVENTED, "Slowest biology multiplier.", None, None),
+    ("CLOCK_BIOLOGY_MAX", 1.0e6, "-", INVENTED, "Fastest biology multiplier (non-stiff; free).", None, None),
+    ("CLOCK_REALTIME_PHYSICS", 1.0, "-", INVENTED, "Realtime preset: honest microscopy.", None, None),
+    ("CLOCK_REALTIME_BIOLOGY", 1.0, "-", INVENTED, "Realtime preset biology rate.", None, None),
+    ("CLOCK_MOTION_PHYSICS", 10.0, "-", INVENTED, "Motion preset: sedimentation, taxis, migration.", None, None),
+    ("CLOCK_MOTION_BIOLOGY", 1.0, "-", INVENTED, "Motion preset biology rate.", None, None),
+    ("CLOCK_METABOLIC_PHYSICS", 1.0, "-", INVENTED, "Metabolic preset: charging, feeding, equilibrium.", None, None),
+    ("CLOCK_METABOLIC_BIOLOGY", 1.0e4, "-", INVENTED, "Metabolic preset biology rate.", None, None),
+    ("CLOCK_GENERATIONAL_PHYSICS", 0.5, "-", INVENTED, "Generational preset: division, population, evolution.", None, None),
+    ("CLOCK_GENERATIONAL_BIOLOGY", 1.0e6, "-", INVENTED, "Generational preset biology rate.", None, None),
     ("TAXIS_MEMORY_TIME", 0.1, "s", INVENTED,
      "Run-and-tumble temporal comparison window. Must stay SHORT compared to the "
      "time a thrusting cell takes to cross the chamber (0.655 s), because no "

@@ -10,7 +10,7 @@ The simulation itself: the cell and Taumoeba stores, the integrator, and every p
 
 | File | Owns | Milestone |
 |---|---|---|
-| `cell_store.{cuh,cu}` | ✅ SoA allocation, spawn, birth-prefix buffer (compaction at M9c) | M1 |
+| `cell_store.{cuh,cu}` | ✅ SoA allocation, spawn, prefix-sum slots, stable compaction (ADR-028) | M1/M9c |
 | `world.cuh` + `step.cu` | ✅ world lifetime, the tick sequence, `Stats` | M1 |
 | `integrator.{cuh,cu}` | ✅ exact joint position–velocity OU propagator, buoyancy, boundaries (PHYSICS.md §3, ADR-016) | M2 |
 | `hash.cu` | spatial hash by counting sort; SoA reorder | M4 |
@@ -20,7 +20,7 @@ The simulation itself: the cell and Taumoeba stores, the integrator, and every p
 | `taxis.{cuh,cu}` | ✅ run-and-tumble FEED/BREED/IDLE controller, emission discharge (PHYSICS.md §8, ADR-022) | M8 |
 | `lifecycle.{cuh,cu}` | ✅ CO₂ uptake, mitosis, prefix-sum slots (ADR-025); overheat death and store disposition (ADR-004) | M9a/M9b |
 | `stats.cu` | ✅ tick stage 11, fixed-point telemetry reduction (ADR-026) | M9b |
-| | slot reuse and compaction | M9c |
+| `step.cu` | ✅ tick sequence, the multi-rate clock and its presets (ADR-011, ADR-027) | M1/M9c |
 | `predation.cu` | Taumoeba store, engulfment, N₂ lethality, evolution | M10 |
 | `snapshot.cpp` | serialise/restore, FNV-1a state hash | M12 |
 
@@ -42,10 +42,28 @@ Produces `cell_store_v1.h`, `snapshot_v1.h`. Consumes `fields_v1.h`, `scenario_v
 
 ## Status
 
-**M9b complete.** All five signature phenomena are live (M2–M7), and cells now behave:
-run-and-tumble taxis climbs the culture's own self-shadowing gradient, emission debits
-the store, cells divide bit-reproducibly (the claim ADR-014 was made for), they die of
-heat, and their stores go somewhere the user chooses.
+**M9c complete.** All five signature phenomena are live (M2–M7), cells behave and live
+(M8–M9b), and the multi-rate clock and slot reclamation now round out the life cycle.
+
+**The clock (ADR-011, ADR-027).** `world_step` advances every physics stage by
+`dt = DT_PHYSICS * physics_rate`; `biology_rate` scales only the growth dt inside
+`lifecycle_step`, compounding with physics. Two couplings are handled at the source, not
+clamped: field diffusion substeps are derived from the actual dt (`substeps_for_dt`), and
+contact stiffness scales as `1/physics_rate` so an explicit spring never diverges and
+ejects a cell. **At `physics_rate == 1` every byte is identical to M9b** — that is the
+regression guard. Q19 is decided: `biology_rate` does not scale CO₂ diffusion, so fast
+biology is transport-limited by design, and the HUD says so.
+
+**Compaction (ADR-028), off by default.** `cell_store_compact` packs live occupants into
+`[0, live)` by an exclusive prefix sum (`cub::DeviceScan`, which also replaced the serial
+birth scan — Q20). It is stable and out-of-place, so it is a pure function of the flags
+and cannot perturb determinism even though it reorders the SoA (ADR-018's hazard). Deaths
+are counted **cumulatively** on the host, because differencing the live dead count would
+go negative the instant a corpse is reclaimed.
+
+Earlier state, still true: run-and-tumble taxis climbs the culture's own self-shadowing
+gradient, emission debits the store, cells divide bit-reproducibly (the claim ADR-014 was
+made for), they die of heat, and their stores go somewhere the user chooses.
 
 `world_stats` now runs the stage-11 reduction and ends in a D2H copy, so it is **not
 free** — call it at HUD rate, never per tick (ARCHITECTURE.md §3.1). Everything

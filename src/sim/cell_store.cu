@@ -1,4 +1,5 @@
-// src/sim/cell_store.cu -- allocation and spawning. See MODULE.md.
+// src/sim/cell_store.cu -- allocation, spawning, and compaction. See MODULE.md.
+#include <cub/cub.cuh>
 #include <cuda_runtime.h>
 
 #include "core/canon_generated.h"
@@ -197,14 +198,37 @@ Error cell_store_create(CellStore& s, int32_t capacity) {
         return fail(Status::OutOfMemory, "cell store carve overran its allocation");
     }
 
-    int32_t* free_list = nullptr;
-    int32_t* free_count = nullptr;
-    if (cudaMalloc(&free_list, sizeof(int32_t) * static_cast<size_t>(capacity)) != cudaSuccess ||
-        cudaMalloc(&free_count, sizeof(int32_t)) != cudaSuccess) {
-        cudaFree(blob); cudaFree(free_list); cudaFree(free_count);
-        return fail(Status::OutOfMemory, "cudaMalloc free list");
+    // Scan and compaction scratch, sized once at capacity so the tick loop never
+    // allocates (T29 / RENDERING.md Sec 7). The CUB temp size is queried the same
+    // way the spatial hash sizes its radix-sort scratch (hash.cu).
+    const size_t cap = static_cast<size_t>(capacity);
+    size_t scan_bytes = 0;
+    cub::DeviceScan::ExclusiveSum(nullptr, scan_bytes, static_cast<int32_t*>(nullptr),
+                                  static_cast<int32_t*>(nullptr), capacity);
+    int32_t* scan_flags = nullptr;
+    int32_t* birth_prefix = nullptr;
+    int32_t* birth_count = nullptr;
+    int32_t* dead_count = nullptr;
+    int32_t* compact_src = nullptr;
+    void*    compact_scratch = nullptr;
+    void*    cub_temp = nullptr;
+    const bool alloc_ok =
+        cudaMalloc(&scan_flags,      sizeof(int32_t) * cap) == cudaSuccess &&
+        cudaMalloc(&birth_prefix,    sizeof(int32_t) * cap) == cudaSuccess &&
+        cudaMalloc(&birth_count,     sizeof(int32_t))       == cudaSuccess &&
+        cudaMalloc(&dead_count,      sizeof(int32_t))       == cudaSuccess &&
+        cudaMalloc(&compact_src,     sizeof(int32_t) * cap) == cudaSuccess &&
+        // 8 bytes = the widest SoA element (double / uint64), so one scratch serves
+        // every array in the gather.
+        cudaMalloc(&compact_scratch, sizeof(double) * cap)  == cudaSuccess &&
+        cudaMalloc(&cub_temp,        scan_bytes ? scan_bytes : 1) == cudaSuccess;
+    if (!alloc_ok) {
+        cudaFree(blob);
+        cudaFree(scan_flags); cudaFree(birth_prefix); cudaFree(birth_count);
+        cudaFree(dead_count); cudaFree(compact_src); cudaFree(compact_scratch);
+        cudaFree(cub_temp);
+        return fail(Status::OutOfMemory, "cudaMalloc cell store scan/compaction buffers");
     }
-    cudaMemset(free_count, 0, sizeof(int32_t));
 
     s.view = v;
     s.blob = blob;
@@ -212,15 +236,26 @@ Error cell_store_create(CellStore& s, int32_t capacity) {
     s.capacity = capacity;
     s.count = 0;
     s.next_id = 1;
-    s.d_birth_prefix = free_list;
-    s.d_birth_count = free_count;
+    s.d_scan_flags = scan_flags;
+    s.d_birth_prefix = birth_prefix;
+    s.d_birth_count = birth_count;
+    s.d_dead_count = dead_count;
+    s.d_compact_src = compact_src;
+    s.d_compact_scratch = compact_scratch;
+    s.d_cub_temp = cub_temp;
+    s.cub_temp_bytes = scan_bytes;
     return ok();
 }
 
 void cell_store_destroy(CellStore& s) {
     if (s.blob) cudaFree(s.blob);
+    if (s.d_scan_flags) cudaFree(s.d_scan_flags);
     if (s.d_birth_prefix) cudaFree(s.d_birth_prefix);
     if (s.d_birth_count) cudaFree(s.d_birth_count);
+    if (s.d_dead_count) cudaFree(s.d_dead_count);
+    if (s.d_compact_src) cudaFree(s.d_compact_src);
+    if (s.d_compact_scratch) cudaFree(s.d_compact_scratch);
+    if (s.d_cub_temp) cudaFree(s.d_cub_temp);
     s = CellStore{};
 }
 
@@ -292,6 +327,103 @@ Error cell_store_download_energy(const CellStore& s, double* energy, int32_t max
     if (n <= 0) return ok();
     return cuda_check(cudaMemcpy(energy, s.view.energy, sizeof(double) * static_cast<size_t>(n),
                                  cudaMemcpyDeviceToHost), "download energy");
+}
+
+// ---------------------------------------------------------------------------
+// Compaction (ADR-028). Everything here is a pure function of the flags array,
+// so the result is independent of execution order -- INV-2 one level up, the
+// same reasoning that makes daughter slots safe (ADR-025).
+// ---------------------------------------------------------------------------
+namespace {
+
+__global__ void keep_flags_kernel(CellStoreView v, int32_t* keep, int32_t cnt) {
+    const int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i >= cnt) return;
+    const uint32_t f = v.flags[i];
+    // A survivor is a live occupant. Corpses and free slots are dropped.
+    keep[i] = ((f & CELL_FLAG_OCCUPIED) && (f & CELL_FLAG_ALIVE)) ? 1 : 0;
+}
+
+// Each survivor writes its own source slot to its unique destination (the
+// exclusive prefix). Destinations are distinct, so there is no write collision
+// and the map does not depend on which thread runs first.
+__global__ void scatter_src_kernel(const int32_t* keep, const int32_t* prefix,
+                                   int32_t* src, int32_t cnt) {
+    const int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i >= cnt) return;
+    if (keep[i]) src[prefix[i]] = i;
+}
+
+__global__ void live_count_kernel(const int32_t* keep, const int32_t* prefix,
+                                  int32_t cnt, int32_t* out) {
+    // Exclusive prefix of the last element plus the last flag = total survivors.
+    *out = prefix[cnt - 1] + keep[cnt - 1];
+}
+
+// Gather one SoA array by the source map into scratch. OUT-OF-PLACE: an in-place
+// parallel compaction is a read/write race, because a thread writing slot
+// prefix[i] <= i can clobber a source another thread has not yet read (ADR-028).
+template <typename T>
+__global__ void gather_kernel(const T* src_arr, const int32_t* src_idx, T* dst, int32_t live) {
+    const int k = blockIdx.x * blockDim.x + threadIdx.x;
+    if (k < live) dst[k] = src_arr[src_idx[k]];
+}
+
+template <typename T>
+void compact_field(T* arr, const int32_t* src, void* scratch, int32_t live) {
+    if (live <= 0) return;
+    T* sc = reinterpret_cast<T*>(scratch);
+    const int block = 256;
+    const int grid = (live + block - 1) / block;
+    gather_kernel<<<grid, block>>>(arr, src, sc, live);
+    // Default stream: the copy is ordered after the gather that filled `sc`.
+    cudaMemcpy(arr, sc, sizeof(T) * static_cast<size_t>(live), cudaMemcpyDeviceToDevice);
+}
+
+} // namespace
+
+Error cell_store_compact(CellStore& s) {
+    const int32_t cnt = s.count;
+    if (cnt <= 0) return ok();
+    const int block = 256;
+    const int grid = (cnt + block - 1) / block;
+
+    keep_flags_kernel<<<grid, block>>>(s.view, s.d_scan_flags, cnt);
+    size_t tb = s.cub_temp_bytes;
+    cub::DeviceScan::ExclusiveSum(s.d_cub_temp, tb, s.d_scan_flags, s.d_birth_prefix, cnt);
+    scatter_src_kernel<<<grid, block>>>(s.d_scan_flags, s.d_birth_prefix, s.d_compact_src, cnt);
+    live_count_kernel<<<1, 1>>>(s.d_scan_flags, s.d_birth_prefix, cnt, s.d_birth_count);
+    ASTRO_TRY(cuda_check(cudaGetLastError(), "compaction scan"));
+
+    int32_t live = 0;
+    ASTRO_TRY(cuda_check(cudaMemcpy(&live, s.d_birth_count, sizeof(int32_t),
+                                    cudaMemcpyDeviceToHost), "compaction live count"));
+    if (live >= cnt) return ok();   // no dead slots -- nothing to reclaim
+
+    const int32_t* src = s.d_compact_src;
+    void* sc = s.d_compact_scratch;
+    CellStoreView& v = s.view;
+    // Every per-cell array moves, including the field-sample scratch: taxis reads
+    // co2_local from the previous tick (ADR-022), so a stale value at a reused slot
+    // would be a real bug, not just a cosmetic one.
+    compact_field(v.id, src, sc, live);          compact_field(v.flags, src, sc, live);
+    compact_field(v.death_cause, src, sc, live); compact_field(v.x, src, sc, live);
+    compact_field(v.y, src, sc, live);           compact_field(v.z, src, sc, live);
+    compact_field(v.vx, src, sc, live);          compact_field(v.vy, src, sc, live);
+    compact_field(v.vz, src, sc, live);          compact_field(v.energy, src, sc, live);
+    compact_field(v.temp_cell, src, sc, live);   compact_field(v.emit_power, src, sc, live);
+    compact_field(v.dir_x, src, sc, live);       compact_field(v.dir_y, src, sc, live);
+    compact_field(v.dir_z, src, sc, live);       compact_field(v.biomass, src, sc, live);
+    compact_field(v.co2_held, src, sc, live);    compact_field(v.age_s, src, sc, live);
+    compact_field(v.rng_state, src, sc, live);   compact_field(v.taxis_memory, src, sc, live);
+    compact_field(v.run_timer, src, sc, live);   compact_field(v.t_local, src, sc, live);
+    compact_field(v.irradiance, src, sc, live);  compact_field(v.co2_local, src, sc, live);
+    compact_field(v.n2_local, src, sc, live);
+    ASTRO_TRY(cuda_check(cudaGetLastError(), "compaction gather"));
+
+    s.count = live;
+    s.view.count = live;
+    return ok();
 }
 
 } // namespace astro::sim

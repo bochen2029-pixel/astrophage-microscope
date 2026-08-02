@@ -6,6 +6,25 @@ Format: milestone · what landed · what is pending · open questions · gotchas
 
 ---
 
+## 2026-08-02 — M9c (Life: clock, compaction, charts) — GREEN · **the life cycle closes**
+
+**Landed.** The multi-rate clock wired for real (physics_rate scales the physics dt; biology_rate the growth dt, compounding), the **Q19 decision** (ADR-027), opt-in stable **compaction** (ADR-028), CUB `DeviceScan` for the birth prefix (Q20), and the population/energy/temperature charts + clock UI + permanent energy ledger. 21 tests green (added `test_clock`), 27 files, ~760 LOC. No contract change.
+
+**The regression guard is exactness at rate 1.** `test_clock` measures the physics ratio at **10.0000**, the biology ratio at **2.00000**, and the compounding at **1.00000** — and T22 is **unchanged at 50508 / hash `130793f3`**, which is the proof the clock is bit-identical to M9b when physics_rate = 1. The two couplings that would have broken it are handled at the source, not clamped: diffusion substeps are derived from the actual dt (`substeps_for_dt`), and contact stiffness scales as `1/physics_rate` so a fast clock never diverges the explicit spring and ejects a cell.
+
+**T22b is the compaction claim.** A growing-and-dying culture with corpses reclaimed **and contact on** (ADR-018's reordering hazard) reproduces bit-identically: count 50378, **914 deaths reclaimed**, hash `42d459c3` on both passes. The map is an exclusive prefix sum (pure function of the flags), the move is out-of-place (an in-place parallel compaction is a read/write race), and it is stable, so within-bucket contact summation order is preserved.
+
+**Q19 decided: biology_rate does NOT scale CO₂ diffusion.** It is real transport-limited growth, not a defect; faking a faster diffusivity would violate the oracle and blow the CO₂ stability budget. `physics_rate` is the honest lever, and the HUD says so.
+
+**Gotchas.**
+- **Compaction breaks death-differencing.** `deaths_this_window` was derived by differencing the live dead count, which goes **negative** the instant a corpse is reclaimed. Replaced with a cumulative host counter: new deaths = occupied-dead now minus corpses carried over. Under no-compaction the value is identical to M9b, so T23 is untouched.
+- **physics_rate must not be applied twice.** M9c made `world_step` advance `DT*physics_rate` per tick; the app accumulator *also* scaled `dt_real` by physics_rate. Left as-was that squares the rate. Fixed: the accumulator is raw wall time now, since physics_rate lives inside the tick.
+- **Thermal IR / Petrovascope still show a black screen** (user-reported). NOT M9c — it is the deferred M7b view modes: the shader only implements Brightfield distinctly and the rest fall through to an Analysis-by-charge ramp, which is near-black for uncharged cells. Fixable **without a contract bump** — the `awake` flag (thermal glow) and `emit_power` (Petrova glow) are already in the instance. Taking it next.
+
+**Pending / next.** M7b (Petrovascope + Thermal IR + Darkfield in the shader), then M10 predation. Deferred list otherwise unchanged (Q9 8-bucket walk, Q18 Poisson tumble, bloom).
+
+---
+
 ## 2026-08-02 — M9b (Life: death) — GREEN · **stage 11 finally ships**
 
 **Landed.** Death by overheating, the three-way store disposition (ADR-004), and **tick stage 11 — the telemetry reduction, unshipped for nine milestones** while `contract::Stats` sat fully specified and entirely unfilled. 20 tests green. No contract change.

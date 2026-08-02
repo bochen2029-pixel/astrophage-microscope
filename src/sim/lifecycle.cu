@@ -2,6 +2,7 @@
 //
 // MUTATES THE STORE, so it runs last (ARCHITECTURE.md Sec 3.4). Anything after it
 // reads stale indices.
+#include <cub/cub.cuh>
 #include <cuda_runtime.h>
 
 #include "fields/grid.cuh"
@@ -115,31 +116,22 @@ __global__ void death_kernel(CellStoreView v, unsigned char disposition) {
 // in slot order, so an order-dependent slot assignment would make the hash vary
 // run to run (ADR-025). This is INV-2's reasoning one level up: it is not the
 // arithmetic that must be associative here, it is the allocation.
-__global__ void mark_kernel(CellStoreView v, int32_t* flagsum, int32_t* total) {
+__global__ void mark_kernel(CellStoreView v, int32_t* flagsum, int32_t* total,
+                            int32_t* dead) {
     const int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i >= v.count) return;
     const uint32_t f = v.flags[i];
-    const bool divides = (f & CELL_FLAG_OCCUPIED) && (f & CELL_FLAG_ALIVE) &&
-                         ready_to_divide(v.co2_held[i]);
+    const bool occupied = (f & CELL_FLAG_OCCUPIED) != 0u;
+    const bool alive    = (f & CELL_FLAG_ALIVE) != 0u;
+    const bool divides  = occupied && alive && ready_to_divide(v.co2_held[i]);
     flagsum[i] = divides ? 1 : 0;
-    // A COUNT, not a prefix: summing ones with atomicAdd is order-independent
-    // because integer addition is associative, so this is safe where an ordered
-    // slot assignment would not be. It exists so the serial scan below can be
-    // skipped entirely on the overwhelmingly common tick where nobody divides.
+    // COUNTS, not prefixes: summing ones with atomicAdd is order-independent
+    // because integer addition is associative, so this is safe where the ordered
+    // SLOT assignment below is not. `total` lets the scan and divide be skipped on
+    // the common tick where nobody divides; `dead` is the compaction trigger --
+    // occupied-but-dead slots are exactly what a compaction pass would reclaim.
     if (divides) atomicAdd(total, 1);
-}
-
-// Single-block exclusive scan. The population that can divide in one tick is
-// bounded by the live count, and this runs once per tick over a small array; a
-// multi-block scan is a later optimisation, not a correctness question.
-__global__ void scan_kernel(int32_t* v, int32_t n, int32_t* total) {
-    int32_t acc = 0;
-    for (int32_t i = 0; i < n; ++i) {
-        const int32_t x = v[i];
-        v[i] = acc;              // exclusive
-        acc += x;
-    }
-    *total = acc;
+    if (occupied && !alive) atomicAdd(dead, 1);
 }
 
 // Stage 10b, pass 2. Split. Parent keeps its slot and its id; the daughter takes
@@ -245,37 +237,59 @@ void lifecycle_step(World& w, double dt) {
     death_kernel<<<grid, block>>>(w.cells.view,
                                   static_cast<unsigned char>(w.motion.store_disposition));
 
-    // Count first, scan only if it matters. scan_kernel is a SINGLE-THREADED loop
-    // over the whole population, so running it unconditionally costs a serial pass
-    // over 200k elements every tick -- which is what failed the M1.5 render
-    // benchmark. Divisions are rare (one per cell per doubling time), so on almost
-    // every tick this skips the scan and the divide pass outright.
+    // One pass marks the divisions into the scan buffer and counts both the
+    // divisions and the reclaimable (occupied-but-dead) slots. Both D2H reads are
+    // small; the dead count is what lets compaction skip a tick with no deaths, so
+    // a run that never dies pays nothing for the feature beyond this count.
     cudaMemset(w.cells.d_birth_count, 0, sizeof(int32_t));
-    mark_kernel<<<grid, block>>>(w.cells.view, w.cells.d_birth_prefix,
-                                 w.cells.d_birth_count);
+    cudaMemset(w.cells.d_dead_count, 0, sizeof(int32_t));
+    mark_kernel<<<grid, block>>>(w.cells.view, w.cells.d_scan_flags,
+                                 w.cells.d_birth_count, w.cells.d_dead_count);
 
-    int32_t births = 0;
+    int32_t births = 0, deads = 0;
     cudaMemcpy(&births, w.cells.d_birth_count, sizeof(int32_t), cudaMemcpyDeviceToHost);
-    if (births <= 0) return;
+    cudaMemcpy(&deads,  w.cells.d_dead_count,  sizeof(int32_t), cudaMemcpyDeviceToHost);
 
-    // Only now is the exclusive prefix worth computing. Still single-threaded: a
-    // CUB DeviceScan is the right answer at scale and is M9c's (Q20).
-    scan_kernel<<<1, 1>>>(w.cells.d_birth_prefix, n, w.cells.d_birth_count);
+    // Deaths are counted CUMULATIVELY on the host: new deaths this tick are the
+    // occupied-dead slots now minus the corpses carried over from last tick.
+    // Differencing the raw dead count (the M9b approach) would go negative the
+    // moment compaction reclaims a corpse, so the cumulative counter is what keeps
+    // deaths_this_window honest in both modes (ADR-028).
+    const int32_t new_deaths = deads - w.dead_slots_prev;
+    if (new_deaths > 0) w.deaths_total += new_deaths;
 
-    const int32_t base = n;
-    if (base + births > w.cells.capacity) births = w.cells.capacity - base;
-    if (births <= 0) return;
+    if (births > 0) {
+        // Daughter slots come from an exclusive prefix sum over the divides flag,
+        // never atomicAdd, so the parent->daughter map is a pure function of the
+        // population and T22's hash is stable (ADR-025). Q20: a CUB DeviceScan now,
+        // not the old <<<1,1>>> serial loop -- identical exclusive-sum values, so
+        // the hash is unchanged, but no longer an O(n) single-threaded pass.
+        size_t tb = w.cells.cub_temp_bytes;
+        cub::DeviceScan::ExclusiveSum(w.cells.d_cub_temp, tb, w.cells.d_scan_flags,
+                                      w.cells.d_birth_prefix, n);
 
-    divide_kernel<<<grid, block>>>(w.cells.view, w.cells.d_birth_prefix, base, n,
-                                   w.cells.next_id, w.chamber);
+        int32_t base = n;
+        if (base + births > w.cells.capacity) births = w.cells.capacity - base;
+        if (births > 0) {
+            divide_kernel<<<grid, block>>>(w.cells.view, w.cells.d_birth_prefix, base, n,
+                                           w.cells.next_id, w.chamber);
+            w.divisions_this_window += births;
+            w.cells.next_id += static_cast<uint64_t>(births);
+            w.cells.count += births;
+            w.cells.view.count = w.cells.count;
+        }
+    }
 
-    // Births are already known on the host here, so the window counter is free --
-    // no extra device buffer and no per-tick D2H. Deaths are derived in world_stats
-    // by differencing the reduction's dead count against the last window.
-    w.divisions_this_window += births;
-    w.cells.next_id += static_cast<uint64_t>(births);
-    w.cells.count += births;
-    w.cells.view.count = w.cells.count;
+    // Reclaim dead slots (ADR-028), opt-in. After division, so daughters born this
+    // tick are packed in too; only when there is something to reclaim. Corpses left
+    // in place (compaction off) persist and are re-counted next tick, which is
+    // exactly what dead_slots_prev carries forward.
+    bool compacted = false;
+    if (w.motion.compaction_enabled && deads > 0) {
+        cell_store_compact(w.cells);
+        compacted = true;
+    }
+    w.dead_slots_prev = compacted ? 0 : deads;
 }
 
 } // namespace astro::sim

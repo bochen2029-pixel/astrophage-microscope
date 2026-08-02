@@ -18,7 +18,7 @@ Every gate re-runs all earlier gates. Gates never weaken.
 | M8b | Presentation | irregular morphology, field diaphragm, defocus culling | M8b | ✅ `m8b-green` |
 | M9a | Life: division | biomass, CO₂ uptake, mitosis, RNG splitting, prefix-sum slots | M9a | ✅ `m9a-green` |
 | M9b | Life: death | overheat death, corpses, store disposition, stage-11 stats reduction | M9b | ✅ `m9b-green` |
-| M9c | Life: clock | multi-rate presets, Q19 decision, compaction, charts | M9c | ☐ |
+| M9c | Life: clock | multi-rate presets, Q19 decision, compaction, charts | M9c | ✅ `m9c-green` |
 | M10 | Predation | Taumoeba, N₂, heritable tolerance, evolution | M10 | ☐ |
 | M11 | Content | scenario system, all 8 scenarios, UI panels, charts, telemetry | M11 | ☐ |
 | M12 | Ship | snapshot/replay, perf pass, packaging | `v1.0` | ☐ |
@@ -201,6 +201,10 @@ Three findings, all in ADR-018:
 **Scope.** `PHYSICS.md` §12. The multi-rate clock with its four presets (ADR-011), **the Q19 decision** — whether fast presets scale CO₂ diffusion alongside biology, or whether the HUD simply states the limitation — slot reuse and compaction, and the population/energy/temperature charts.
 
 **Gate.** M9b gate + each preset advances biology and physics at its stated ratio; a run with compaction enabled is still bit-reproducible (T22 re-run) — compaction reorders the SoA, which reorders contact-force summation, and that is ADR-018's hazard, so it needs its own argument rather than riding along with mitosis.
+
+**✅ Delivered 2026-08-02.** `physics_rate` is wired into the physics dt with the diffusion substeps derived from that dt and contact stiffness scaled as `1/physics_rate`, so a fast clock stays stable and contained; at `physics_rate = 1` the state is **bit-identical to M9b**. `test_clock` asserts the preset ratios and that the two rates compound exactly. Compaction (ADR-028) is stable, prefix-sum-allocated and out-of-place, opt-in via `compaction_enabled`; T22b re-runs T22 with corpses reclaimed **and contact on** and gets an identical hash. The serial birth scan is now `cub::DeviceScan` (Q20). Charts (population / energy / temperature), both clock multipliers, and the permanent energy ledger are in the HUD.
+
+**Q19 — decided (ADR-027): `biology_rate` does NOT scale CO₂ diffusion.** The transport limit is real physics, not a defect; faking a faster diffusivity would violate the oracle and blow the CO₂ stability budget. The honest lever is `physics_rate`, which scales diffusion correctly; the HUD states the limitation.
 
 ---
 
