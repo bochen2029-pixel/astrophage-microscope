@@ -103,6 +103,17 @@ void world_step(World& w) {
     // accumulated. Runs before motion so feeding and thrust see the same field.
     if (w.motion.emission_enabled) emission_step(w, canon::DT_PHYSICS);
 
+    // Stage 3. Pinned BETWEEN those two by two hard data dependencies: it reads
+    // the irradiance emission_step just wrote, and motion_step consumes the
+    // emit_power it writes. Both are one-way, so the position is forced.
+    //
+    // KNOWN LAG: `co2_local` is sampled inside motion_step (stage 2 is fused into
+    // stages 5 and 6 there), so the CO2 the BREED state climbs is one tick old --
+    // 1 ms against a field whose diffusion time across one grid cell is ~0.1 s,
+    // i.e. negligible, and at M8 the only CO2 source is a brush. M9 adds uptake
+    // and should re-examine whether stage 2 needs splitting out (ADR-022).
+    if (w.motion.taxis_enabled) taxis_step(w, canon::DT_PHYSICS);
+
     motion_step(w, canon::DT_PHYSICS);
 
     // Stages 7 and 8 for the slow fields. Deposits fold in before diffusing, so

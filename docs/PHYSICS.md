@@ -275,20 +275,32 @@ Projected disc `π a²` for the collimated component, full sphere `4π a²` for 
 Canon: cells move toward light/heat to feed, follow the CO₂ lines to find breeding grounds, and **do not move in darkness**.
 
 ```
-if      (irradiance < TAXIS_DARK_THRESHOLD && no CO2 gradient) → IDLE   // no emission, drift only
-else if (charge < TAXIS_SEEK_FEED_BELOW)                       → FEED   // climb irradiance
-else if (charge > TAXIS_SEEK_BREED_ABOVE && CO2 available)      → BREED  // climb CO2
-else                                                            → IDLE
+if      (dark && no CO2)                                   → IDLE   // no emission, drift only
+else if (!dark && charge < TAXIS_SEEK_FEED_BELOW)          → FEED   // climb irradiance
+else if (charge > TAXIS_SEEK_BREED_ABOVE && CO2 available) → BREED  // climb CO2
+else                                                       → IDLE
 ```
+
+where `dark` is `irradiance < TAXIS_DARK_THRESHOLD` and "CO₂ available" is simply `co2 > 0` — the field is zero until something adds to it, and no availability constant is invented (ADR-022 §3). **FEED requires light**, a deliberate deviation from the earlier form of this pseudocode: a dim cell climbing an irradiance gradient that does not exist would burn store for nothing and would contradict "does not move in darkness" (ADR-022 §2).
 
 **Gradient climbing is temporal, not spatial** (ADR-007). A 10 μm cell cannot meaningfully finite-difference a 7.8 μm grid across its own body, and a smooth gradient-glide looks like a video game rather than an organism.
 
+The lagged signal is a **first-order lag, not a delay line**: `taxis_memory` is a single float, and real chemotactic response kernels are approximated by exactly this. The update uses the exact discretisation, so a step input reaches 1 − 1/e at exactly `TAXIS_MEMORY_TIME` whatever `dt` is.
+
 ```
-Δ = signal_now - signal_lagged                  // lagged by TAXIS_MEMORY_TIME
-if (Δ > 0)  keep heading, extend the run
-else        tumble: rotate d̂ by a random angle from the cell's PCG32 stream, reset run timer
-emit_power  = PETROVA_MAX_POWER * clamp01(demand)
+ema  ← ema + (1 - exp(-dt/TAXIS_MEMORY_TIME)) * (signal_now - ema)
+Δ    = signal_now - ema
+if (Δ > 0 && run_timer < TAXIS_RUN_MAX)  keep heading, extend the run
+else  tumble: rotate ĥ by an angle drawn exponential with mean TAXIS_TUMBLE_ANGLE_MEAN,
+      clamped to pi, about a uniform azimuth, from the cell's PCG32 stream; reset run_timer
+emit_dir   = -ĥ                                  // recoil is opposite the axis
+emit_power = PETROVA_MAX_POWER while seeking, clamped to what the store can supply
+energy    -= emit_power * dt                     // Sec 6; nothing debited this before M8
 ```
+
+**The run cap is load-bearing.** A cell that outruns its own depletion halo sees a rising signal in every direction and would otherwise never tumble (ADR-022 §1). `TAXIS_RUN_MAX` is derived as 4 × `TAXIS_MEMORY_TIME` so it cannot drift away from the comparison window.
+
+Only **awake** cells taxis — dormant cells are inert powder. The IDLE path draws no random numbers, which makes a dark chamber bit-identical to a run with the controller disabled rather than merely similar to it.
 
 Run-and-tumble is cheap (no gradient sampling), robust to noise, biologically real, and looks unmistakably alive.
 

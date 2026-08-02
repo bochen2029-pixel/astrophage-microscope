@@ -14,7 +14,7 @@ Every gate re-runs all earlier gates. Gates never weaken.
 | M5 | Fields | Grid2D, explicit diffusion, fixed-point deposit, brushes, overlays | M5 | ✅ `m5-green` |
 | M6 | Thermal | mass–energy, ignition latch, thermostat → **P2 P3 P4** | M6 | ✅ `m6-green` |
 | M7 | Light | Petrova emission, thrust, irradiance + occlusion → **P5** | M7 | ✅ `m7-green` |
-| M8 | Taxis | run-and-tumble, phototaxis, CO₂ field, chemotaxis | M8 | ☐ |
+| M8 | Taxis | run-and-tumble, phototaxis, CO₂ field, chemotaxis | M8 | ✅ `m8-green` |
 | M9 | Life | biomass, mitosis, death, corpses, multi-rate clock | M9 | ☐ |
 | M10 | Predation | Taumoeba, N₂, heritable tolerance, evolution | M10 | ☐ |
 | M11 | Content | scenario system, all 8 scenarios, UI panels, charts, telemetry | M11 | ☐ |

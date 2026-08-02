@@ -17,7 +17,7 @@ The simulation itself: the cell and Taumoeba stores, the integrator, and every p
 | `contact.cu` | soft-sphere repulsion, wall adhesion | M4 |
 | `thermal.cu` | ignition latch, thermostat, conduction (PHYSICS.md §5) | M6 |
 | `emission.cu` | Petrova emission, directionality, photon thrust | M7 |
-| `taxis.cu` | run-and-tumble FEED/BREED/IDLE controller | M8 |
+| `taxis.{cuh,cu}` | ✅ run-and-tumble FEED/BREED/IDLE controller, emission discharge (PHYSICS.md §8, ADR-022) | M8 |
 | `lifecycle.cu` | mitosis, death, corpses, store disposition | M9 |
 | `predation.cu` | Taumoeba store, engulfment, N₂ lethality, evolution | M10 |
 | `snapshot.cpp` | serialise/restore, FNV-1a state hash | M12 |
@@ -40,14 +40,20 @@ Produces `cell_store_v1.h`, `snapshot_v1.h`. Consumes `fields_v1.h`, `scenario_v
 
 ## Status
 
-**M2 complete.** The store allocates as one carved device blob, spawns with per-cell
-streams, and enforces capacity. Motion is live: cells sediment, rise, and diffuse
-correctly, with **P1** emergent. Tested by `test_cell_store`, `test_motion` (analytic,
-host-side) and `test_buoyancy` (emergent, device-side).
+**M8 complete.** All five signature phenomena are live (M2–M7), and cells now behave:
+run-and-tumble taxis climbs the culture's own self-shadowing gradient, and emission
+finally debits the store.
 
-`world_stats` still returns only tick, time, and counts — the means and the energy
-ledger need the M6 device reduction, and the HUD hides what is not yet computed rather
-than displaying a plausible-looking zero.
+`world_stats` still returns only tick, time, and counts. The means and the energy ledger
+need a deterministic device reduction (INV-2: tree or fixed-point, never `atomicAdd` on
+float) and land with **M9**, whose charts are their first real consumer. The HUD hides
+what is not yet computed rather than displaying a plausible-looking zero.
+
+Two things to know before touching `taxis.{cuh,cu}` — both are in ADR-022:
+- **The IDLE path must never draw a random number.** That is what makes a dark chamber
+  *bit-identical* to a taxis-disabled run (T26.8) instead of merely similar to it.
+- **`TAXIS_RUN_MAX` is not decoration.** It is what stops a cell that outruns its own
+  depletion halo from running forever once M9 adds CO₂ uptake.
 
 **Before you touch `integrator.cuh`, read ADR-016.** The obvious scheme — propagate
 velocity exactly, then `r += v·dt` — is wrong by 47× in diffusion for an empty cell,

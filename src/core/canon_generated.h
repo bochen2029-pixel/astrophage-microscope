@@ -66,6 +66,7 @@ inline constexpr double TAXIS_MEMORY_TIME = 2; // [s] INVENTED -- Run-and-tumble
 inline constexpr double TAXIS_DARK_THRESHOLD = 0.001; // [W/m^2] INVENTED -- Below this irradiance a cell does not move (canon: 'does not move in darkness').
 inline constexpr double TAXIS_SEEK_FEED_BELOW = 0.94999999999999996; // [-] INVENTED -- Charge fraction below which a cell seeks light.
 inline constexpr double TAXIS_SEEK_BREED_ABOVE = 0.97999999999999998; // [-] INVENTED -- Charge fraction above which a cell seeks CO2.
+inline constexpr double TAXIS_TUMBLE_ANGLE_MEAN = 1.1868238913561442; // [rad] INVENTED -- 68 deg. Mean reorientation per tumble, drawn exponential and clamped to pi. Informed by E. coli's measured ~68 deg, but Astrophage has no flagella -- it re-aims by slewing its emission axis, a different mechanism -- so this is analogy, not measurement, and it is tagged INVENTED rather than REAL. See ADR-022.
 inline constexpr double CHAMBER_W = 0.0040000000000000001; // [m] INVENTED -- Default culture chamber width. See ADR-009.
 inline constexpr double CHAMBER_H = 0.0040000000000000001; // [m] INVENTED -- Default culture chamber height.
 inline constexpr double CHAMBER_D = 6.0000000000000002e-05; // [m] INVENTED -- Default slide/coverslip gap (slab depth).
@@ -96,6 +97,8 @@ inline constexpr double DIFFUSIVITY_SETPOINT = 1.8678155730650127e-13; // [m^2/s
 inline constexpr double CONDUCTION_COEFF = 3.7573448136933928e-05; // [W/K] DERIVED = 4 pi k_water a  (Nu = 2, sphere in still fluid)
 inline constexpr double CONTACT_STABILITY_RATIO = 0.12500498476121263; // [-] DERIVED = k dt / gamma -- per-step contact displacement as a fraction of the overlap. Must stay below 1 for stability; below 0.25 for monotone convergence (ADR-018)
 inline constexpr double CONTACT_REST_OVERLAP_EMPTY = 0.041684186856822236; // [-] DERIVED = rest overlap under an empty cell's buoyant weight, as a fraction of a diameter
+inline constexpr double TAXIS_RUN_MAX = 8; // [s] DERIVED = 4 x TAXIS_MEMORY_TIME -- a run must outlast the comparison window to carry information, and must terminate so that a cell which outruns its own depletion halo still tumbles (ADR-022). Derived rather than invented so it cannot drift independently of the memory window
+inline constexpr double TAXIS_TUMBLE_SLEW_TIME = 1.1868238913561442; // [s] DERIVED = mean tumble angle / PETROVA_SLEW_RATE -- how long a cell would spend mis-aimed if re-aiming were rate-limited. Not yet exercised: see ADR-022 Q15
 inline constexpr double LIFE_GROWTH_RATE = 1.0028171015045505e-06; // [1/s] DERIVED = ln2 / doubling time
 inline constexpr double TNT_GRAMS_PER_FULL_CELL = 358.50860420650093; // [g] DERIVED = E_max / 4184 J/g
 inline constexpr double WIEN_LAMBDA_AT_SETPOINT = 7.8410346082556516e-06; // [m] DERIVED = Wien b / T -- the THERMAL peak, distinct from the Petrova line
@@ -175,6 +178,7 @@ inline constexpr ParamMeta PARAM_TABLE[] = {
     { "TAXIS_DARK_THRESHOLD", 0.001, "W/m^2", Provenance::Invented, "[REF 1.5] Below this irradiance a cell does not move (canon: 'does not move in darkness').", true, 0, 1000, true },
     { "TAXIS_SEEK_FEED_BELOW", 0.94999999999999996, "-", Provenance::Invented, "Charge fraction below which a cell seeks light.", true, 0, 1, false },
     { "TAXIS_SEEK_BREED_ABOVE", 0.97999999999999998, "-", Provenance::Invented, "Charge fraction above which a cell seeks CO2.", true, 0, 1, false },
+    { "TAXIS_TUMBLE_ANGLE_MEAN", 1.1868238913561442, "rad", Provenance::Invented, "68 deg. Mean reorientation per tumble, drawn exponential and clamped to pi. Informed by E. coli's measured ~68 deg, but Astrophage has no flagella -- it re-aims by slewing its emission axis, a different mechanism -- so this is analogy, not measurement, and it is tagged INVENTED rather than REAL. See ADR-022.", true, 0.050000000000000003, 3.1415899999999999, false },
     { "CHAMBER_W", 0.0040000000000000001, "m", Provenance::Invented, "Default culture chamber width. See ADR-009.", true, 0.0001, 0.02, true },
     { "CHAMBER_H", 0.0040000000000000001, "m", Provenance::Invented, "Default culture chamber height.", true, 0.0001, 0.02, true },
     { "CHAMBER_D", 6.0000000000000002e-05, "m", Provenance::Invented, "Default slide/coverslip gap (slab depth).", true, 1.0000000000000001e-05, 0.001, true },
@@ -203,10 +207,12 @@ inline constexpr ParamMeta PARAM_TABLE[] = {
     { "CONDUCTION_COEFF", 3.7573448136933928e-05, "W/K", Provenance::Derived, "= 4 pi k_water a  (Nu = 2, sphere in still fluid)", false, 0.0, 0.0, false },
     { "CONTACT_STABILITY_RATIO", 0.12500498476121263, "-", Provenance::Derived, "= k dt / gamma -- per-step contact displacement as a fraction of the overlap. Must stay below 1 for stability; below 0.25 for monotone convergence (ADR-018)", false, 0.0, 0.0, false },
     { "CONTACT_REST_OVERLAP_EMPTY", 0.041684186856822236, "-", Provenance::Derived, "= rest overlap under an empty cell's buoyant weight, as a fraction of a diameter", false, 0.0, 0.0, false },
+    { "TAXIS_RUN_MAX", 8, "s", Provenance::Derived, "= 4 x TAXIS_MEMORY_TIME -- a run must outlast the comparison window to carry information, and must terminate so that a cell which outruns its own depletion halo still tumbles (ADR-022). Derived rather than invented so it cannot drift independently of the memory window", false, 0.0, 0.0, false },
+    { "TAXIS_TUMBLE_SLEW_TIME", 1.1868238913561442, "s", Provenance::Derived, "= mean tumble angle / PETROVA_SLEW_RATE -- how long a cell would spend mis-aimed if re-aiming were rate-limited. Not yet exercised: see ADR-022 Q15", false, 0.0, 0.0, false },
     { "LIFE_GROWTH_RATE", 1.0028171015045505e-06, "1/s", Provenance::Derived, "= ln2 / doubling time", false, 0.0, 0.0, false },
     { "TNT_GRAMS_PER_FULL_CELL", 358.50860420650093, "g", Provenance::Derived, "= E_max / 4184 J/g", false, 0.0, 0.0, false },
     { "WIEN_LAMBDA_AT_SETPOINT", 7.8410346082556516e-06, "m", Provenance::Derived, "= Wien b / T -- the THERMAL peak, distinct from the Petrova line", false, 0.0, 0.0, false },
 };
-inline constexpr int PARAM_COUNT = 78;
+inline constexpr int PARAM_COUNT = 81;
 
 } // namespace astro::canon

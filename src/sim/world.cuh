@@ -41,6 +41,10 @@ struct MotionConfig {
     bool        adhesion_enabled = true;
     bool        thermal_enabled = true;
     bool        emission_enabled = true;
+    // Off supplies the null for the M8 migration gate: the identical run with the
+    // controller disabled. In darkness the two are bit-identical by construction,
+    // because the Idle path draws no random numbers (taxis.cu).
+    bool        taxis_enabled = true;
     // Exact per-cell 3D shadowing on top of the grid's far-field extinction.
     bool        occlusion_exact = true;
     double      ambient_temp = canon::AMBIENT_TEMP_DEFAULT;
@@ -84,6 +88,10 @@ void thermal_step(World& w, double dt);
 
 // Tick stage 9 plus the feeding half of stage 3 (src/sim/emission.cu).
 void emission_step(World& w, double dt);
+
+// Tick stage 3 (src/sim/taxis.cu). Sets emit_power and the emission axis, and
+// debits the store for what it emits.
+void taxis_step(World& w, double dt);
 
 // Applied at a tick boundary from the app, never from an input handler --
 // writing device memory mid-tick would break INV-8 (src/app/MODULE.md).

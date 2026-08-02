@@ -96,6 +96,14 @@ DERIVED = [
     ("CONTACT_REST_OVERLAP_EMPTY",
      (rho_w * V - m_dry) * g / B["CONTACT_STIFFNESS"] / B["CELL_DIAMETER"], "-",
      "rest overlap under an empty cell's buoyant weight, as a fraction of a diameter"),
+    ("TAXIS_RUN_MAX", 4.0 * B["TAXIS_MEMORY_TIME"], "s",
+     "4 x TAXIS_MEMORY_TIME -- a run must outlast the comparison window to carry "
+     "information, and must terminate so that a cell which outruns its own "
+     "depletion halo still tumbles (ADR-022). Derived rather than invented so it "
+     "cannot drift independently of the memory window"),
+    ("TAXIS_TUMBLE_SLEW_TIME", B["TAXIS_TUMBLE_ANGLE_MEAN"] / B["PETROVA_SLEW_RATE"], "s",
+     "mean tumble angle / PETROVA_SLEW_RATE -- how long a cell would spend "
+     "mis-aimed if re-aiming were rate-limited. Not yet exercised: see ADR-022 Q15"),
     ("LIFE_GROWTH_RATE", math.log(2.0) / B["LIFE_DOUBLING_TIME"], "1/s", "ln2 / doubling time"),
     ("TNT_GRAMS_PER_FULL_CELL", B["CELL_ENERGY_MAX"] / B["TNT_JOULE"], "g", "E_max / 4184 J/g"),
     ("WIEN_LAMBDA_AT_SETPOINT", B["WIEN_B"] / B["CELL_TEMP_SETPOINT"], "m",
@@ -134,6 +142,16 @@ EXPECT = [
     ("T17_PETROVA_FREQ", c / lam, "Hz", 1e-4, "Petrova frequency"),
     ("T20_WIEN_SETPOINT", B["WIEN_B"] / B["CELL_TEMP_SETPOINT"], "m", 1e-4,
      "Thermal blackbody peak; must differ from the Petrova line"),
+    # T26 -- taxis. The clamped mean is DERIVED rather than tolerated: an
+    # exponential draw with mean `m` truncated at pi has mean m*(1 - exp(-pi/m)),
+    # which is 7 % below m. Asserting the untruncated mean and widening the
+    # tolerance to cover the gap would be testing the wrong number (ADR-022).
+    ("T26_TUMBLE_MEAN_CLAMPED",
+     B["TAXIS_TUMBLE_ANGLE_MEAN"] * (1.0 - math.exp(-math.pi / B["TAXIS_TUMBLE_ANGLE_MEAN"])),
+     "rad", 2e-2, "Realised mean tumble angle after the clamp at pi"),
+    ("T26_EMA_STEP_RESPONSE", 1.0 - 1.0 / math.e, "-", 1e-6,
+     "A step input into the taxis lag reaches this fraction at exactly "
+     "TAXIS_MEMORY_TIME -- the exact discretisation, not the Euler approximation"),
     ("HOVER_POWER_FULL", P_hover, "W", 5e-3, "Emission power a full cell needs to hover"),
     ("TAU_MOMENTUM_EMPTY", m_dry / gamma20, "s", 1e-6, "Momentum relaxation time, empty cell"),
     ("TAU_MOMENTUM_FULL", m_full / gamma20, "s", 1e-6, "Momentum relaxation time, full cell"),

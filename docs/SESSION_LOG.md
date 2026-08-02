@@ -6,6 +6,24 @@ Format: milestone · what landed · what is pending · open questions · gotchas
 
 ---
 
+## 2026-08-02 — M8 (Taxis) — GREEN · **cells behave**
+
+**Landed.** Run-and-tumble taxis on the culture's own self-shadowing gradient, the FEED/BREED/IDLE machine, and the emission discharge that was missing (`dE/dt = −emit_power` — nothing debited the store before M8 because nothing ever set `emit_power` nonzero). 17 tests green. **No contract change:** `taxis_memory`, `run_timer` and `co2_local` were already in `cell_store_v1.h`.
+
+Migration **−262.6 μm = 20.3σ** against a 3σ bar, in the correct −x direction. Darkness is **bit-identical** to the taxis-off null — 0 of 2000 positions differ — because the IDLE path draws no random numbers. That was a deliberate design choice (ADR-022) and it upgrades the darkness half of the gate from a distributional claim to an exact one.
+
+**The migration sign is the assertion, and it is meaningful because the obvious confound pushes the other way.** A mobility gradient (lit cells thrusting, dark ones not) drives net flux toward the *low*-mobility side, i.e. away from the light. Measuring −x cannot be that artifact. It does not even arise here: the far side still sees ~121 W/m², four orders above the dark threshold, so every cell stays in FEED.
+
+**Q16 — the controller is mistuned, and the diagnostic is what found it.** A run-age readout showed **54.2 % of cells tumbling within the last 2 ticks** and a mean run age of 0.185 s against an 8 s cap, so Δ ≤ 0 terminates essentially every run and the cap almost never fires. Working out why produced a clean number: an **awake** cell holds its surface at the setpoint, so viscosity is 3.46× lower and it swims at **6105 μm/s** — it crosses the whole 4 mm chamber in **0.66 s**. `TAXIS_MEMORY_TIME` = 2 s is therefore **3.1× a full chamber crossing** and 6.3× the gradient's e-folding traversal. The cell is comparing against a baseline older than the entire gradient. Bias efficiency is 0.4 % of path length, so the headroom is large. **Criterion for the fix: τ ≲ the e-folding traversal time**, ~0.3 s here, and 0.05 s is already inside the canon range. Not retuned at M8: it is a constants decision touching ADR-005 and ADR-007, and starting one from green at session end is how a session ends red.
+
+**Gotchas.**
+- **I first estimated the swim speed with the 20 °C drag and got 1770 μm/s — 3.46× too low.** Awake cells are not at ambient viscosity; that is P4, and it applies to *thrust* as much as to Brownian motion. Any timescale argument about live cells must use `DRAG_COEFF_SETPOINT`.
+- **A9 caught a `1.0e-300` guard against `log(0)`.** The fix was not a waiver but sampling from `1 − u` instead of `u`: `uniform01d` returns [0,1), so `1 − u` is (0,1] and the guard is unnecessary. No bare literal, no dead branch.
+- **`test_taxis` costs 41.5 s of a 3m43s suite** — the largest single test. Kept at 10⁴ ticks anyway: it is the specified gate, and trimming a test that passes at 20σ for speed is how gates erode.
+- The clamped tumble mean (63.18°, 7 % below the unclamped 68°) is **derived** in `derive.py` and asserted directly, rather than asserting 68° with a tolerance wide enough to hide the clamp.
+
+---
+
 ## 2026-08-02 — M7 (Light) — GREEN · **all five phenomena live**
 
 **Landed.** Petrova emission, photon thrust, the irradiance field, and occlusion. **P5 completes the set.** Komorov (T15) is exact: 1 kW × 25 min ⇒ 1.5 MJ and 16.6898 ng. Bands separated 3.31× (T20). 16 tests green.

@@ -147,6 +147,12 @@ BASE = [
      "REF 1.5", (0.0, 1e3, True)),
     ("TAXIS_SEEK_FEED_BELOW", 0.95, "-", INVENTED, "Charge fraction below which a cell seeks light.", None, (0.0, 1.0, False)),
     ("TAXIS_SEEK_BREED_ABOVE", 0.98, "-", INVENTED, "Charge fraction above which a cell seeks CO2.", None, (0.0, 1.0, False)),
+    ("TAXIS_TUMBLE_ANGLE_MEAN", 1.1868238913561443, "rad", INVENTED,
+     "68 deg. Mean reorientation per tumble, drawn exponential and clamped to pi. "
+     "Informed by E. coli's measured ~68 deg, but Astrophage has no flagella -- it "
+     "re-aims by slewing its emission axis, a different mechanism -- so this is "
+     "analogy, not measurement, and it is tagged INVENTED rather than REAL. "
+     "See ADR-022.", None, (0.05, 3.14159, False)),
 
     # --- Chamber defaults ----------------------------------------------------
     ("CHAMBER_W", 4.0e-3, "m", INVENTED, "Default culture chamber width. See ADR-009.", None, (1e-4, 2e-2, True)),

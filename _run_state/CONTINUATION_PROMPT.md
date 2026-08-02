@@ -34,13 +34,13 @@ git -C C:\Astrophage tag --list
 **The last `m<N>-green` tag is the ground truth.** Not a doc, not a log, not this
 file. If anything here disagrees with the tags, believe the tags and fix the doc.
 
-As of writing: **`m0-green` … `m7-green`**. Seven of twelve milestones done.
-**Next up: M8 — Taxis.**
+As of writing: **`m0-green` … `m8-green`**. Eight of twelve milestones done.
+**Next up: M9 — Life.**
 
 Then verify the baseline before changing anything:
 
 ```bash
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/gate.ps1 -Milestone M7
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/gate.ps1 -Milestone M8
 ```
 
 That does a clean rebuild and re-runs every gate M0–M7 plus the golden images. It
@@ -91,7 +91,7 @@ repeats.
 
 ## Step 3 — the state, in numbers
 
-**16 tests green, 8 golden images, 7 audit invariant checks, 107 files.**
+**17 tests green, 8 golden images, 10 audit invariant checks.**
 
 ```
 test_canon ......... generated constants consistent; the right params carry the canon lock
@@ -109,6 +109,8 @@ test_contact ....... pair force, packed cluster, containment, adhesion, determin
 test_fields ........ stability, T25 conservation, 2D Gaussian oracle, BCs, deposits
 test_thermal ....... P2 thermostat, P3 latch, P4 motility, T5/T7/T9/T10/T12/T19
 test_emission ...... P5 exact + statistical, Komorov T15, band separation T16/T17/T20
+test_taxis ......... T26: run-and-tumble, the state machine, the emission ledger,
+                     migration at 20.3 sigma, darkness bit-identical to the null
 determinism_replay . real World, seed- and population-sensitive (INV-8)
 ```
 
@@ -253,34 +255,41 @@ network access beyond dependency fetch, Windows settings, spending money.
 
 ## Step 6 — what is next
 
-### M8 — Taxis (the immediate milestone)
+### M9 — Life (the immediate milestone)
 
-`docs/PHYSICS.md` §8. Mostly plumbing on top of parts that already exist.
+`docs/PHYSICS.md` §10 and §12. Biomass, CO₂ uptake, mitosis with energy halving and
+RNG splitting, death paths, corpse rendering, the store-disposition toggle (ADR-004),
+the multi-rate clock (ADR-011), charts.
 
-- **Temporal-comparison gradient climbing** (ADR-007), *not* spatial finite
-  differences: a 10 μm cell cannot meaningfully difference a 7.8 μm grid across its
-  own body, and a smooth glide reads as a video game rather than an organism.
-  `taxis_memory` and `run_timer` are already in the cell store, unused.
-- **FEED / BREED / IDLE** state machine keyed on charge, plus the darkness rule.
-  `TAXIS_DARK_THRESHOLD` and both seek thresholds are already in canon.
-- **CO₂ chemotaxis** — the CO₂ field, its brush, and per-cell sampling all exist.
-  Only the controller is missing.
-- Emission direction already slews (`slew_toward`, tested). Thrust already works
-  (T6). The controller just needs to set `emit_power` and a commanded heading.
+**Gate:** M8 gate + T18 (doubling matches `LIFE_DOUBLING_TIME` within 2 % under
+non-limiting CO₂); growth halts within one doubling of CO₂ exhaustion; **T22 — a run
+in which cells divide is bit-reproducible**, which is the real test of ADR-014.
 
-**Gate:** M7 gate + a population in a light gradient migrates measurably
-up-gradient (mean position shift > 3σ of the null over 10⁴ ticks); cells in
-darkness show zero emission and pure Brownian statistics.
+**Three things M9 inherits from M8, all in ADR-022:**
 
-**The trap:** see meta-lesson 1. Do not let a cell chase its own CO₂ depletion halo.
+1. **CO₂ uptake is the depletion halo M8 guarded against in advance.** Two protections
+   exist and must survive: taxis samples at stage 3 *before* the cell's own deposit at
+   stage 7, and temporal comparison is blind to a roughly-constant self-offset.
+   `TAXIS_RUN_MAX` is the backstop for a cell that outruns its own halo — it is not
+   decoration.
+2. **Stage 2 (`field_sample`) is fused into `motion_step`**, so taxis reads a
+   `co2_local` one tick old. Negligible at M8; re-examine when uptake lands. Unfusing
+   a stage is a correctness change in *both* directions (ADR-018).
+3. **Stage 11 (`stats`) has never shipped.** `world_stats` returns only tick, time and
+   counts. M9's charts are its first consumer. Needs a deterministic device reduction
+   — tree or fixed-point, **never `atomicAdd` on float** (INV-2).
 
-### Then M9 → M12
+**Read ADR-022 before touching `src/sim/taxis.*`.** M8 met the grid-vs-per-cell pattern
+a fourth time and **decided the other way on purpose**: BREED is a region-scale claim,
+so the grid is the right instrument there. That is a decision, not an oversight.
 
-- **M9 Life** — biomass, CO₂ uptake, mitosis with energy halving and RNG splitting,
-  death paths, corpse rendering, the store-disposition toggle (ADR-004), the
-  multi-rate clock (ADR-011), charts. Gate: doubling matches `LIFE_DOUBLING_TIME`
-  within 2 %; **T22 — a run in which cells divide is bit-reproducible**, which is
-  the real test of ADR-014.
+**M8's own known defect, Q16, is written up in `NEXT_SESSION.md` with the numbers** —
+`TAXIS_MEMORY_TIME` is 3.1× the time an awake cell takes to cross the whole chamber, so
+over half the population reorients every tick. The gate passes at 20σ regardless. The
+fix is a constants decision needing its own ADR, not a controller change.
+
+### Then M10 → M12
+
 - **M10 Predation** — Taumoeba, engulfment, N₂ lethality, heritable tolerance.
   The gate wants the **Taumoeba-82.5** strain to emerge by genuine directional
   selection, not by script.
@@ -347,6 +356,22 @@ Do it as a standalone M7b, or fold it into M11 with the rest of the UI.
 - **Q13** — Light is axis-aligned only (ADR-021). A sheared sweep collides threads
   on shared cells and needs atomics or a rotated buffer. Fine for P5; revisit only
   if a scenario needs oblique illumination.
+- **Q14** — Dormant cells **charge**: `feed_kernel` checks `OCCUPIED|ALIVE` only.
+  Absorption is not optional (albedo 0), but the consistent alternative is that
+  absorbed light *warms* a dormant cell and ignites it at 96.415 °C — light-driven
+  ignition, canon-consistent and lovely. New behaviour; needs its own ADR.
+- **Q15** — Re-aiming is **instantaneous**; `PETROVA_SLEW_RATE` is unused by taxis.
+  Rate-limiting needs the commanded heading stored apart from the current axis, and
+  `cell_store_v1.h` has no such field — a v2 bump. Error direction is known:
+  instantaneous re-aim makes taxis *strictly more effective*, so M8's 20.3σ is an
+  upper bound.
+- **Q16 — the taxis controller is mistuned, with numbers.** An awake cell swims at
+  6105 μm/s and crosses the whole 4 mm chamber in **0.66 s**, but
+  `TAXIS_MEMORY_TIME` is **2 s** — 3.1× a full crossing. Measured consequence:
+  **54.2 % of cells reorient within 2 ticks**, mean run age 0.185 s against an 8 s
+  cap, bias efficiency 0.4 %. Criterion for the fix: **τ ≲ the e-folding traversal
+  time** (~0.3 s here); 0.05 s is already inside the canon range. Touches ADR-005
+  and ADR-007, so it needs its own ADR. Resolve with Q15.
 
 ### Known flake
 

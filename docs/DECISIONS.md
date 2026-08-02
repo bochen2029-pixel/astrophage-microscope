@@ -132,6 +132,48 @@ Append-only. Every contradiction in the source material and every non-obvious en
 
 ---
 
+## ADR-022 — Taxis: what the controller climbs, and four things canon does not pin down
+
+**Status:** accepted, 2026-08-02 (M8).
+
+**Context.** `PHYSICS.md` §8 specifies run-and-tumble with temporal comparison (ADR-007) but leaves four things open, and M8 could not be written without settling them. Each is recorded here with its reasoning so none is re-litigated.
+
+### 1. The BREED signal is far-field, and must stay far-field
+
+Unlike temperature (ADR-020) and irradiance (ADR-021), where the claim was about an *individual body's own near field*, "follow the CO₂ lines to find breeding grounds" is a **region-scale** claim. The grid is the right instrument, and `co2_local`'s bilinear sample is the right sample.
+
+M9 adds CO₂ uptake and with it a self-depletion halo — the same trap in new clothing. Two things already guard it, and both must survive M9:
+
+- **Tick order.** Taxis is stage 3; the cell's own deposit lands at stage 7. A cell never samples its own contribution from the same tick.
+- **Temporal comparison is blind to a constant self-offset.** A cell's own halo is roughly constant in its own frame, so it largely cancels in `signal_now − ema`. This is a real advantage of ADR-007 over spatial differencing, which would see the halo as a gradient pointing *away* from itself.
+
+The residual failure mode is a cell **outrunning** its own halo: it then sees a rising signal in every direction and never tumbles. `TAXIS_RUN_MAX` forecloses it, which is why that cap is not decoration and must not be removed for looking arbitrary.
+
+### 2. Feed additionally requires light — a documented deviation from §8
+
+§8's literal pseudocode lets a dim, low-charge cell enter FEED whenever any CO₂ is present. That cell would burn store climbing an irradiance gradient that does not exist, and it contradicts canon's "does not move in darkness". FEED is gated on `!dark`. A charged cell in the dark can still BREED, since CO₂ is smelled, not seen.
+
+### 3. No CO₂-availability constant was invented
+
+The field is zero everywhere until something adds to it, and a temporal comparison on an identically-zero signal is identically zero, which yields IDLE anyway. So `co2 > 0` is the whole test. Canon is silent on a concentration cutoff and inventing one would have put a number with no provenance into the state machine — the failure mode of every invented cutoff in this build so far.
+
+### 4. Provenance of the two new constants
+
+- `TAXIS_TUMBLE_ANGLE_MEAN` = 68° is **INVENTED**, not REAL. `REAL` means a real-world *physical* constant. A behavioural measurement of *E. coli* — a different organism with flagella, where Astrophage re-aims by slewing an emission axis — is an invention informed by analogy, and mislabelling it would corrupt a provenance system that ships to the user.
+- `TAXIS_RUN_MAX` = 8 s is **DERIVED** = 4 × `TAXIS_MEMORY_TIME`. A run must outlast the comparison window to carry information and must terminate so no cell runs forever. Deriving it means it cannot drift independently of the memory time.
+
+The tumble angle is drawn exponential and **clamped to π**, which lowers the realised mean by 7 % to 63.18°. That clamped value is derived in `derive.py` as `T26_TUMBLE_MEAN_CLAMPED` and asserted directly, rather than asserting the unclamped mean with a tolerance wide enough to hide the difference.
+
+### Consequences, including one that is not free
+
+**Darkness is bit-identical, not merely similar.** The IDLE path draws **no random numbers**. A dark chamber with the controller enabled therefore produces positions identical to the taxis-disabled null, which is what T26.8 asserts. Any future edit that draws from the cell's stream on the IDLE path silently downgrades that assertion to a statistical one.
+
+**Re-aiming is instantaneous at M8, and that is a known limitation (Q15).** Rate-limiting it with `PETROVA_SLEW_RATE` requires storing the *commanded* heading separately from the current axis, and `cell_store_v1.h` has no such field — `dir_*` holds the current axis and the heading is its negation, so a slew toward a target reconstructed from that axis is circular. Doing it properly is a `cell_store_v2.h` change and was out of M8's budget. The direction of the error is worth stating: instantaneous re-aim makes taxis **strictly more effective** than the slewed version, so M8's measured migration is an upper bound and adding the slew will reduce it. `TAXIS_TUMBLE_SLEW_TIME` (1.19 s) is derived and carried so the cost is visible.
+
+**A one-tick CO₂ lag.** Stage 2 (`field_sample`) is fused into `motion_step` with stages 5 and 6, so taxis at stage 3 reads a `co2_local` sampled during the previous tick — 1 ms against a field whose diffusion time across one grid cell is ~0.1 s. Negligible at M8, where the only CO₂ source is a brush. M9 should re-examine whether stage 2 needs splitting out, bearing ADR-018 in mind: unfusing a stage is a correctness change in both directions.
+
+---
+
 ## ADR-021 — Occlusion: exact in the near field, statistical in the far field
 
 **Status:** accepted, 2026-08-02 (M7). The third instance of the same structural lesson, and the one that shows it is a pattern rather than a coincidence.
