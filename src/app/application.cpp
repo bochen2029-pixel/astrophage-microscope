@@ -111,10 +111,12 @@ Error app_init(Application& a, const Options& o) {
 
     // Registered with CUDA, so it must be created after the GL context.
     ASTRO_TRY(render::cells_pass_create(a.cells_pass, count));
+    ASTRO_TRY(render::post_pass_create(a.post_pass));
     ASTRO_TRY(spawn_population(a.world, count, o.charge, o.seed));
 
     if (o.objective >= 0 && o.objective < canon::OBJECTIVE_COUNT) a.camera.objective = o.objective;
     if (o.zoom > 0.0f) a.camera.zoom = o.zoom;
+    a.camera.focal_plane = o.focus_um * 1e-6;
 
     a.hud.respawn_count = count;
     a.hud.respawn_charge = o.charge;
@@ -126,6 +128,7 @@ Error app_init(Application& a, const Options& o) {
 }
 
 void app_shutdown(Application& a) {
+    render::post_pass_destroy(a.post_pass);
     render::cells_pass_destroy(a.cells_pass);
     render::gl_context_destroy(a.gl);
     sim::world_destroy(a.world);
@@ -199,11 +202,17 @@ int app_run(Application& a) {
 
         render::cells_pass_draw(a.cells_pass, a.camera, a.gl.fb_width, a.gl.fb_height,
                                 a.world.cells.count, a.hud.mode, a.hud.channel);
+        // The condenser affects the field as well as the cells, so it goes after
+        // them. Brightfield only: a darkfield or Petrovascope field is not lamp-lit.
+        if (a.hud.mode == contract::ViewMode::Brightfield)
+            render::post_pass_draw(a.post_pass, a.gl.fb_width, a.gl.fb_height, 0.22f, 0.6f);
 
-        const contract::Stats stats = sim::world_stats(a.world);
-        ui::hud_draw(a.hud, stats, a.camera, a.cells_pass.capacity,
-                     a.world.chamber.w, a.world.chamber.h, a.world.chamber.d);
-        ui::draw_scale_bar(a.camera, a.gl.fb_width, a.gl.fb_height);
+        if (!a.options.no_ui) {
+            const contract::Stats stats = sim::world_stats(a.world);
+            ui::hud_draw(a.hud, stats, a.camera, a.cells_pass.capacity,
+                         a.world.chamber.w, a.world.chamber.h, a.world.chamber.d);
+            ui::draw_scale_bar(a.camera, a.gl.fb_width, a.gl.fb_height);
+        }
 
         render::gl_context_render_ui(a.gl);
         // After the UI is rasterised and before the swap, so the capture is the

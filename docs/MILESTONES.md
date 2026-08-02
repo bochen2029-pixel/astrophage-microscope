@@ -9,7 +9,7 @@ Every gate re-runs all earlier gates. Gates never weaken.
 | M0 | Harness | build system, generated canon, RNG, determinism skeleton, scripts | `gate.ps1 -Milestone M0` | ✅ `m0-green` |
 | M1 | Cell store & first pixels | GPU SoA, spawn, CUDA-GL interop, instanced discs, camera, scale bar | M1 | ✅ `m1-green` |
 | M2 | Motion | OU integrator, buoyancy, boundaries → **P1** | M2 | ✅ `m2-green` |
-| M3 | Optics | defocus, DOF, objectives, diffraction ring, focal plane | M3 | ☐ |
+| M3 | Optics | defocus, DOF, objectives, diffraction ring, focal plane | M3 | ✅ `m3-green` |
 | M4 | Neighbourhood | spatial hash, contact, adhesion | M4 | ☐ |
 | M5 | Fields | Grid2D, explicit diffusion, fixed-point deposit, brushes, overlays | M5 | ☐ |
 | M6 | Thermal | mass–energy, ignition latch, thermostat → **P2 P3 P4** | M6 | ☐ |
@@ -78,9 +78,15 @@ Two corrections landed with it, both found by the oracle before any code shipped
 
 **Scope.** `RENDERING.md` §3. Per-instance circle-of-confusion `r_coc = |z - z_focus| * NA / n`, quad expansion, analytic Gaussian-convolved SDF. Diffraction ring (two `smoothstep` bands, amplitude scaled by focus). Defocus polarity flip above vs below focus. Focal-plane control (scroll/keys) with an on-screen depth indicator. Condenser vignette. Sub-pixel cell handling: clamp rendered radius to 0.75 px, modulate alpha by area ratio.
 
-**Gate.** M2 gate + golden-image comparison against `goldens/m3_*.png` within tolerance, at all three objectives and three focal depths. Racking focus visibly resolves and blurs cells.
+**Gate.** M2 gate + `test_optics` (the model) + `scripts/goldens.ps1 -Verify` (the shader), across three objectives and five focal depths.
 
 **Do not.** No screen-space depth-of-field pass — per-instance only (cells overlap in projection; a screen-space pass gets it wrong).
+
+**✅ Delivered 2026-08-02.** Rendering is bit-exact on a fixed driver (mean 0.0000, max 0), so golden tolerances are tight enough to catch a **2 μm focus change at 100×**. Cost: 200k cells fell from 795 fps to 426 fps at 40× — defocus is fill rate, not shader complexity (`RENDERING.md` §7).
+
+**ADR-017** adds "must differ" golden pairs, because a golden suite proves the renderer is *stable*, not that it *does anything* — a shader ignoring the focal plane would pass one forever. The sharpest pair is focus **+2 vs −2** at 100×: identical `|dz|`, so identical blur radius and peak opacity, differing only in sign. If the polarity inversion were dropped they would be byte-identical, so that comparison is a headless test of the Becke-line inversion.
+
+Also corrected: a comment in `optics.h` claimed sedimentation concentrates cells into a focal plane. It does not — gravity runs along −y (ADR-006), so cells pile against a side wall while their `z` stays uniformly spread. A settled monolayer only happens under `gravity_axis: z`.
 
 ---
 

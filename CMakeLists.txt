@@ -122,6 +122,9 @@ astro_test(test_cell_store   tests/physics/test_cell_store.cu)
 astro_test(test_scope        tests/physics/test_scope.cpp)
 astro_test(test_motion       tests/physics/test_motion.cpp)
 astro_test(test_buoyancy     tests/physics/test_buoyancy.cu)
+# The optics model is pure arithmetic, so it is checked headless; the golden
+# images guard the shader that mirrors it.
+astro_test(test_optics       tests/physics/test_optics.cpp)
 
 # ---------------------------------------------------------------------------
 # tools -- headless runner. The determinism oracle (INV-8) and the scenario
@@ -130,6 +133,12 @@ astro_test(test_buoyancy     tests/physics/test_buoyancy.cu)
 add_executable(headless tools/headless.cpp)
 target_link_libraries(headless PRIVATE astro_core astro_sim astro_fields CUDA::cudart_static)
 astro_strict(headless)
+
+# Golden-image comparator. No GL, no CUDA, no image library -- PPM is trivial to
+# parse, and Iron Rule 8 makes every dependency an ADR.
+add_executable(imgdiff tools/imgdiff.cpp)
+target_link_libraries(imgdiff PRIVATE astro_core)
+astro_strict(imgdiff)
 
 add_test(NAME determinism_replay
          COMMAND headless --ticks 10000 --seed 20260802 --assert-deterministic)

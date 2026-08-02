@@ -16,6 +16,8 @@ void print_usage() {
         "  --charge F         initial charge fraction, 0..1\n"
         "  --objective N      0 = 10x survey, 1 = 40x working, 2 = 100x detail\n"
         "  --zoom F           digital zoom on top of the objective\n"
+        "  --focus F          focal plane in micrometres from chamber centre\n"
+        "  --no-ui            suppress all ImGui drawing (for golden captures)\n"
         "  --ticks-per-frame N  fixed ticks per frame, ignoring wall clock;\n"
         "                       makes a capture reproducible on any machine\n"
         "  --width N          window width\n"
@@ -52,6 +54,11 @@ Options parse_args(int argc, char** argv) {
         else if (want("--zoom")) {
             if (i + 1 >= argc) o.bad = true;
             else o.zoom = static_cast<float>(std::atof(argv[++i]));
+        }
+        else if (want("--no-ui"))      o.no_ui     = true;
+        else if (want("--focus")) {
+            if (i + 1 >= argc) o.bad = true;
+            else o.focus_um = static_cast<float>(std::atof(argv[++i]));
         }
         else if (want("--headless"))   o.headless  = true;
         else if (want("--gl-debug"))   o.gl_debug  = true;

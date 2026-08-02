@@ -36,7 +36,11 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/audit.ps1           
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/gate.ps1 -Milestone M2 # milestone completion gate
 ctest --test-dir build --output-on-failure                                         # tests only
 python scripts/derive.py                                                           # regenerate canon artifacts
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/goldens.ps1 -Verify    # golden images
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/goldens.ps1 -Generate  # regenerate (needs an ADR)
 ```
+
+Add `-App` to `build.ps1` whenever the executable matters; the plain form configures with `ASTRO_BUILD_APP=OFF` so the core and tests build with no network and no dependencies.
 
 ## Iron Rules
 

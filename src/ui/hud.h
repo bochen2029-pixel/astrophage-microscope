@@ -40,4 +40,8 @@ void hud_draw(HudState& hud, const contract::Stats& stats, render::Camera& cam,
 // A microscope without a scale bar is a lava lamp (docs/RENDERING.md Sec 7.6).
 void draw_scale_bar(const render::Camera& cam, int fb_w, int fb_h);
 
+// Shows where the focal plane sits in the chamber and how thin the sharp band
+// is. Drawn inline in the scope panel, under the focal-plane slider.
+void draw_focus_gauge(const render::Camera& cam, double chamber_d);
+
 } // namespace astro::ui

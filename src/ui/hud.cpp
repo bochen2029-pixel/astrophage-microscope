@@ -32,6 +32,48 @@ void format_sim_time(double s, char* out, size_t n) {
 
 } // namespace
 
+// A depth-of-field gauge, because the numbers alone do not convey how thin the
+// sharp layer is. At 40x it is 1.53 um inside a 60 um chamber -- the in-focus
+// band is under a fortieth of the bar, and seeing that is the point.
+void draw_focus_gauge(const render::Camera& cam, double chamber_d) {
+    const auto& obj = canon::OBJECTIVES[cam.objective];
+    const float w = ImGui::GetContentRegionAvail().x;
+    const float h = 26.0f;
+    const ImVec2 p0 = ImGui::GetCursorScreenPos();
+    const ImVec2 p1 = ImVec2(p0.x + w, p0.y + h);
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+
+    dl->AddRectFilled(p0, p1, IM_COL32(24, 26, 32, 255), 3.0f);
+    dl->AddRect(p0, p1, IM_COL32(80, 88, 104, 255), 3.0f);
+
+    // Chamber depth maps across the bar; the coverslip and slide are the ends.
+    auto z_to_x = [&](double z_m) {
+        const double t = (z_m + 0.5 * chamber_d) / chamber_d;
+        return p0.x + static_cast<float>(astro::clamp(t, 0.0, 1.0)) * w;
+    };
+
+    const float x_focus = z_to_x(cam.focal_plane);
+    const float x_lo = z_to_x(cam.focal_plane - 0.5 * obj.depth_of_field_m);
+    const float x_hi = z_to_x(cam.focal_plane + 0.5 * obj.depth_of_field_m);
+
+    // The sharp band. Enforce a minimum drawn width of 2 px, or at 40x it is
+    // literally invisible -- which would understate the point rather than make it.
+    const float band_lo = x_lo;
+    const float band_hi = (x_hi - x_lo < 2.0f) ? x_lo + 2.0f : x_hi;
+    dl->AddRectFilled(ImVec2(band_lo, p0.y + 2), ImVec2(band_hi, p1.y - 2),
+                      IM_COL32(120, 220, 160, 200));
+    dl->AddLine(ImVec2(x_focus, p0.y), ImVec2(x_focus, p1.y), IM_COL32(255, 255, 255, 220), 1.5f);
+
+    char label[96];
+    std::snprintf(label, sizeof(label), "DOF %.2f um of %.0f um  (%.1f%% sharp)",
+                  obj.depth_of_field_m * 1e6, chamber_d * 1e6,
+                  100.0 * obj.depth_of_field_m / chamber_d);
+    const ImVec2 ts = ImGui::CalcTextSize(label);
+    dl->AddText(ImVec2(p0.x + (w - ts.x) * 0.5f, p0.y + (h - ts.y) * 0.5f),
+                IM_COL32(210, 215, 225, 255), label);
+    ImGui::Dummy(ImVec2(w, h + 2.0f));
+}
+
 void hud_draw(HudState& hud, const Stats& stats, render::Camera& cam,
               int32_t capacity, double chamber_w, double chamber_h, double chamber_d) {
     ImGui::SetNextWindowPos(ImVec2(12, 12), ImGuiCond_FirstUseEver);
@@ -60,9 +102,9 @@ void hud_draw(HudState& hud, const Stats& stats, render::Camera& cam,
     ImGui::SliderFloat("zoom", &cam.zoom, 0.05f, 200.0f, "%.2fx", ImGuiSliderFlags_Logarithmic);
     float focal_um = static_cast<float>(cam.focal_plane * 1e6);
     const float half_d_um = static_cast<float>(chamber_d * 0.5e6);
-    if (ImGui::SliderFloat("focal plane", &focal_um, -half_d_um, half_d_um, "%.1f um"))
+    if (ImGui::SliderFloat("focal plane", &focal_um, -half_d_um, half_d_um, "%.2f um"))
         cam.focal_plane = focal_um * 1e-6;
-    ImGui::TextDisabled("(focus has no visual effect until M3)");
+    draw_focus_gauge(cam, chamber_d);
 
     ImGui::SeparatorText("View");
     int mode = static_cast<int>(hud.mode);

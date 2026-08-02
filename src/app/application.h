@@ -6,6 +6,7 @@
 #include "render/camera.h"
 #include "render/cells_pass.h"
 #include "render/gl_context.h"
+#include "render/post_pass.h"
 #include "sim/world.cuh"
 #include "ui/hud.h"
 
@@ -15,6 +16,7 @@ struct Application {
     Options            options;
     render::GlContext  gl;
     render::CellsPass  cells_pass;
+    render::PostPass   post_pass;
     render::Camera     camera;
     sim::World         world;
     ui::HudState       hud;

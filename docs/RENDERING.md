@@ -110,10 +110,12 @@ Reference machine: RTX 4070 Ti SUPER (sm_89, 16 GB), 200,000 cells, `TARGET_FPS`
 | lifecycle + stats | 0.20 ms |
 | **sim subtotal per tick** | **2.7 ms** |
 | interop instance write | 0.15 ms |
-| cells pass (1 instanced draw) | 1.2 ms |
+| cells pass (1 instanced draw) | 1.2 ms flat discs · **2.3 ms with defocus** |
 | field pass + compose + bloom + optics | 1.5 ms |
 | ImGui | 0.5 ms |
 
-**Scaling levers, in the order to reach for them:** drop field grids one power of two; run `lifecycle` every 10th tick (it is `biology_rate`-scaled anyway); LOD to a density heatmap for cells far from the focal plane beyond 500k; only then consider persistent kernels or graph capture.
+**Defocus is a fill-rate cost, not a shader-complexity cost.** A cell 30 μm out of focus expands its quad to ~40 μm across — 64× the in-focus area — and every one of those fragments is shaded and blended. Measured at M3: 200k cells went from 795 fps (flat discs) to **426 fps at 40×** and **387 fps at 100×**, where the higher NA blurs harder. Both comfortably clear the 144 target, but the headroom is now 3× rather than 5×, and **bloom at M7 lands on top of this**. If a budget crisis comes, it will come here.
+
+**Scaling levers, in the order to reach for them:** drop field grids one power of two; run `lifecycle` every 10th tick (it is `biology_rate`-scaled anyway); **cull cells whose peak opacity falls below the discard threshold** — at the working objective a cell past ~40 μm of defocus contributes under 2 % opacity and could be skipped entirely in the vertex stage, which directly attacks the overdraw above; LOD to a density heatmap beyond 500k; only then persistent kernels or graph capture.
 
 **Hard rules.** Zero device allocation in the steady-state tick loop — all scratch preallocated at scenario load (test T29). Cells are drawn at **true relative size**; there is no "make them bigger so you can see them" fudge, and `audit.ps1` greps for one. Sub-pixel cells still render: clamp the minimum radius to 0.75 px and modulate alpha by the area ratio so density stays honest instead of aliasing away.

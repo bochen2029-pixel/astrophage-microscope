@@ -20,6 +20,7 @@ struct CellsPass {
     // Uniform locations, resolved once at build time.
     int u_center_um = -1, u_half_extent_um = -1, u_px_per_um = -1;
     int u_mode = -1, u_channel = -1, u_focal_plane_um = -1;
+    int u_na = -1, u_immersion = -1;
 };
 
 Error cells_pass_create(CellsPass& p, int32_t instance_capacity);

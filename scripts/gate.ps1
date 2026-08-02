@@ -110,7 +110,14 @@ if ($n -ge 2) {
 }
 
 # --------------------------------------------------------------- M3: optics
-if ($n -ge 3) { Gate 'M3.1' 'optics goldens' { return (Run-Test 'test_optics_golden') } }
+if ($n -ge 3) {
+    Gate 'M3.1' 'optics model (DOF, energy conservation, polarity)' { return (Run-Test 'test_optics') }
+    Gate 'M3.2' 'golden images match, and prove the optics do something' {
+        & powershell -NoProfile -ExecutionPolicy Bypass `
+            -File (Join-Path $root 'scripts\goldens.ps1') -Verify *>&1 | Out-Null
+        return ($LASTEXITCODE -eq 0)
+    }
+}
 
 # -------------------------------------------------------- M4: neighbourhood
 if ($n -ge 4) {

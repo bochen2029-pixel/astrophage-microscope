@@ -6,6 +6,29 @@ Format: milestone · what landed · what is pending · open questions · gotchas
 
 ---
 
+## 2026-08-02 — M3 (Optics) — GREEN
+
+**Landed.** The renderer is a microscope. Per-instance defocus, energy-conserving opacity, the Becke line with its polarity inversion, a condenser vignette, and a depth-of-field gauge in the HUD.
+
+- `render/optics.h` — the model as pure host-testable functions; `test_optics` covers DOF, energy conservation, and polarity.
+- `cells_pass.cpp` — shader rewritten around the blurred profile. Signed contrast, so the Becke line can render *brighter* than the field rather than only darker.
+- `render/post_pass.{h,cpp}` — condenser vignette, multiply-blended fullscreen triangle, no FBO.
+- `tools/imgdiff.cpp` + `scripts/goldens.ps1` — golden capture and comparison. `--no-ui` and `--focus` added so goldens depend on the renderer alone.
+- 11 tests green, 8 goldens.
+
+**Rendering is bit-exact** on a fixed driver (mean 0.0000, max 0 immediately after generation), so tolerances are tight enough to catch a **2 μm focus change at 100×**.
+
+**ADR-017 — the golden suite needed a second half.** A golden suite proves the renderer is *stable*, not that it *does anything*: a shader ignoring the focal plane entirely would pass one forever. So `goldens.ps1` also asserts specific pairs must **differ**. The sharpest is focus **+2 vs −2** at 100×: identical `|dz|`, therefore identical blur radius and peak opacity, differing only in sign. If the polarity inversion were dropped they would be byte-identical. That turns a by-eye feature into a headless test (measured: mean 9.8/255 across 21.6 % of pixels).
+
+**Gotchas.**
+- **I had written a false claim into `optics.h`** — that sedimentation concentrates cells into a focal plane, so racking onto the settled layer would bring the culture sharp. It does not. Gravity is along −y (ADR-006), so cells pile against a *side wall* while their `z` stays uniformly spread. Only 2.5 % of the chamber is ever in focus at 40×. Comment corrected; the claim would have misled whoever built on it.
+- **Two `test_optics` thresholds were invented rather than derived** (`r > 4a`, `peak < 0.06`) and failed at the true values 3.9a and 0.0617. Replaced with assertions on the derived quantities — the blur is `dz·NA/n` and the opacity follows from energy conservation — plus loose qualitative bounds. Guessing a threshold and then discovering the physics disagrees is the wrong order.
+- **Energy conservation is what makes blur read as blur.** Without the `(a/R_eff)²` falloff a defocused cell stays jet black and merely grows, which looks like fog.
+- Defocus costs fill rate, not shader complexity: 795 → 426 fps at 200k cells. Bloom at M7 lands on top of that; the first lever is vertex-stage culling of near-invisible cells.
+- Range-`for` over a braced list needs `<initializer_list>` under MSVC.
+
+---
+
 ## 2026-08-02 — M2 (Motion) — GREEN
 
 **Landed.** Cells move, and **P1 is real**: an empty cell (40 kg/m³, 0.04× water) rises and packs against the ceiling; a charged one (6415 kg/m³, 6.4× water) sinks to the floor; at 3.006 % they hang suspended. Drift velocity is linear in charge to **Pearson −1.000000**, zero crossing at **3.00577 %** vs a canon-derived 3.00577 %.

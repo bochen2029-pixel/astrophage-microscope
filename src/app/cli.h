@@ -27,6 +27,10 @@ struct Options {
     bool     vsync      = false;     // off by default so --benchmark is honest
 
     const char* screenshot = nullptr; // write a PPM of the final frame and exit
+    // Suppress all ImGui drawing. Golden images must test the RENDERER, not the
+    // panel layout -- otherwise every HUD tweak invalidates every golden.
+    bool     no_ui      = false;
+    float    focus_um   = 0.0f;      // focal plane, micrometres
     bool     help       = false;
     bool     bad        = false;
 };

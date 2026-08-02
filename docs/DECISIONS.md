@@ -132,6 +132,25 @@ Append-only. Every contradiction in the source material and every non-obvious en
 
 ---
 
+## ADR-017 — Golden images, plus "must differ" pairs to prove they test something
+
+**Status:** accepted, 2026-08-02 (M3).
+**Context.** The optics live in GLSL, which no C++ test can call. `test_optics` verifies the *model* in `src/render/optics.h`, but the shader only *mirrors* those formulas — nothing across the GLSL boundary is compiler-checked. Golden images are the guard.
+
+But a golden suite has a well-known failure mode: it proves the renderer is **stable**, not that it **does anything**. A shader that ignored the focal plane entirely would pass a golden suite forever, as long as it did so consistently.
+
+**Decision.** Two halves, both in `scripts/goldens.ps1`.
+1. Eight goldens across three objectives and five focal depths, captured with `--no-ui` and `--ticks-per-frame` so they depend only on the renderer and not on the UI layout or the wall clock. Compared by `tools/imgdiff` on three statistics — mean absolute difference, worst single-channel difference, and the fraction of pixels past a threshold — because one number cannot distinguish an imperceptible global shift (usually a benign driver change) from a small region changing completely (the real regression).
+2. **"Must differ" pairs.** Specific golden pairs that are asserted *not* to match.
+
+**The sharpest of these is `focus +2` vs `focus −2` at 100×.** Identical `|dz|`, therefore identical blur radius, identical peak opacity, identical everything except the *sign*. If the defocus polarity inversion were dropped, the two images would be byte-identical. So that comparison is a headless test of the Becke-line inversion — a feature otherwise only checkable by eye. Measured: mean difference 9.8/255 across 21.6 % of pixels.
+
+**Consequences.** Rendering is bit-exact on a fixed driver (verified: mean 0.0000, max 0 immediately after generation), so tolerances are set tight enough to catch a 2 μm focus change at 100×. Regenerating goldens requires a `DECISIONS.md` entry in the same commit, per Iron Rule 10.
+
+**Residual risk, accepted.** `optics.h` and the GLSL in `cells_pass.cpp` duplicate the same four formulas and can silently diverge. The goldens catch a divergence only if it changes pixels — which, for these formulas, it always would. Noted in `src/render/MODULE.md`.
+
+---
+
 ## ADR-016 — The integrator propagates position and velocity jointly, not velocity alone
 
 **Status:** accepted, 2026-08-02 (M2). **Corrects the scheme originally written in `PHYSICS.md` §3.2.**
