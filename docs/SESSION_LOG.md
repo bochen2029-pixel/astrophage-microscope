@@ -6,6 +6,23 @@ Format: milestone · what landed · what is pending · open questions · gotchas
 
 ---
 
+## 2026-08-02 — Q16 retune (ADR-024) — GREEN · **and a diagnosis that was half wrong**
+
+**Landed.** `TAXIS_MEMORY_TIME` 2 s → **0.1 s**. Migration **20.3σ → 26.0σ**, a 28 % larger displacement on the identical scenario and seed.
+
+The 2 s window was indefensible on its own terms: an awake cell crosses the whole 4 mm chamber in **0.655 s**, so the memory was **3.05 chamber crossings** and the cell compared against a baseline older than any gradient that could exist. The criterion is now derived and **asserted**, not advisory — `TAXIS_MEMORY_CHAMBER_RATIO` must stay under 0.5; it is 0.153. `TAXIS_SWIM_SPEED` is carried explicitly because its absence caused M8's 3.46× error.
+
+**The prediction was backwards, and that is the useful part.** I expected the retune to *lower* the tumble rate. It **raised** it, 54 % → 69 %. A shorter memory makes the EMA track the signal more closely, so `Δ = signal − ema` is smaller and crosses zero more often — a longer memory gives a larger, more persistent Δ. The tumble rate is set by the **rule** (`Δ ≤ 0`, every tick, no refractory period), not by the window. I had bundled the two together at M8 and only one was the window's fault.
+
+That migration improved *while* tumbling rose is the tell: frequent reorientation with the right sign is tighter gradient following, not jitter. **The tumble rate was a symptom I misread as the defect.**
+
+**Gotchas.**
+- **A measured symptom is not a diagnosis.** The M8 number was real; the causal story attached to it was not. Only re-measuring after the change exposed it. Predict, change, *re-measure*.
+- The residual issue is better posed as **Q18**: no refractory period, so only **3.6 %** of cells are on a run outlasting one comparison window. The fix is a rate-based Poisson tumble, *not* a hard minimum run — a floor at `TAXIS_TUMBLE_SLEW_TIME` = 1.19 s commits a cell to 7.3 mm in a 4 mm chamber.
+- Adding "% locked on" beside "% searching" is what made the regime legible. A single rate reads as pathology; the split reads as behaviour.
+
+---
+
 ## 2026-08-02 — M8b (Presentation) — GREEN · **cells look like organisms**
 
 **Landed.** Irregular cell silhouettes (Q17), the field diaphragm, and Q8's vertex-stage culling that pays for the extra fill. `render_view_v2.h` adds a per-cell `shape_seed`; 18 tests green, 9 goldens.

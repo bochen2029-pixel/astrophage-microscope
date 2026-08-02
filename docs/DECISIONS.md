@@ -132,6 +132,36 @@ Append-only. Every contradiction in the source material and every non-obvious en
 
 ---
 
+## ADR-024 — The taxis memory window, and a diagnosis that was half wrong
+
+**Status:** accepted, 2026-08-02. Resolves Q16, and replaces it with a better-posed Q18.
+
+**Context.** M8 shipped with `TAXIS_MEMORY_TIME` = 2 s and a diagnostic showing 54 % of cells reorienting within two ticks. The window was indefensible on its own terms: an **awake** cell swims at 6105 μm/s and crosses the whole 4 mm chamber in **0.655 s**, so a 2 s memory is **3.05 chamber crossings**. No gradient can be larger than the chamber, so the cell was comparing against a baseline older than any structure it could possibly be climbing.
+
+**Decision.** `TAXIS_MEMORY_TIME` 2.0 → **0.1 s**, and the criterion is now *derived and asserted* rather than left as advice:
+
+- `TAXIS_SWIM_SPEED` = `PETROVA_MAX_POWER / (c · DRAG_COEFF_SETPOINT)`. Carried explicitly because its absence caused a **3.46× error** at M8 — the first estimate used the 20 °C drag, forgetting that P4 applies to thrust exactly as it does to Brownian motion.
+- `TAXIS_CHAMBER_TRAVERSAL` = `CHAMBER_W / TAXIS_SWIM_SPEED` = 0.655 s.
+- `TAXIS_MEMORY_CHAMBER_RATIO` = the quotient, **asserted below 0.5 in `test_taxis`**. It was 3.05; it is now 0.153.
+
+The assertion matters because this failure is invisible by inspection: it looks like a working controller with a weak bias, not like a bug.
+
+**Result.** Migration improved from **20.3σ to 26.0σ**, a 28 % larger mean displacement on the identical scenario and seed.
+
+### The prediction that was wrong, recorded because the reasoning was seductive
+
+I expected the retune to *reduce* the tumble rate. **It increased it** — 54 % → 69 % of cells reorienting within two ticks.
+
+The mechanism is the opposite of what I assumed. A *shorter* memory makes the EMA track the signal more closely, so `Δ = signal − ema` is *smaller* and crosses zero more often. A longer memory produces a larger, more persistent Δ. I had attributed the tumble rate to the memory mismatch; it is actually set by the **tumble rule**, which fires whenever `Δ ≤ 0` on any tick with no refractory period. The two are independent, and only one of them was the memory window's fault.
+
+That the migration improved *while* the tumble rate rose is the tell: frequent reorientation with a correct sign is tighter gradient following, not jitter. The tumble rate was never the defect — it was a symptom I misread as one.
+
+**Consequence — Q18, better posed than Q16 was.** With no refractory period the motion is a biased random walk that decorrelates every millisecond, not run-and-tumble: only **3.6 %** of cells are on a run that has outlasted one comparison window. Real reorientation takes time. The fix is a rate-based tumble (Poisson with an intensity modulated by Δ) rather than a per-tick threshold. A hard floor at `TAXIS_TUMBLE_SLEW_TIME` = 1.19 s is *not* the fix and would break the milestone: at 6105 μm/s that commits a cell to 7.3 mm of travel in a 4 mm chamber. Needs its own ADR, and it is entangled with Q15 (no commanded-heading field) and ADR-005 (why 50 mW makes cells this fast relative to the chamber).
+
+**Escape hatch.** `TAXIS_MEMORY_TIME` stays `INVENTED` and tunable, with its range widened to (0.005, 60). The ratio assertion, not the value, is what must hold.
+
+---
+
 ## ADR-023 — Cell morphology: irregular by default, and provably unable to move a measurement
 
 **Status:** accepted, 2026-08-02 (M8b). Supersedes `render_view_v1.h` with `render_view_v2.h`.

@@ -96,6 +96,25 @@ DERIVED = [
     ("CONTACT_REST_OVERLAP_EMPTY",
      (rho_w * V - m_dry) * g / B["CONTACT_STIFFNESS"] / B["CELL_DIAMETER"], "-",
      "rest overlap under an empty cell's buoyant weight, as a fraction of a diameter"),
+    # The number whose absence caused a 3.46x error in a timescale argument at M8:
+    # an AWAKE cell holds its surface at the setpoint, so it swims against
+    # DRAG_COEFF_SETPOINT, not the 20 C value. Carried explicitly so nobody has to
+    # rederive it (ADR-024).
+    ("TAXIS_SWIM_SPEED", B["PETROVA_MAX_POWER"] / (c * gamma96), "m/s",
+     "PETROVA_MAX_POWER / (c * DRAG_COEFF_SETPOINT) -- terminal speed of an awake "
+     "cell under full photon thrust"),
+    ("TAXIS_CHAMBER_TRAVERSAL", B["CHAMBER_W"] * c * gamma96 / B["PETROVA_MAX_POWER"], "s",
+     "CHAMBER_W / TAXIS_SWIM_SPEED -- how long a thrusting cell takes to cross the "
+     "whole chamber"),
+    # THE criterion for the temporal comparison, and it is asserted, not advisory.
+    # A gradient cannot be larger than the chamber, so a memory window longer than
+    # a chamber crossing compares against a baseline older than any structure the
+    # cell could possibly be climbing. At M8 this ratio was 3.05 and 54 % of cells
+    # reorientated every tick (ADR-024).
+    ("TAXIS_MEMORY_CHAMBER_RATIO",
+     B["TAXIS_MEMORY_TIME"] * B["PETROVA_MAX_POWER"] / (B["CHAMBER_W"] * c * gamma96), "-",
+     "TAXIS_MEMORY_TIME / TAXIS_CHAMBER_TRAVERSAL -- fraction of the chamber a cell "
+     "crosses within one comparison window. Must stay well below 1"),
     ("TAXIS_RUN_MAX", 4.0 * B["TAXIS_MEMORY_TIME"], "s",
      "4 x TAXIS_MEMORY_TIME -- a run must outlast the comparison window to carry "
      "information, and must terminate so that a cell which outruns its own "

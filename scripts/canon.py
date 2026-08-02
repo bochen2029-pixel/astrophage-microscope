@@ -140,8 +140,14 @@ BASE = [
      "Spatial hash cell size in units of CELL_DIAMETER.", None, (1.05, 8.0, False)),
     ("DT_PHYSICS", 1.0e-3, "s", INVENTED,
      "Fixed physics timestep. Never varies with frame rate.", None, (1e-5, 1e-2, True)),
-    ("TAXIS_MEMORY_TIME", 2.0, "s", INVENTED,
-     "Run-and-tumble temporal comparison window. See ADR-007.", None, (0.05, 60.0, True)),
+    ("TAXIS_MEMORY_TIME", 0.1, "s", INVENTED,
+     "Run-and-tumble temporal comparison window. Must stay SHORT compared to the "
+     "time a thrusting cell takes to cross the chamber (0.655 s), because no "
+     "gradient can be larger than the chamber: a longer window compares against a "
+     "baseline older than any structure the cell could be climbing. The original "
+     "2.0 s was 3.05 chamber crossings and left 54 % of cells reorienting every "
+     "tick. See ADR-007 and ADR-024; TAXIS_MEMORY_CHAMBER_RATIO is the check.",
+     None, (0.005, 60.0, True)),
     ("TAXIS_DARK_THRESHOLD", 1.0e-3, "W/m^2", INVENTED,
      "Below this irradiance a cell does not move (canon: 'does not move in darkness').",
      "REF 1.5", (0.0, 1e3, True)),

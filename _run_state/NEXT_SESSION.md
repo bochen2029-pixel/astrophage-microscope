@@ -48,28 +48,19 @@ Biomass, CO₂ uptake, mitosis with energy halving and RNG splitting, death path
 
 Also confirm `spawn_kernel` clears `vx/vy/vz` when M9 adds slot reuse (Q5). It does today, but only incidentally.
 
-## Q16 — the taxis controller is mistuned, and the fix is a 20-minute job
+## Q18 — the tumble rule has no refractory period (Q16 is resolved)
 
-**This is the most valuable thing M8 found and it is deliberately not fixed.** The gate passes at 20σ, but a run-age diagnostic in `test_taxis` shows **54.2 % of cells tumbling within the last 2 ticks** and a mean run age of 0.185 s against an 8 s cap — Δ ≤ 0 ends essentially every run and the cap almost never fires.
+**Q16 is fixed (ADR-024).** `TAXIS_MEMORY_TIME` went 2 s → **0.1 s**, and the criterion is now derived and *asserted* rather than advisory: `TAXIS_MEMORY_CHAMBER_RATIO` = memory / chamber-traversal must stay below 0.5. It was **3.05**; it is now **0.153**. Migration improved **20.3σ → 26.0σ**.
 
-The cause is a clean timescale mismatch:
+**Half of that diagnosis was wrong, and the correction is the useful part.** I predicted the retune would lower the tumble rate. It *raised* it, 54 % → 69 % of cells reorienting within two ticks — because a shorter memory makes the EMA track the signal more closely, so `Δ = signal − ema` is smaller and crosses zero more often. The tumble rate is set by the **rule**, not the window, and the two are independent.
 
-| | |
-|---|---|
-| swim speed of an **awake** cell | 6105 μm/s (`PETROVA_MAX_POWER`/c ÷ `DRAG_COEFF_SETPOINT`) |
-| time to cross the 4 mm chamber | **0.66 s** |
-| gradient e-folding traversal | 0.315 s |
-| `TAXIS_MEMORY_TIME` | **2 s — 3.1× a full chamber crossing** |
+That migration improved *while* tumbling rose is the tell: frequent reorientation with the right sign is tighter gradient following, not jitter.
 
-A cell compares against a baseline older than the entire gradient. Bias efficiency is 0.4 % of path length, so there is a lot of headroom.
-
-**The criterion, so this is a decision and not a guess: τ ≲ the e-folding traversal time**, `L_efold · γ · c / P` ≈ 0.3 s here. `TAXIS_MEMORY_TIME`'s canon range is already (0.05, 60.0), so no range change is needed. Expect the migration figure to improve and the tumble rate to fall to something that looks like an organism rather than jitter.
-
-Not done at M8 because it is a constants decision touching **ADR-005** (why 50 mW) and **ADR-007**, and starting one from green at session end is how a session ends red. It needs its own ADR.
+**What is actually left.** `taxis_should_tumble` fires whenever `Δ ≤ 0` on any tick, with no refractory period, so motion is a biased random walk decorrelating every millisecond rather than run-and-tumble — only **3.6 %** of cells are on a run outlasting one comparison window. The fix is a **rate-based tumble** (Poisson with intensity modulated by Δ), not a hard minimum run: a floor at `TAXIS_TUMBLE_SLEW_TIME` = 1.19 s would commit a cell to 7.3 mm of travel in a 4 mm chamber and break the milestone. Entangled with Q15 and ADR-005. Needs its own ADR.
 
 ## Q15 — re-aiming is instantaneous
 
-`PETROVA_SLEW_RATE` is unused by the controller. Rate-limiting the re-aim needs the *commanded* heading stored separately from the current axis, and `cell_store_v1.h` has no such field — `dir_*` is the current axis and the heading is its negation, so slewing toward a target reconstructed from that axis is circular. A `cell_store_v2.h` change. **Direction of the error is known: instantaneous re-aim makes taxis strictly more effective, so 20.3σ is an upper bound.** `TAXIS_TUMBLE_SLEW_TIME` (1.19 s) is derived and carried so the cost stays visible. Entangled with Q16 — resolve them together.
+`PETROVA_SLEW_RATE` is unused by the controller. Rate-limiting the re-aim needs the *commanded* heading stored separately from the current axis, and `cell_store_v1.h` has no such field — `dir_*` is the current axis and the heading is its negation, so slewing toward a target reconstructed from that axis is circular. A `cell_store_v2.h` change. **Direction of the error is known: instantaneous re-aim makes taxis strictly more effective, so 20.3σ is an upper bound.** `TAXIS_TUMBLE_SLEW_TIME` (1.19 s) is derived and carried so the cost stays visible. Entangled with Q18 — resolve them together.
 
 ## Q14 — dormant cells charge, and probably should not
 
@@ -82,7 +73,8 @@ Not done at M8 because it is a constants decision touching **ADR-005** (why 50 m
 ## Other hard-won rules
 
 - **Do not guess a numeric threshold — derive it.** M8 added two constants: the clamped tumble mean is derived in `derive.py` and asserted directly rather than hidden behind a wide tolerance, and `TAXIS_RUN_MAX` is derived from `TAXIS_MEMORY_TIME` so it cannot drift away from it. No CO₂-availability constant was invented at all — `co2 > 0` is the whole test.
-- **Use `DRAG_COEFF_SETPOINT`, not `DRAG_COEFF_20C`, for any timescale argument about live cells.** M8 estimated a swim speed 3.46× too low by forgetting that P4 applies to thrust as much as to Brownian motion.
+- **Use `DRAG_COEFF_SETPOINT`, not `DRAG_COEFF_20C`, for any timescale argument about live cells.** M8 estimated a swim speed 3.46× too low by forgetting that P4 applies to thrust as much as to Brownian motion. `TAXIS_SWIM_SPEED` is now derived and carried so nobody repeats it.
+- **A measured symptom is not a diagnosis.** ADR-024's tumble-rate prediction was backwards, and only re-measuring after the change caught it. Predict, change, *re-measure* — the prediction is not the result.
 - **When a gate fails, first ask whether it asks the right question.** Still 4-for-4.
 - **Regenerating goldens needs a `DECISIONS.md` entry in the same commit** (Iron Rule 10).
 - **A9 has no waiver in use.** If it flags a literal, prefer removing the need for it — M8's `log(0)` guard vanished by sampling `1 − u` instead of `u`.

@@ -161,6 +161,18 @@ int main() {
         CHECK(taxis_should_tumble(-1.0, 0.0) == true);
         CHECK(taxis_should_tumble(0.0, 0.0) == true);
         CHECK(canon::TAXIS_RUN_MAX > canon::TAXIS_MEMORY_TIME);
+
+        // The comparison window must be SHORT compared to a chamber crossing. No
+        // gradient can be larger than the chamber, so a longer window compares
+        // against a baseline older than any structure the cell could be climbing.
+        // At M8 this was 3.05 and 54 % of cells reorientated every tick (ADR-024).
+        // Asserted rather than left as advice, because it is invisible by
+        // inspection: the failure looks like a working controller with a weak bias.
+        std::printf("  memory window = %.3f s = %.3f chamber crossings "
+                    "(swim speed %.0f um/s)\n",
+                    canon::TAXIS_MEMORY_TIME, canon::TAXIS_MEMORY_CHAMBER_RATIO,
+                    canon::TAXIS_SWIM_SPEED * 1e6);
+        CHECK(canon::TAXIS_MEMORY_CHAMBER_RATIO < 0.5);
     }
 
     // --- T26.6: emission debits the store ------------------------------------
@@ -263,16 +275,22 @@ int main() {
         // (Q16), so a cell can tumble on consecutive ticks -- this reports how
         // often that actually happens rather than leaving it to argument.
         double mean_run = 0.0;
-        int just_tumbled = 0;
+        int just_tumbled = 0, locked_on = 0;
         for (float t : a.run_timer) {
             mean_run += t;
             if (t <= 2.0f * static_cast<float>(canon::DT_PHYSICS)) ++just_tumbled;
+            // A run that has outlasted a full comparison window is a cell that
+            // found an improving heading and is committed to it -- as opposed to
+            // one still searching. The split between the two is the thing worth
+            // knowing; the tumble rate alone reads as pathology when it is not.
+            if (t > static_cast<float>(canon::TAXIS_MEMORY_TIME)) ++locked_on;
         }
         mean_run /= a.run_timer.size();
-        std::printf("  runs: mean age %.3f s (cap %.1f s), %.1f%% of cells tumbled "
-                    "within the last 2 ticks\n",
+        std::printf("  runs: mean age %.3f s (cap %.2f s), %.1f%% searching "
+                    "(tumbled within 2 ticks), %.1f%% locked on (run > memory)\n",
                     mean_run, canon::TAXIS_RUN_MAX,
-                    100.0 * just_tumbled / a.run_timer.size());
+                    100.0 * just_tumbled / a.run_timer.size(),
+                    100.0 * locked_on / a.run_timer.size());
         world_destroy(on);
         world_destroy(off);
     }

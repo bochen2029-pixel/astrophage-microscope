@@ -298,6 +298,8 @@ emit_power = PETROVA_MAX_POWER while seeking, clamped to what the store can supp
 energy    -= emit_power * dt                     // Sec 6; nothing debited this before M8
 ```
 
+**The comparison window must be short compared to a chamber crossing.** An awake cell swims at 6105 um/s and crosses the 4 mm chamber in 0.655 s; no gradient can be larger than the chamber, so a longer memory compares against a baseline older than any structure the cell could be climbing. `TAXIS_MEMORY_CHAMBER_RATIO` is derived and asserted below 0.5 (ADR-024).
+
 **The run cap is load-bearing.** A cell that outruns its own depletion halo sees a rising signal in every direction and would otherwise never tumble (ADR-022 §1). `TAXIS_RUN_MAX` is derived as 4 × `TAXIS_MEMORY_TIME` so it cannot drift away from the comparison window.
 
 Only **awake** cells taxis — dormant cells are inert powder. The IDLE path draws no random numbers, which makes a dark chamber bit-identical to a run with the controller disabled rather than merely similar to it.

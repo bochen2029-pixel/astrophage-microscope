@@ -15,7 +15,9 @@ Every gate re-runs all earlier gates. Gates never weaken.
 | M6 | Thermal | mass–energy, ignition latch, thermostat → **P2 P3 P4** | M6 | ✅ `m6-green` |
 | M7 | Light | Petrova emission, thrust, irradiance + occlusion → **P5** | M7 | ✅ `m7-green` |
 | M8 | Taxis | run-and-tumble, phototaxis, CO₂ field, chemotaxis | M8 | ✅ `m8-green` |
-| M9 | Life | biomass, mitosis, death, corpses, multi-rate clock | M9 | ☐ |
+| M8b | Presentation | irregular morphology, field diaphragm, defocus culling | M8b | ✅ `m8b-green` |
+| M9a | Life: division | biomass, CO₂ uptake, mitosis, RNG splitting, prefix-sum slots | M9a | ☐ |
+| M9b | Life: content | corpses, disposition, multi-rate clock, stats reduction, compaction, charts | M9b | ☐ |
 | M10 | Predation | Taumoeba, N₂, heritable tolerance, evolution | M10 | ☐ |
 | M11 | Content | scenario system, all 8 scenarios, UI panels, charts, telemetry | M11 | ☐ |
 | M12 | Ship | snapshot/replay, perf pass, packaging | `v1.0` | ☐ |
@@ -171,9 +173,25 @@ Three findings, all in ADR-018:
 
 ## M9 — Life
 
-**Scope.** `PHYSICS.md` §10 and §12. Biomass, CO₂ uptake, mitosis with energy halving and RNG splitting, death paths, corpse rendering, store-disposition toggle, the multi-rate clock with the four presets, population/energy/temperature charts.
+**Split into M9a and M9b before starting, per Iron Rule 9.** The original scope carried the hardest determinism problem in the build *and* four pieces of content; those want different sessions and different gates.
 
-**Gate.** M8 gate + T18 (doubling matches `LIFE_DOUBLING_TIME` within 2 % under non-limiting CO₂); growth halts within one doubling of CO₂ exhaustion; T22 (a run in which cells divide is bit-reproducible — this is the real test of INV-1).
+### M9a — Life: division and determinism
+
+**Scope.** `PHYSICS.md` §10, division half only. Biomass, CO₂ uptake (the field's first cell-driven sink), mitosis with energy halving and `pcg_split` RNG splitting, starvation death.
+
+**Daughter slots are allocated by an exclusive prefix sum over the dividing flags, never by `atomicAdd`.** The snapshot hash is taken over the SoA in slot order, so if slot assignment depended on execution order the hash would vary run to run — the same reasoning as INV-2, one level up. This is the single design decision M9a turns on.
+
+**Allocation is append-only; slot reuse and compaction are deliberately NOT in this half.** Corpses keep their slots (they already do — death only clears `ALIVE`), so nothing needs reclaiming until the store fills at `MAX_CELLS` = 2M. Compaction reorders the SoA, which reorders contact-force summation, which is exactly the hazard ADR-018 was written about; it deserves its own determinism argument rather than riding along with mitosis.
+
+**Gate.** M8b gate + T18 (doubling matches `LIFE_DOUBLING_TIME` within 2 % under non-limiting CO₂); growth halts within one doubling of CO₂ exhaustion; **T22 — a run in which cells divide is bit-reproducible.** T22 is the real test of ADR-014 and the reason this half stands alone: every earlier determinism result holds a *fixed* population, so nothing until now has exercised the case per-cell streams exist to survive.
+
+**The trap M8 left for it (ADR-022 §1).** CO₂ uptake creates the depletion halo the taxis controller was built to tolerate. Two guards exist and must survive: taxis samples at stage 3 *before* the cell's own deposit at stage 7, and temporal comparison is blind to a roughly-constant self-offset. `TAXIS_RUN_MAX` is the backstop for a cell that outruns its own halo — it is not decoration.
+
+### M9b — Life: disposition, clock, charts
+
+**Scope.** `PHYSICS.md` §10 death half and §12. Corpse rendering, the three-way store-disposition toggle (ADR-004), the multi-rate clock with its four presets (ADR-011), **tick stage 11 (`stats`) — which has never shipped** and whose first real consumer is here, slot reuse and compaction (deferred out of M9a because reordering the SoA reorders contact-force summation — ADR-018's hazard), plus the population/energy/temperature charts.
+
+**Gate.** M9a gate + the stats reduction is deterministic across block sizes (INV-2: tree or fixed-point, never `atomicAdd` on float); each clock preset advances biology and physics at its stated ratio; `retain` disposition leaves corpses at ~32,000 kg/m³ and `void` does not.
 
 ---
 
@@ -181,7 +199,7 @@ Three findings, all in ADR-018:
 
 **Scope.** `PHYSICS.md` §11. `TaumoebaStore`, crawl, engulfment, digestion, N₂ field and lethality, heritable tolerance with mutation, the mean-tolerance chart.
 
-**Gate.** M9 gate + a predator introduction crashes the population; under a slowly rising N₂ ramp the mean tolerance rises monotonically on a 5-generation moving average and a strain with tolerance ≥ 0.825 appears within 40 generations at default `TAU_MUTATION_SIGMA`.
+**Gate.** M9b gate + a predator introduction crashes the population; under a slowly rising N₂ ramp the mean tolerance rises monotonically on a 5-generation moving average and a strain with tolerance ≥ 0.825 appears within 40 generations at default `TAU_MUTATION_SIGMA`.
 
 ---
 

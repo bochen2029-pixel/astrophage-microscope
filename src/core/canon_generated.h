@@ -62,7 +62,7 @@ inline constexpr double WALL_STUCK_DRAG_MULT = 20; // [-] INVENTED -- Drag multi
 inline constexpr double WALL_RELEASE_FORCE = 5.0000000000000002e-11; // [N] INVENTED -- Normal force needed to pull an adhered cell off the glass. Sits between a full cell's buoyant weight (1.6e-10 N) and an empty one's (4.9e-12 N), so charge state decides whether a cell can free itself.
 inline constexpr double HASH_CELL_FACTOR = 2.2000000000000002; // [-] INVENTED -- Spatial hash cell size in units of CELL_DIAMETER.
 inline constexpr double DT_PHYSICS = 0.001; // [s] INVENTED -- Fixed physics timestep. Never varies with frame rate.
-inline constexpr double TAXIS_MEMORY_TIME = 2; // [s] INVENTED -- Run-and-tumble temporal comparison window. See ADR-007.
+inline constexpr double TAXIS_MEMORY_TIME = 0.10000000000000001; // [s] INVENTED -- Run-and-tumble temporal comparison window. Must stay SHORT compared to the time a thrusting cell takes to cross the chamber (0.655 s), because no gradient can be larger than the chamber: a longer window compares against a baseline older than any structure the cell could be climbing. The original 2.0 s was 3.05 chamber crossings and left 54 % of cells reorienting every tick. See ADR-007 and ADR-024; TAXIS_MEMORY_CHAMBER_RATIO is the check.
 inline constexpr double TAXIS_DARK_THRESHOLD = 0.001; // [W/m^2] INVENTED -- Below this irradiance a cell does not move (canon: 'does not move in darkness').
 inline constexpr double TAXIS_SEEK_FEED_BELOW = 0.94999999999999996; // [-] INVENTED -- Charge fraction below which a cell seeks light.
 inline constexpr double TAXIS_SEEK_BREED_ABOVE = 0.97999999999999998; // [-] INVENTED -- Charge fraction above which a cell seeks CO2.
@@ -97,7 +97,10 @@ inline constexpr double DIFFUSIVITY_SETPOINT = 1.8678155730650127e-13; // [m^2/s
 inline constexpr double CONDUCTION_COEFF = 3.7573448136933928e-05; // [W/K] DERIVED = 4 pi k_water a  (Nu = 2, sphere in still fluid)
 inline constexpr double CONTACT_STABILITY_RATIO = 0.12500498476121263; // [-] DERIVED = k dt / gamma -- per-step contact displacement as a fraction of the overlap. Must stay below 1 for stability; below 0.25 for monotone convergence (ADR-018)
 inline constexpr double CONTACT_REST_OVERLAP_EMPTY = 0.041684186856822236; // [-] DERIVED = rest overlap under an empty cell's buoyant weight, as a fraction of a diameter
-inline constexpr double TAXIS_RUN_MAX = 8; // [s] DERIVED = 4 x TAXIS_MEMORY_TIME -- a run must outlast the comparison window to carry information, and must terminate so that a cell which outruns its own depletion halo still tumbles (ADR-022). Derived rather than invented so it cannot drift independently of the memory window
+inline constexpr double TAXIS_SWIM_SPEED = 0.0061053304712778231; // [m/s] DERIVED = PETROVA_MAX_POWER / (c * DRAG_COEFF_SETPOINT) -- terminal speed of an awake cell under full photon thrust
+inline constexpr double TAXIS_CHAMBER_TRAVERSAL = 0.65516519029031606; // [s] DERIVED = CHAMBER_W / TAXIS_SWIM_SPEED -- how long a thrusting cell takes to cross the whole chamber
+inline constexpr double TAXIS_MEMORY_CHAMBER_RATIO = 0.15263326178194561; // [-] DERIVED = TAXIS_MEMORY_TIME / TAXIS_CHAMBER_TRAVERSAL -- fraction of the chamber a cell crosses within one comparison window. Must stay well below 1
+inline constexpr double TAXIS_RUN_MAX = 0.40000000000000002; // [s] DERIVED = 4 x TAXIS_MEMORY_TIME -- a run must outlast the comparison window to carry information, and must terminate so that a cell which outruns its own depletion halo still tumbles (ADR-022). Derived rather than invented so it cannot drift independently of the memory window
 inline constexpr double TAXIS_TUMBLE_SLEW_TIME = 1.1868238913561442; // [s] DERIVED = mean tumble angle / PETROVA_SLEW_RATE -- how long a cell would spend mis-aimed if re-aiming were rate-limited. Not yet exercised: see ADR-022 Q15
 inline constexpr double LIFE_GROWTH_RATE = 1.0028171015045505e-06; // [1/s] DERIVED = ln2 / doubling time
 inline constexpr double TNT_GRAMS_PER_FULL_CELL = 358.50860420650093; // [g] DERIVED = E_max / 4184 J/g
@@ -174,7 +177,7 @@ inline constexpr ParamMeta PARAM_TABLE[] = {
     { "WALL_RELEASE_FORCE", 5.0000000000000002e-11, "N", Provenance::Invented, "Normal force needed to pull an adhered cell off the glass. Sits between a full cell's buoyant weight (1.6e-10 N) and an empty one's (4.9e-12 N), so charge state decides whether a cell can free itself.", true, 1e-13, 1e-08, true },
     { "HASH_CELL_FACTOR", 2.2000000000000002, "-", Provenance::Invented, "Spatial hash cell size in units of CELL_DIAMETER.", true, 1.05, 8, false },
     { "DT_PHYSICS", 0.001, "s", Provenance::Invented, "Fixed physics timestep. Never varies with frame rate.", true, 1.0000000000000001e-05, 0.01, true },
-    { "TAXIS_MEMORY_TIME", 2, "s", Provenance::Invented, "Run-and-tumble temporal comparison window. See ADR-007.", true, 0.050000000000000003, 60, true },
+    { "TAXIS_MEMORY_TIME", 0.10000000000000001, "s", Provenance::Invented, "Run-and-tumble temporal comparison window. Must stay SHORT compared to the time a thrusting cell takes to cross the chamber (0.655 s), because no gradient can be larger than the chamber: a longer window compares against a baseline older than any structure the cell could be climbing. The original 2.0 s was 3.05 chamber crossings and left 54 % of cells reorienting every tick. See ADR-007 and ADR-024; TAXIS_MEMORY_CHAMBER_RATIO is the check.", true, 0.0050000000000000001, 60, true },
     { "TAXIS_DARK_THRESHOLD", 0.001, "W/m^2", Provenance::Invented, "[REF 1.5] Below this irradiance a cell does not move (canon: 'does not move in darkness').", true, 0, 1000, true },
     { "TAXIS_SEEK_FEED_BELOW", 0.94999999999999996, "-", Provenance::Invented, "Charge fraction below which a cell seeks light.", true, 0, 1, false },
     { "TAXIS_SEEK_BREED_ABOVE", 0.97999999999999998, "-", Provenance::Invented, "Charge fraction above which a cell seeks CO2.", true, 0, 1, false },
@@ -207,12 +210,15 @@ inline constexpr ParamMeta PARAM_TABLE[] = {
     { "CONDUCTION_COEFF", 3.7573448136933928e-05, "W/K", Provenance::Derived, "= 4 pi k_water a  (Nu = 2, sphere in still fluid)", false, 0.0, 0.0, false },
     { "CONTACT_STABILITY_RATIO", 0.12500498476121263, "-", Provenance::Derived, "= k dt / gamma -- per-step contact displacement as a fraction of the overlap. Must stay below 1 for stability; below 0.25 for monotone convergence (ADR-018)", false, 0.0, 0.0, false },
     { "CONTACT_REST_OVERLAP_EMPTY", 0.041684186856822236, "-", Provenance::Derived, "= rest overlap under an empty cell's buoyant weight, as a fraction of a diameter", false, 0.0, 0.0, false },
-    { "TAXIS_RUN_MAX", 8, "s", Provenance::Derived, "= 4 x TAXIS_MEMORY_TIME -- a run must outlast the comparison window to carry information, and must terminate so that a cell which outruns its own depletion halo still tumbles (ADR-022). Derived rather than invented so it cannot drift independently of the memory window", false, 0.0, 0.0, false },
+    { "TAXIS_SWIM_SPEED", 0.0061053304712778231, "m/s", Provenance::Derived, "= PETROVA_MAX_POWER / (c * DRAG_COEFF_SETPOINT) -- terminal speed of an awake cell under full photon thrust", false, 0.0, 0.0, false },
+    { "TAXIS_CHAMBER_TRAVERSAL", 0.65516519029031606, "s", Provenance::Derived, "= CHAMBER_W / TAXIS_SWIM_SPEED -- how long a thrusting cell takes to cross the whole chamber", false, 0.0, 0.0, false },
+    { "TAXIS_MEMORY_CHAMBER_RATIO", 0.15263326178194561, "-", Provenance::Derived, "= TAXIS_MEMORY_TIME / TAXIS_CHAMBER_TRAVERSAL -- fraction of the chamber a cell crosses within one comparison window. Must stay well below 1", false, 0.0, 0.0, false },
+    { "TAXIS_RUN_MAX", 0.40000000000000002, "s", Provenance::Derived, "= 4 x TAXIS_MEMORY_TIME -- a run must outlast the comparison window to carry information, and must terminate so that a cell which outruns its own depletion halo still tumbles (ADR-022). Derived rather than invented so it cannot drift independently of the memory window", false, 0.0, 0.0, false },
     { "TAXIS_TUMBLE_SLEW_TIME", 1.1868238913561442, "s", Provenance::Derived, "= mean tumble angle / PETROVA_SLEW_RATE -- how long a cell would spend mis-aimed if re-aiming were rate-limited. Not yet exercised: see ADR-022 Q15", false, 0.0, 0.0, false },
     { "LIFE_GROWTH_RATE", 1.0028171015045505e-06, "1/s", Provenance::Derived, "= ln2 / doubling time", false, 0.0, 0.0, false },
     { "TNT_GRAMS_PER_FULL_CELL", 358.50860420650093, "g", Provenance::Derived, "= E_max / 4184 J/g", false, 0.0, 0.0, false },
     { "WIEN_LAMBDA_AT_SETPOINT", 7.8410346082556516e-06, "m", Provenance::Derived, "= Wien b / T -- the THERMAL peak, distinct from the Petrova line", false, 0.0, 0.0, false },
 };
-inline constexpr int PARAM_COUNT = 81;
+inline constexpr int PARAM_COUNT = 84;
 
 } // namespace astro::canon

@@ -70,7 +70,7 @@ on code. **Never load the whole repo.**
 2. **`docs/ARCHITECTURE.md`** — module map, invariants INV-1…INV-8, the mandatory
    glossary, the tick sequence, the anti-drift machinery. Always.
 3. **`docs/MILESTONES.md` — the active milestone section only.** Not the file.
-4. **`docs/DECISIONS.md`** — 23 ADRs. Skim the index; read any ADR a task touches.
+4. **`docs/DECISIONS.md`** — 24 ADRs. Skim the index; read any ADR a task touches.
    **Every contradiction in the source material has already been adjudicated here,
    with reasoning and an escape hatch.** Re-litigating costs a session.
 5. **`docs/PHYSICS.md`** — only if touching `src/sim/` or `src/fields/`, and only
@@ -368,14 +368,16 @@ Do it as a standalone M7b, or fold it into M11 with the rest of the UI.
   at mean difference **0.0000**, so appearance provably cannot move an oracle.
   Still open from `RENDERING.md` Sec 8: chromatic aberration and medium texture
   (both carry honesty caveats), and faceting -- the outlines are lobed, not angular.
-- **Q16 — the taxis controller is mistuned, with numbers.** An awake cell swims at
-  6105 μm/s and crosses the whole 4 mm chamber in **0.66 s**, but
-  `TAXIS_MEMORY_TIME` is **2 s** — 3.1× a full crossing. Measured consequence:
-  **54.2 % of cells reorient within 2 ticks**, mean run age 0.185 s against an 8 s
-  cap, bias efficiency 0.4 %. Criterion for the fix: **τ ≲ the e-folding traversal
-  time** (~0.3 s here); 0.05 s is already inside the canon range. Touches ADR-005
-  and ADR-007, so it needs its own ADR. Resolve with Q15.
-
+- **Q16 is RESOLVED (ADR-024).** `TAXIS_MEMORY_TIME` 2 s → 0.1 s; the criterion
+  `TAXIS_MEMORY_CHAMBER_RATIO` (memory / chamber-traversal) is derived and
+  asserted below 0.5, down from 3.05. Migration 20.3σ → **26.0σ**.
+- **Q18 — the tumble rule has no refractory period.** `taxis_should_tumble` fires
+  whenever `Δ ≤ 0` on any tick, so motion is a biased random walk decorrelating
+  every millisecond rather than run-and-tumble: only **3.6 %** of cells are on a
+  run outlasting one comparison window. The fix is a **rate-based** tumble
+  (Poisson, intensity modulated by Δ), NOT a hard minimum run -- a floor at
+  `TAXIS_TUMBLE_SLEW_TIME` = 1.19 s commits a cell to 7.3 mm of travel in a 4 mm
+  chamber and would break the milestone. Entangled with Q15 and ADR-005.
 ### Known flake
 
 `gate.ps1`'s **M0.2** step does a clean reconfigure, which re-fetches
