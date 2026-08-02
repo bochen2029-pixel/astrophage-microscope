@@ -1,0 +1,44 @@
+# build output
+/build/
+/build-*/
+/dist/
+/out/
+*.exe
+*.pdb
+*.ilk
+*.obj
+*.lib
+*.exp
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+CMakeUserPresets.json
+compile_commands.json
+_deps/
+
+# IDE
+.vs/
+.vscode/
+*.user
+*.sln
+*.vcxproj*
+
+# runtime artifacts
+/runs/
+/snapshots/
+*.asph
+*.csv
+!scenarios/*.csv
+
+# python
+__pycache__/
+*.pyc
+
+# NOTE: the following are GENERATED but ARE tracked on purpose --
+#   src/core/canon_generated.h
+#   tests/golden/expected_values.h
+#   docs/VERIFICATION.md
+# A cold session must be able to read the physics oracle without running the
+# generator first, and a diff on these files is the clearest possible signal
+# that a canon value changed. scripts/audit.ps1 A1 keeps them fresh.
