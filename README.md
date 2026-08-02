@@ -129,6 +129,7 @@ docs/VERIFICATION.md       GENERATED physics oracle -- the numbers the sim must 
 docs/DECISIONS.md          19 ADRs: every canon contradiction and engineering choice
 docs/MILESTONES.md         M0-M12, each with a machine-checkable gate
 docs/SESSION_LOG.md        what happened, and what went wrong
+_run_state/CONTINUATION_PROMPT.md   self-contained kickoff for a new session
 contracts/                 frozen cross-module interfaces
 scripts/canon.py           the single source of every physical number
 ```

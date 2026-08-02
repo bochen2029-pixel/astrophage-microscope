@@ -2,6 +2,11 @@
 
 **Rewritten at the end of every session.** If this file disagrees with `git tag --list`, believe the tags.
 
+> **Starting a brand-new session?** Paste [`CONTINUATION_PROMPT.md`](CONTINUATION_PROMPT.md)
+> instead. It is the self-contained version: same status, plus the accumulated
+> meta-lessons, the process rules, the deferred work, and all thirteen open
+> questions. This file is the terse form for a session already oriented.
+
 ---
 
 ## Where the build stands
