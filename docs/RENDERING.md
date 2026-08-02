@@ -119,3 +119,78 @@ Reference machine: RTX 4070 Ti SUPER (sm_89, 16 GB), 200,000 cells, `TARGET_FPS`
 **Scaling levers, in the order to reach for them:** drop field grids one power of two; run `lifecycle` every 10th tick (it is `biology_rate`-scaled anyway); **cull cells whose peak opacity falls below the discard threshold** — at the working objective a cell past ~40 μm of defocus contributes under 2 % opacity and could be skipped entirely in the vertex stage, which directly attacks the overdraw above; LOD to a density heatmap beyond 500k; only then persistent kernels or graph capture.
 
 **Hard rules.** Zero device allocation in the steady-state tick loop — all scratch preallocated at scenario load (test T29). Cells are drawn at **true relative size**; there is no "make them bigger so you can see them" fudge, and `audit.ps1` greps for one. Sub-pixel cells still render: clamp the minimum radius to 0.75 px and modulate alpha by the area ratio so density stays honest instead of aliasing away.
+
+---
+
+## 8. Cell morphology — **specified, not implemented** (Q17)
+
+§2 says the disc is an SDF, so "cells are perfect circles at any zoom". Reference photography of Astrophage under a lab scope shows something quite different: **irregular, faceted, crumpled silhouettes**, each one unique, with a dense black core and a soft ruffled rim — closer to torn foil or a crushed mineral grain than to a dot. Perfect circles read as *notation*; the irregular shapes read as *organisms*. This section is the design; none of it is built.
+
+### 8.1 The invariant that keeps this honest
+
+**Morphology is appearance only.** The physics body stays a sphere of `CELL_RADIUS` — Stokes drag, `CELL_CROSS_SECTION`, contact radius, `disc_overlap_fraction`, and every occlusion path are untouched. `sim/` must not learn that morphology exists.
+
+That gives a machine-checkable gate, and it is the one that matters here:
+
+> **Same seed + same scenario + any morphology setting ⇒ identical snapshot hash (INV-8).**
+
+If a shape change ever moves the hash, morphology has leaked into the simulation and the change is wrong. This is what stops "make it look better" from quietly becoming "make it behave differently".
+
+Two supporting rules:
+- Per-cell shape coefficients derive from `splitmix64(cell_id)` **in the render path only**. Never draw from `rng_state` — that is the cell's simulation stream (INV-1) and consuming from it would desynchronise the sim.
+- Radius stays canon-locked. **Do not add size variation.** The apparent size spread in the reference images is mostly defocus, which §3 already models correctly — a cell 10 μm off the focal plane genuinely images larger and softer. Randomising the radius would be a size fudge in disguise and would trip A10 in spirit if not in grep.
+
+### 8.2 Silhouette — the highest-impact change
+
+Replace the circular SDF test with an angular radius function evaluated in the fragment shader:
+
+```
+r_eff(theta) = a * (1 + sum_k A_k * cos(k*theta + phi_k))          k = 3..8
+```
+
+Three to six harmonics with amplitudes ~0.10–0.25 falling as `1/k` give lobed, crumpled outlines. Coefficients are packed per instance by the interop kernel (two extra `vec4`s), so the fragment shader only evaluates.
+
+The reference images look **faceted**, not merely wavy, so the better base is a **jittered polygon**: 7–12 vertices at radii `a*(1 + jitter)`, `theta` quantised into sectors with linear interpolation between adjacent vertices. Straight edges, sharp corners. Then add the harmonic ripple on top of the polygon — polygon for the angularity, harmonics for the crumple. That combination is what produces the crushed-foil read.
+
+Each cell needs a stable orientation from its `id`. Rotation over time is defensible (rotational Brownian motion is real and fast at this scale) but there is no angular state in the store today, so **start static**; a real per-cell orientation is a `cell_store_v2.h` conversation, not a shader one.
+
+### 8.3 Core and rim
+
+The high-magnification reference shows a **pure black core** with a **semi-transparent ruffled skirt**, not a clean edge plus a ring. Two-zone opacity:
+
+- `alpha = 1` for `r < 0.75 * r_eff(theta)` — albedo is exactly 0, so the core is genuinely black, not dark grey.
+- Between `0.75*r_eff` and `r_eff`, fall off with a *noisy* profile — reuse the high-`k` harmonics, phase-shifted — so the rim frills instead of feathering evenly.
+
+This composes with the existing defocus `smoothstep` rather than replacing it: the rim is the shape's own structure, the defocus is the optics on top.
+
+### 8.4 The field of view is doing a lot of the work
+
+Every reference frame shows a **bright circular aperture with a vignette**, black outside it. The current renderer fills the rectangle. Adding a soft-edged circular field mask plus radial falloff in `post_pass.cpp` is a handful of lines and probably buys more "microscope" per line of code than anything in §8.2. It is also physically the field diaphragm, so it is not a cheat. HUD, scale bar, and panels sit outside the aperture.
+
+### 8.5 Lateral chromatic aberration
+
+Cyan/magenta fringing is visible on high-contrast edges in the reference. Sample the cell pass with a per-channel radial offset that scales from 0 on the optical axis to ~1–2 px at the field edge. Real (it is the objective's lateral colour), cheap, and a strong authenticity cue.
+
+**Must be a toggle, off in Analysis mode.** It displaces pixels, so it corrupts any quantitative read of position — and it must never be baked into a golden image used as a measurement oracle.
+
+### 8.6 Medium texture — the one to be careful with
+
+The reference field is not clean: faint debris, scratches, mottling. Procedural, seeded from the scenario, would sell the look.
+
+**The risk is honesty, not implementation.** A speck that could be mistaken for a cell in a simulator whose whole point is counting and measuring cells is a bug, not a flourish. If built: keep it clearly out of focus, low contrast, static, visually distinct from any cell, off by default, and never present in Analysis mode or in a golden used as an oracle.
+
+### 8.7 Clumping is physics, not rendering
+
+Many reference cells sit in irregular clusters of two to four. **Do not fake this in the renderer.** Wall adhesion exists (`WALL_STICKINESS`); cell–cell adhesion does not. If Astrophage stick to each other, that is a `sim/` change with its own ADR and its own gate — and clusters should then *emerge*, like every other signature phenomenon. Drawing cells near each other and calling it clumping would be exactly the special-casing `ARCHITECTURE.md` §1 forbids.
+
+### 8.8 Costs, and what this collides with
+
+- **Overdraw gets worse, not better.** An irregular silhouette needs a slightly larger bounding quad, and §7 already identifies defocus fill rate as the first budget crisis. **Do Q8 (vertex-stage culling of sub-threshold cells) before this, not after.**
+- **Fragment cost rises** — harmonics and a polygon test per fragment, on top of the optics.
+- **ADR-017 / Q7 bites here.** `optics.h` and the GLSL in `cells_pass.cpp` already duplicate four formulas with no compiler check between them. A morphology function needed by both the shader and any host-side test is the third consumer that Q7 says should trigger **generating the GLSL from the header** rather than adding a fourth hand-kept copy.
+
+### 8.9 The canon question this raises
+
+The novel describes Astrophage as small black spheres. The reference photography shows irregular grains. That is a source contradiction of exactly the kind `DECISIONS.md` exists to adjudicate, and this project's established answer (ADR-002, ADR-003) is to **ship both readings as options** rather than silently pick one: a `cell_morphology` setting of `Sphere` (novel-faithful, today's behaviour) or `Irregular` (reference-faithful).
+
+Whoever implements this writes the ADR and picks the default. Because of §8.1 the choice is guaranteed to be cosmetic — the snapshot hash cannot tell the difference.

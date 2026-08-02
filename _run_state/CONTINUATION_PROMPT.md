@@ -365,6 +365,15 @@ Do it as a standalone M7b, or fold it into M11 with the rest of the UI.
   `cell_store_v1.h` has no such field — a v2 bump. Error direction is known:
   instantaneous re-aim makes taxis *strictly more effective*, so M8's 20.3σ is an
   upper bound.
+- **Q17 — cells are perfect circles and should not be.** Reference photography of
+  Astrophage under a scope shows irregular, faceted, crumpled silhouettes with a
+  black core and a ruffled rim. **Design is `RENDERING.md` §8.** The invariant that
+  keeps it honest: **morphology is appearance only**, and the gate is that any
+  morphology setting leaves the snapshot hash identical (INV-8). Do **Q8** first —
+  overdraw worsens — and expect **Q7/ADR-017** to bite. Do *not* add size variation
+  (the spread is defocus, already modelled) and do *not* fake clumping in the
+  shader (that is cell–cell adhesion, a `sim/` change with its own ADR). Novel says
+  spheres, reference says grains; house rule is to ship both (ADR-002, ADR-003).
 - **Q16 — the taxis controller is mistuned, with numbers.** An awake cell swims at
   6105 μm/s and crosses the whole 4 mm chamber in **0.66 s**, but
   `TAXIS_MEMORY_TIME` is **2 s** — 3.1× a full crossing. Measured consequence:
