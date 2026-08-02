@@ -254,8 +254,16 @@ int app_run(Application& a) {
         if (a.bench_frames <= 0) { std::printf("[app] FAIL: no frames measured\n"); return 1; }
         const double mean_ms = a.bench_total_ms / a.bench_frames;
         const double fps = 1000.0 / mean_ms;
-        std::printf("[bench] %d cells | %d frames | mean %.3f ms (%.1f fps) | worst %.3f ms\n",
-                    a.world.cells.count, a.bench_frames, mean_ms, fps, a.bench_worst_ms);
+        const int tpf = a.options.ticks_per_frame > 0 ? a.options.ticks_per_frame : 1;
+        const double ticks_per_s = fps * tpf;
+        // How fast the simulation runs against the clock it is modelling. Below
+        // 1.0 the Realtime preset is slower than real time -- an honest number
+        // that a frame rate alone hides.
+        const double realtime_factor = ticks_per_s * canon::DT_PHYSICS;
+        std::printf("[bench] %d cells | %d frames | %d tick/frame | mean %.3f ms (%.1f fps)"
+                    " | worst %.3f ms | %.0f ticks/s = %.2fx real time\n",
+                    a.world.cells.count, a.bench_frames, tpf, mean_ms, fps,
+                    a.bench_worst_ms, ticks_per_s, realtime_factor);
         if (fps < canon::TARGET_FPS) {
             std::printf("[bench] FAIL: %.1f fps below target %d\n", fps, canon::TARGET_FPS);
             return 1;

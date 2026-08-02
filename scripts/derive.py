@@ -90,6 +90,12 @@ DERIVED = [
     ("DIFFUSIVITY_SETPOINT", kB * B["CELL_TEMP_SETPOINT"] / gamma96, "m^2/s",
      "Einstein-Stokes at the setpoint; 4.24x the 20 C value -- drives P4"),
     ("CONDUCTION_COEFF", cond, "W/K", "4 pi k_water a  (Nu = 2, sphere in still fluid)"),
+    ("CONTACT_STABILITY_RATIO", B["CONTACT_STIFFNESS"] * B["DT_PHYSICS"] / gamma20, "-",
+     "k dt / gamma -- per-step contact displacement as a fraction of the overlap. "
+     "Must stay below 1 for stability; below 0.25 for monotone convergence (ADR-018)"),
+    ("CONTACT_REST_OVERLAP_EMPTY",
+     (rho_w * V - m_dry) * g / B["CONTACT_STIFFNESS"] / B["CELL_DIAMETER"], "-",
+     "rest overlap under an empty cell's buoyant weight, as a fraction of a diameter"),
     ("LIFE_GROWTH_RATE", math.log(2.0) / B["LIFE_DOUBLING_TIME"], "1/s", "ln2 / doubling time"),
     ("TNT_GRAMS_PER_FULL_CELL", B["CELL_ENERGY_MAX"] / B["TNT_JOULE"], "g", "E_max / 4184 J/g"),
     ("WIEN_LAMBDA_AT_SETPOINT", B["WIEN_B"] / B["CELL_TEMP_SETPOINT"], "m",

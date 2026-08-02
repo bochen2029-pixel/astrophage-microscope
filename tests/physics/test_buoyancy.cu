@@ -180,6 +180,11 @@ int main() {
         d.capacity = m;
         d.seed = 31337ull;
         d.motion.thermal_noise = false;      // testing the deterministic response
+        // Contact and adhesion off: this measures the pure buoyancy response, and
+        // the cluster below is dense enough that neighbour forces would perturb
+        // the terminal velocities being fitted.
+        d.motion.contact_enabled = false;
+        d.motion.adhesion_enabled = false;
         CHECK(!world_create(w, d));
 
         SpawnParams p;

@@ -9,6 +9,14 @@ namespace astro::sim {
 Error world_create(World& w, const WorldDesc& d) {
     const int32_t cap = d.capacity > 0 ? d.capacity : canon::DEFAULT_CELLS;
     ASTRO_TRY(cell_store_create(w.cells, cap));
+    ASTRO_TRY(hash_create(w.hash, d.chamber, cap));
+    const size_t fbytes = sizeof(double) * static_cast<size_t>(cap);
+    if (cudaMalloc(&w.d_fx, fbytes) != cudaSuccess ||
+        cudaMalloc(&w.d_fy, fbytes) != cudaSuccess ||
+        cudaMalloc(&w.d_fz, fbytes) != cudaSuccess) {
+        world_destroy(w);
+        return fail(Status::OutOfMemory, "cudaMalloc force scratch");
+    }
     w.chamber = d.chamber;
     w.motion = d.motion;
     w.seed = d.seed;
@@ -19,6 +27,10 @@ Error world_create(World& w, const WorldDesc& d) {
 }
 
 void world_destroy(World& w) {
+    cudaFree(w.d_fx);
+    cudaFree(w.d_fy);
+    cudaFree(w.d_fz);
+    hash_destroy(w.hash);
     cell_store_destroy(w.cells);
     w = World{};
 }
@@ -27,15 +39,17 @@ void world_step(World& w) {
     // ARCHITECTURE.md Sec 3.4. Stages land here in milestone order:
     //   1 hash_build      M4
     //   2 field_sample    M2 (ambient stand-in) -> M5 (real fields)
+    // NOTE: the SoA is deliberately NOT reordered by bucket (ADR-018).
     //   3 taxis           M8
     //   4 thermal         M6
-    //   5 forces          M2  \_ fused in motion_step: they share mass, gamma
-    //   6 integrate       M2  /  and the OU coefficients
+    //   5 forces          M2/M4  \_ SEPARATE KERNELS. Fusing them makes contact
+    //   6 integrate       M2      /  a read/write race and breaks INV-8 (ADR-018)
     //   7 field_deposit   M5
     //   8 field_diffuse   M5
     //   9 irradiance      M7
     //  10 lifecycle       M9   (mutates the store; must stay last)
     //  11 stats           M6
+    hash_build(w.hash, w.cells.view, w.cells.count);
     motion_step(w, canon::DT_PHYSICS);
     ++w.tick;
 }

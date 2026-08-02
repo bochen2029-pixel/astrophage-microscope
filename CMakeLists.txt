@@ -92,6 +92,7 @@ astro_strict(astro_fields)
 
 add_library(astro_sim STATIC
     src/sim/cell_store.cu
+    src/sim/hash.cu
     src/sim/integrator.cu
     src/sim/step.cu)
 target_link_libraries(astro_sim PUBLIC astro_core astro_fields)
@@ -125,6 +126,8 @@ astro_test(test_buoyancy     tests/physics/test_buoyancy.cu)
 # The optics model is pure arithmetic, so it is checked headless; the golden
 # images guard the shader that mirrors it.
 astro_test(test_optics       tests/physics/test_optics.cpp)
+astro_test(test_hash         tests/physics/test_hash.cu)
+astro_test(test_contact      tests/physics/test_contact.cu)
 
 # ---------------------------------------------------------------------------
 # tools -- headless runner. The determinism oracle (INV-8) and the scenario

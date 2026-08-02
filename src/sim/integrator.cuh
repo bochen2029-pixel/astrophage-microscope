@@ -191,6 +191,24 @@ ASTRO_HD inline Vec3 cell_force(double mass, double emit_power,
 // Boundaries
 // ---------------------------------------------------------------------------
 
+// Soft-sphere pair repulsion, the only cell-cell mechanical interaction.
+// Returns the force on `self` from a neighbour at `other`, zero beyond contact.
+ASTRO_HD inline Vec3 contact_force(Vec3 self, Vec3 other) {
+    const Vec3 d = self - other;
+    const double r2 = length_sq(d);
+    const double two_a = canon::CELL_DIAMETER;
+    if (r2 >= two_a * two_a || r2 <= 0.0) return Vec3{0.0, 0.0, 0.0};
+    const double r = sqrt(r2);
+    const double overlap = two_a - r;
+    return d * (canon::CONTACT_STIFFNESS * overlap / r);
+}
+
+// Rest overlap of two cells pressed together by a steady force. The M4 gate
+// requires this under 5 % of a diameter, which is what sets CONTACT_STIFFNESS.
+ASTRO_HD inline double rest_overlap_fraction(double applied_force) {
+    return (applied_force / canon::CONTACT_STIFFNESS) / canon::CELL_DIAMETER;
+}
+
 enum class Boundary : unsigned char { Reflecting = 0, Periodic = 1, Absorbing = 2 };
 
 // A cell that reaches a wall comes to rest against it. True mirror reflection

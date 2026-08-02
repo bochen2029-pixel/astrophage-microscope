@@ -132,6 +132,45 @@ Append-only. Every contradiction in the source material and every non-obvious en
 
 ---
 
+## ADR-018 — Three constraints the spatial hash and contact had to satisfy
+
+**Status:** accepted, 2026-08-02 (M4). Three findings, all determinism- or stability-driven.
+
+### 1. The hash is built by a stable radix sort, not an atomicAdd counting scatter
+
+**Context.** The textbook counting sort scatters with `slot = atomicAdd(&cursor[key], 1)`. That makes the order *within* a bucket depend on which thread wins a race. That order then sets the summation order of contact forces, and float addition is not associative — so INV-8 would break on every run, intermittently and invisibly.
+**Decision.** `cub::DeviceRadixSort::SortPairs`, which is stable, so equal keys keep their input (slot) order. Bucket ranges then come from adjacent-key comparison, which also removes the need for a prefix scan. CUB ships with the CUDA Toolkit, so this adds no dependency beyond one already allowed.
+**Consequences.** Neighbour iteration order is fixed, so a per-thread force sum is reproducible without fixed-point accumulation. Measured: 0.110 ms to rebuild at 200,000 cells, and the neighbour query matches an O(n²) brute-force reference exactly.
+
+### 2. Forces and integrate must be separate kernels
+
+**Context.** M2 fused tick stages 5 and 6 because they share `mass`, `gamma`, and the OU coefficients. Adding contact broke that: contact reads neighbours' positions from the same arrays the kernel writes, so cell *i* sees some neighbours pre-step and some post-step depending on scheduling.
+**Measured before the split: 2709 of 3000 positions differed between two identical runs.**
+**Decision.** Split them, with a `d_fx/fy/fz` scratch buffer between. `ARCHITECTURE.md` §3.4 already listed forces and integrate as separate stages — **this is exactly why**, and fusing them was the error. Cost: 4.8 MB and one extra kernel launch.
+**Lesson worth keeping:** the documented stage boundaries are load-bearing. Fusing across one is a correctness change, not an optimisation.
+
+### 3. Contact stiffness is stability-limited, and cannot hold a fully charged cell
+
+**Context.** `CONTACT_STIFFNESS` was 1e-6 N/m, giving a rest overlap of **1587 % of a diameter** under a full cell's weight — cells passing straight through each other.
+
+In an overdamped medium an explicit spring moves `k·δ·dt/γ` per step, so stability requires `k < γ/dt` = 9.44e-5 N/m. But resting a fully charged cell (32× water) within 5 % of a diameter requires `k > 3.18e-4` N/m — **3.36× over the stability limit.** The two constraints are incompatible at `DT_PHYSICS` = 1 ms.
+
+**Decision.** `CONTACT_STIFFNESS = DRAG_COEFF_20C / (8·DT_PHYSICS)` = 1.1802e-5 N/m, a stability ratio of 0.125 (monotone convergence, no ringing). Rest overlap: **4.17 % for an empty cell** (inside the 5 % gate), **134 % for a fully charged one** (outside it).
+**Consequences.** A deep pile of fully charged cells interpenetrates. In practice this is bounded — cells spread along a 4 mm wall rather than stacking deeply, and the measured packed-cluster overlap is 0.55 % — so it is recorded and bounded (`test_contact` asserts < 200 % so it cannot silently worsen) rather than papered over.
+**The fix, deferred:** contact substepping, or `dt ≤ 0.3 ms`. Worth doing when dense charged cultures actually matter, which is M9 at the earliest.
+
+### 4. What this cost, and the lever
+
+Contact is the dominant per-tick cost: 200k cells run at **0.28× real time** (281 ticks/s). The benchmark also had to be fixed to measure this at all — under the real-time accumulator, slower frames request more substeps, which makes frames slower still, until it pins at the 8-substep cap and reports a feedback equilibrium instead of throughput. `--benchmark` now implies one tick per frame and reports a real-time factor.
+
+**The named lever:** the neighbour walk visits 27 buckets, but the hash cell is 22 μm and the contact range is 10 μm — so a 2×2×2 walk of 8 buckets is sufficient and correct whenever `cell_size ≥ 2 × range`, which holds. That is a ~3.4× reduction and is the first thing to reach for.
+
+### 5. Goldens regenerated (Iron Rule 10 record)
+
+The M3 goldens capture 400 ticks of simulation, and M4 adds a real force to those ticks, so cell positions in the captures legitimately changed. **The optics themselves are untouched** — no shader, uniform, or `optics.h` formula was modified in M4. Regenerated under Iron Rule 10, with this entry as the required justification. The "must differ" pairs still hold, so the optics are still demonstrably doing something.
+
+---
+
 ## ADR-017 — Golden images, plus "must differ" pairs to prove they test something
 
 **Status:** accepted, 2026-08-02 (M3).

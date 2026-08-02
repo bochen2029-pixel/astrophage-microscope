@@ -74,6 +74,11 @@ Options parse_args(int argc, char** argv) {
     if (o.benchmark && o.frames == 0) o.frames = 600;
     // vsync would cap the measurement at the refresh rate.
     if (o.benchmark) o.vsync = false;
+    // A benchmark MUST NOT use the real-time accumulator. Slower frames make it
+    // request more substeps, which makes frames slower still, until it pins at
+    // the 8-substep cap -- so it reports a feedback equilibrium rather than
+    // throughput. One tick per frame measures the thing we actually want.
+    if (o.benchmark && o.ticks_per_frame == 0) o.ticks_per_frame = 1;
     return o;
 }
 

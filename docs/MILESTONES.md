@@ -10,7 +10,7 @@ Every gate re-runs all earlier gates. Gates never weaken.
 | M1 | Cell store & first pixels | GPU SoA, spawn, CUDA-GL interop, instanced discs, camera, scale bar | M1 | ✅ `m1-green` |
 | M2 | Motion | OU integrator, buoyancy, boundaries → **P1** | M2 | ✅ `m2-green` |
 | M3 | Optics | defocus, DOF, objectives, diffraction ring, focal plane | M3 | ✅ `m3-green` |
-| M4 | Neighbourhood | spatial hash, contact, adhesion | M4 | ☐ |
+| M4 | Neighbourhood | spatial hash, contact, adhesion | M4 | ✅ `m4-green` |
 | M5 | Fields | Grid2D, explicit diffusion, fixed-point deposit, brushes, overlays | M5 | ☐ |
 | M6 | Thermal | mass–energy, ignition latch, thermostat → **P2 P3 P4** | M6 | ☐ |
 | M7 | Light | Petrova emission, thrust, irradiance + occlusion, view modes, bloom → **P5** | M7 | ☐ |
@@ -95,6 +95,17 @@ Also corrected: a comment in `optics.h` claimed sedimentation concentrates cells
 **Scope.** Spatial hash over chamber cells of 2.2 × `CELL_DIAMETER`: count → prefix sum → scatter (counting sort, order-stable). Soft-sphere contact (`PHYSICS.md` §9). Wall adhesion with `WALL_STICKINESS`. Reorder the SoA by hash cell each tick for coalescing.
 
 **Gate.** M3 gate + rest overlap < 5 % of diameter in a packed cluster; no cell escapes the chamber over 10⁵ ticks; determinism hash unchanged when block size is varied (INV-4); hash rebuild < 0.5 ms at 200k cells.
+
+**✅ Delivered 2026-08-02.** Hash rebuild **0.110 ms** at 200k cells; neighbour query matches an O(n²) brute-force reference **exactly**; packed-cluster overlap **0.55 %**; determinism through contact **0/3000** positions differing.
+
+Three findings, all in ADR-018:
+- **The hash is a stable radix sort, not an atomicAdd scatter** — the usual scatter randomises within-bucket order, which sets contact-force summation order, which breaks INV-8 intermittently.
+- **Forces and integrate had to be un-fused.** M2 merged tick stages 5 and 6; contact reads neighbour positions the same kernel writes. 2709 of 3000 positions differed between identical runs before the split. §3.4 listed them separately for exactly this reason.
+- **Contact stiffness is stability-limited and cannot hold a fully charged cell.** Stability caps `k` at `γ/dt`; resting a 32×-water cell within 5 % needs 3.36× that. Documented and bounded rather than hidden; the fix is contact substepping or `dt ≤ 0.3 ms`.
+
+**The SoA is deliberately NOT reordered by bucket**, contrary to the scope above: a determinism hazard for a speculative gain. Neighbour access goes through an indirection instead. Revisit if profiling justifies it.
+
+**Cost:** 200k cells now run at **0.28× real time** (281 ticks/s). The benchmark had to be fixed to measure that at all — under the real-time accumulator it pinned at the 8-substep cap and reported a feedback equilibrium rather than throughput.
 
 ---
 

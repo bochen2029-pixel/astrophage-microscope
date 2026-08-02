@@ -7,8 +7,8 @@ A sealed 4 mm culture chamber of water. Cells 10 μm across, black at every wave
 **Not** a game, and **not** the interstellar scale — no ships, no Petrova arc, no Tau Ceti. Just what you would see down the eyepiece.
 
 ```
-Status:  M3 green  ·  C++20 + CUDA 13.1  ·  sm_89  ·  Windows 11
-         200,000 cells at 426 fps on an RTX 4070 Ti SUPER, with full defocus
+Status:  M4 green  ·  C++20 + CUDA 13.1  ·  sm_89  ·  Windows 11
+         200,000 cells, full defocus + spatial hash + contact, 281 ticks/s
          P1 live: drift velocity linear in charge, zero crossing at 3.00577%
          1.53 um depth of field inside a 60 um chamber -- focus is a real control
 ```
@@ -63,7 +63,7 @@ build/astrophage.exe
 | M1 | Cell store, CUDA-GL interop, instanced discs, camera, scale bar | ✅ `m1-green` |
 | M2 | Motion: OU integrator, buoyancy → **P1** | ✅ `m2-green` |
 | M3 | Microscope optics: defocus, DOF, objectives, diffraction | ✅ `m3-green` |
-| M4 | Spatial hash, contact, adhesion | ☐ |
+| M4 | Spatial hash, contact, adhesion | ✅ `m4-green` |
 | M5 | Fields: diffusion, fixed-point deposit, brushes | ☐ |
 | M6 | Thermal: mass–energy, ignition latch, thermostat → **P2 P3 P4** | ☐ |
 | M7 | Light: Petrova emission, thrust, occlusion → **P5** | ☐ |

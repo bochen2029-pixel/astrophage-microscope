@@ -6,24 +6,9 @@
 
 ## Where the build stands
 
-**Last green: `m3-green`. Next milestone: M4 — Neighbourhood.**
+**Last green: `m4-green`. Next milestone: M5 — Fields.**
 
-The renderer is a microscope and the physics is real. 200,000 cells with full defocus at ~426 fps, 11 tests green, 8 goldens, 7 audit checks clean.
-
-```
-test_canon ......... generated constants consistent; the right params carry the canon lock
-test_rng ........... PCG32 vs reference vectors, stream independence, gaussian moments
-test_contracts ..... POD/layout/version guards, FNV-1a, deposit headroom
-test_fixed_atomic .. identical sums across 4 block sizes (INV-2, INV-4)
-test_octahedral .... direction packing round trip
-test_cell_store .... spawn placement, INV-1 stream independence, capacity
-test_scope ......... scale bar at 3 objectives, true cell size, cursor-anchored zoom
-test_motion ........ T1-T4, T6, T8 against the oracle; OU branches; boundaries
-test_buoyancy ...... T14: drift velocity linear in charge, zero crossing at 3.00577%
-test_optics ........ DOF, energy conservation under defocus, polarity, sharp fraction
-determinism_replay . real World, seed- and population-sensitive (INV-8)
-goldens ............ 8 images, bit-exact, plus 3 "must differ" pairs (ADR-017)
-```
+13 tests green, 8 goldens, 7 audit checks clean. Hash rebuild 0.110 ms at 200k cells; determinism holds through contact (0/3000 positions differing).
 
 ## Start here
 
@@ -31,47 +16,52 @@ goldens ............ 8 images, bit-exact, plus 3 "must differ" pairs (ADR-017)
 git -C C:\Astrophage tag --list
 ```
 
-Read, in order: `CLAUDE.md` → `docs/ARCHITECTURE.md` → **the M4 section only** of `docs/MILESTONES.md` → `docs/PHYSICS.md` **§9 only** → `src/sim/MODULE.md` → `contracts/cell_store_v1.h`.
+Read, in order: `CLAUDE.md` → `docs/ARCHITECTURE.md` → **the M5 section only** of `docs/MILESTONES.md` → `docs/PHYSICS.md` **§7 only** → `src/fields/MODULE.md` → `contracts/fields_v1.h`.
 
-You do **not** need `RENDERING.md` for M4.
-
-```bash
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/gate.ps1 -Milestone M3
-```
+Verify the baseline before touching anything:
 
 ```bash
-build/astrophage.exe
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/gate.ps1 -Milestone M4
 ```
 
-Rack the **focal plane** slider and watch cells resolve and dissolve; the gauge under it shows how thin the sharp band is. Drag the **charge** slider past 3.0058 % and the culture reverses direction. `--ticks-per-frame 200` fast-forwards.
+## What M5 is
 
-## What M4 is
+`docs/MILESTONES.md` §M5 and `docs/PHYSICS.md` §7.
 
-`docs/MILESTONES.md` §M4 and `docs/PHYSICS.md` §9.
+- `Grid2D<float>` in device memory, bilinear sample and scatter.
+- Explicit red-black diffusion, substep counts read from `VERIFICATION.md` §6 — **not assumed**. `src/fields/fields_placeholder.cu` carries `static_assert`s that turn a resolution change into a build break; **keep them alive when you delete that file.**
+- **Fixed-point i64 deposit accumulators** (INV-2, ADR-013). Float `atomicAdd` is order-dependent and would break INV-8 on every run. `contracts/fields_v1.h` has the scales and the overflow arithmetic; `DEPOSIT_MAX_CONTRIBUTORS` is a per-grid-cell bound, not a global one.
+- Boundary conditions: dirichlet / neumann / robin.
+- Field overlay render pass with LUTs; heat and chill brushes.
 
-- **Spatial hash** over chamber cells of 2.2 × `CELL_DIAMETER`: count → prefix sum → scatter. Counting sort, so it is order-stable (INV-7). This is tick stage 1 and everything after M4 depends on it — contact, predation, the taxis density sense, and the M6 analytic near-field correction all need neighbours.
-- **Soft-sphere contact**, `CONTACT_STIFFNESS · overlap`.
-- **Wall adhesion** with `WALL_STICKINESS` / `WALL_STUCK_DRAG_MULT`.
-- **Reorder the SoA by hash cell** each tick for coalescing.
+**Gate:** M4 gate + T25 (no NaN, no oscillation, energy conserved to 0.1 % under insulated BC) + the analytic point-source profile `T(r) = T∞ + ΔT·a/r` matching in the far field within 2 %.
 
-**Gate:** M3 gate + rest overlap < 5 % of diameter in a packed cluster; no cell escapes over 10⁵ ticks; determinism hash unchanged when block size varies (INV-4); hash rebuild < 0.5 ms at 200k cells. `gate.ps1` already references `test_contact` and `test_hash`.
+**Do not** couple cells to the fields yet — sources are brush-only at M5. Cell↔field coupling is M6.
 
-**The determinism trap in this milestone.** Reordering the SoA changes which slot a cell occupies. Per-cell RNG streams are keyed on `id`, not slot, so trajectories survive — **that is exactly what ADR-014 bought you** — but anything that accidentally keys on slot index will silently break INV-8. The `determinism_replay` gate already asserts that halving the population changes the hash; make sure it still passes *and* that a run with reordering enabled matches one without.
+**Tool brushes must enqueue commands consumed at a defined point in the tick**, not write into device memory from the input handler. The latter breaks INV-8 (`src/app/MODULE.md`).
 
 ## Traps worth knowing
 
+- **Fusing across a documented tick-stage boundary is a correctness change, not an optimisation.** M4 learned this the hard way: contact fused into the integrate kernel read positions other threads were writing, and 2709 of 3000 positions differed between identical runs. If a field stage reads what another writes, they are separate kernels.
+- **Braces do not protect commas in macro arguments** — only parentheses do. `ASTRO_FOR_EACH_NEIGHBOUR` is variadic for this reason.
 - **`build.ps1 -App`** whenever the executable matters.
-- **No physical literals in `src/sim` or `src/fields`** — `audit.ps1` A9 greps three patterns. Maths constants go in `core/units.h`, not canon.
-- **The oracle is authoritative.** `docs/VERIFICATION.md` is computed independently of the simulator. It has already caught three real errors (ADR-016, the split viscosity model, and a wrong tabulated viscosity).
-- **Do not weaken a gate to pass it.** Three times now the failing threshold was the *test's* fault and the corrected test came out stricter. When a gate fails, first ask whether it is asking the right question.
-- **Do not guess a numeric threshold.** Derive it, or assert the derived quantity and keep the qualitative bound loose. Two `test_optics` assertions failed this session purely because I invented cutoffs (`r > 4a`, `peak < 0.06`) that the real physics (3.9a, 0.0617) just missed.
-- **Regenerating goldens requires a `DECISIONS.md` entry in the same commit** (Iron Rule 10). If an M4 change legitimately alters the render, say why.
+- **No physical literals in `src/sim` or `src/fields`** — `audit.ps1` A9 greps three patterns. Maths constants go in `core/units.h`.
+- **The oracle is authoritative** and has now caught four real errors. If it disagrees with the simulator, the simulator is wrong.
+- **Do not guess a numeric threshold** — derive it. Every invented cutoff so far has been wrong.
+- **Regenerating goldens needs a `DECISIONS.md` entry in the same commit** (Iron Rule 10).
+
+## Performance state
+
+200k cells run at **281 ticks/s = 0.28× real time**. Contact dominates. Two named levers, both untouched:
+
+- **Q8** — defocus overdraw: cull cells whose peak opacity is below the fragment discard threshold, in the vertex stage. Bloom at M7 lands on top of this.
+- **Q9 (new, and the bigger one)** — the neighbour walk visits **27 buckets when 8 would do**. The hash cell is 22 μm and the contact range is 10 μm, so a 2×2×2 walk is correct whenever `cell_size ≥ 2 × range`, which holds. ~3.4× on the dominant cost. Take this if M5 makes the tick budget tight.
 
 ## Open questions carried forward
 
-- **Q1** — App `--headless` (hidden window) and `tools/headless` (never links GL) stay separate deliberately.
-- **Q4** — Benchmark worst-frame was 13.5 ms at M1; with defocus it is now 3.5 ms, so the earlier hitch looks like first-touch allocation rather than a steady-state problem. Consider closed unless it returns.
-- **Q5** — When M9 adds slot reuse, confirm `spawn_kernel` clears `vx/vy/vz`. It does today, but only incidentally.
-- **Q6** — `MotionConfig::thermal_noise` is off only in tests. A scenario wanting it off needs a field in `scenario_v1.h`.
-- **Q7 (new)** — `optics.h` and the GLSL in `cells_pass.cpp` duplicate four formulas with no compiler check between them (ADR-017). If a third consumer ever appears, generate the GLSL from the header rather than adding another copy.
-- **Q8 (new)** — Defocus overdraw is the top performance risk for M7's bloom. The cheap fix is culling cells whose peak opacity is below the discard threshold in the vertex stage; worth doing opportunistically if M4/M5 touch the vertex path.
+- **Q1** — App `--headless` and `tools/headless` stay separate deliberately.
+- **Q5** — When M9 adds slot reuse, confirm `spawn_kernel` clears `vx/vy/vz`.
+- **Q6** — `MotionConfig::thermal_noise`, `contact_enabled`, `adhesion_enabled` are test-only; a scenario wanting them needs fields in `scenario_v1.h`.
+- **Q7** — `optics.h` and the GLSL in `cells_pass.cpp` duplicate four formulas with no compiler check (ADR-017).
+- **Q10 (new)** — Contact cannot hold a fully charged cell at `dt` = 1 ms (ADR-018 §3): stability caps stiffness 3.36× below what rigidity needs. Bounded and tested, but if M9 produces dense charged cultures this needs contact substepping or a smaller `dt`.
+- **Q11 (new)** — The SoA is not reordered by bucket, contrary to M4's stated scope. Deliberate; revisit only with profiling evidence.

@@ -6,6 +6,26 @@ Format: milestone · what landed · what is pending · open questions · gotchas
 
 ---
 
+## 2026-08-02 — M4 (Neighbourhood) — GREEN
+
+**Landed.** Spatial hash, soft-sphere contact, wall adhesion. Hash rebuild **0.110 ms** at 200k cells; neighbour query matches an O(n²) brute-force reference **exactly**; packed-cluster overlap **0.55 %**; 13 tests green.
+
+**Three findings, all in ADR-018.**
+
+1. **The hash is a stable radix sort, not the textbook atomicAdd counting scatter.** That scatter randomises order *within* a bucket, which sets the summation order of contact forces, which breaks INV-8 — intermittently, which is the worst way. CUB's `SortPairs` is stable and ships with the toolkit, so it costs no dependency.
+
+2. **Forces and integrate had to be un-fused — and this one was my error.** M2 merged tick stages 5 and 6 for register reuse. Contact reads neighbours' positions from the arrays the same kernel writes, so cell *i* saw some neighbours pre-step and some post-step depending on scheduling. **2709 of 3000 positions differed between two identical runs.** `ARCHITECTURE.md` §3.4 already listed forces and integrate as separate stages, and this is precisely why. Fusing across a documented stage boundary is a correctness change, not an optimisation.
+
+3. **Contact stiffness is stability-limited and cannot hold a fully charged cell.** The old value gave a rest overlap of **1587 % of a diameter** — cells passing straight through. But raising it far enough is impossible: an overdamped explicit spring moves `k·δ·dt/γ` per step, so stability caps `k` at `γ/dt`, while resting a 32×-water cell within 5 % needs **3.36× that**. Set `k = γ/(8·dt)`; empty cells rest at 4.17 % (inside the gate), fully charged at 134 % (outside). Bounded by a test at < 200 % so it cannot silently worsen; the fix is contact substepping or `dt ≤ 0.3 ms`, deferred to when dense charged cultures matter.
+
+**Gotchas.**
+- **Braces do not protect commas in a macro argument — only parentheses do.** The neighbour-walk macro is variadic for that reason; without it, a body containing `Vec3{a, b, c}` splits into extra arguments and fails with a wholly misleading error.
+- **The benchmark was measuring a feedback equilibrium.** Under the real-time accumulator, slower frames request more substeps, which slows frames further, until it pins at the 8-substep cap. `--benchmark` now implies one tick per frame and reports a real-time factor: 200k cells run at **0.28× real time**, which a frame rate alone was hiding.
+- **Goldens legitimately changed** — M4 adds a real force to the 400 ticks they capture, though no shader or optics formula was touched. Regenerated under Iron Rule 10 with ADR-018 §5 as the record.
+- **Deliberately skipped the SoA reorder** the milestone called for: a determinism hazard for a speculative gain. Recorded rather than silently dropped.
+
+---
+
 ## 2026-08-02 — M3 (Optics) — GREEN
 
 **Landed.** The renderer is a microscope. Per-instance defocus, energy-conserving opacity, the Becke line with its polarity inversion, a condenser vignette, and a depth-of-field gauge in the HUD.

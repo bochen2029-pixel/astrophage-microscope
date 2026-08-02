@@ -56,9 +56,11 @@ inline constexpr double VF_B = 570.58000000000004; // [K] REAL -- Vogel-Fulcher 
 inline constexpr double VF_C = 140; // [K] REAL -- Vogel-Fulcher coefficient C
 inline constexpr double AIR_CONVECTION_H = 10; // [W/m^2/K] REAL -- free convection to room air (Robin BC)
 inline constexpr double AMBIENT_TEMP_DEFAULT = 293.14999999999998; // [K] INVENTED -- 20 C. Default medium and room temperature; scenarios override it.
-inline constexpr double CONTACT_STIFFNESS = 9.9999999999999995e-07; // [N/m] INVENTED -- Soft-sphere repulsion; tuned so rest overlap < 5%.
+inline constexpr double CONTACT_STIFFNESS = 1.1802e-05; // [N/m] INVENTED -- = DRAG_COEFF_20C / (8 * DT_PHYSICS). STABILITY-LIMITED, not rigidity-tuned: in an overdamped medium an explicit spring moves k*d*dt/gamma per step, so k must stay below gamma/dt or contact overshoots and oscillates. See ADR-018.
 inline constexpr double WALL_STICKINESS = 0.14999999999999999; // [-] INVENTED -- Adhesion probability on coverslip contact.
 inline constexpr double WALL_STUCK_DRAG_MULT = 20; // [-] INVENTED -- Drag multiplier while adhered.
+inline constexpr double WALL_RELEASE_FORCE = 5.0000000000000002e-11; // [N] INVENTED -- Normal force needed to pull an adhered cell off the glass. Sits between a full cell's buoyant weight (1.6e-10 N) and an empty one's (4.9e-12 N), so charge state decides whether a cell can free itself.
+inline constexpr double HASH_CELL_FACTOR = 2.2000000000000002; // [-] INVENTED -- Spatial hash cell size in units of CELL_DIAMETER.
 inline constexpr double DT_PHYSICS = 0.001; // [s] INVENTED -- Fixed physics timestep. Never varies with frame rate.
 inline constexpr double TAXIS_MEMORY_TIME = 2; // [s] INVENTED -- Run-and-tumble temporal comparison window. See ADR-007.
 inline constexpr double TAXIS_DARK_THRESHOLD = 0.001; // [W/m^2] INVENTED -- Below this irradiance a cell does not move (canon: 'does not move in darkness').
@@ -92,6 +94,8 @@ inline constexpr double DRAG_COEFF_SETPOINT = 2.7317447988064303e-08; // [kg/s] 
 inline constexpr double DIFFUSIVITY_20C = 4.2869152950615823e-14; // [m^2/s] DERIVED = Einstein-Stokes kT/gamma at 20 C
 inline constexpr double DIFFUSIVITY_SETPOINT = 1.8678155730650127e-13; // [m^2/s] DERIVED = Einstein-Stokes at the setpoint; 4.24x the 20 C value -- drives P4
 inline constexpr double CONDUCTION_COEFF = 3.7573448136933928e-05; // [W/K] DERIVED = 4 pi k_water a  (Nu = 2, sphere in still fluid)
+inline constexpr double CONTACT_STABILITY_RATIO = 0.12500498476121263; // [-] DERIVED = k dt / gamma -- per-step contact displacement as a fraction of the overlap. Must stay below 1 for stability; below 0.25 for monotone convergence (ADR-018)
+inline constexpr double CONTACT_REST_OVERLAP_EMPTY = 0.041684186856822236; // [-] DERIVED = rest overlap under an empty cell's buoyant weight, as a fraction of a diameter
 inline constexpr double LIFE_GROWTH_RATE = 1.0028171015045505e-06; // [1/s] DERIVED = ln2 / doubling time
 inline constexpr double TNT_GRAMS_PER_FULL_CELL = 358.50860420650093; // [g] DERIVED = E_max / 4184 J/g
 inline constexpr double WIEN_LAMBDA_AT_SETPOINT = 7.8410346082556516e-06; // [m] DERIVED = Wien b / T -- the THERMAL peak, distinct from the Petrova line
@@ -161,9 +165,11 @@ inline constexpr ParamMeta PARAM_TABLE[] = {
     { "VF_C", 140, "K", Provenance::Real, "Vogel-Fulcher coefficient C", false, 0.0, 0.0, false },
     { "AIR_CONVECTION_H", 10, "W/m^2/K", Provenance::Real, "free convection to room air (Robin BC)", false, 0.0, 0.0, false },
     { "AMBIENT_TEMP_DEFAULT", 293.14999999999998, "K", Provenance::Invented, "20 C. Default medium and room temperature; scenarios override it.", true, 273.14999999999998, 373.14999999999998, false },
-    { "CONTACT_STIFFNESS", 9.9999999999999995e-07, "N/m", Provenance::Invented, "Soft-sphere repulsion; tuned so rest overlap < 5%.", true, 1.0000000000000001e-09, 0.001, true },
+    { "CONTACT_STIFFNESS", 1.1802e-05, "N/m", Provenance::Invented, "= DRAG_COEFF_20C / (8 * DT_PHYSICS). STABILITY-LIMITED, not rigidity-tuned: in an overdamped medium an explicit spring moves k*d*dt/gamma per step, so k must stay below gamma/dt or contact overshoots and oscillates. See ADR-018.", true, 1.0000000000000001e-09, 0.001, true },
     { "WALL_STICKINESS", 0.14999999999999999, "-", Provenance::Invented, "Adhesion probability on coverslip contact.", true, 0, 1, false },
     { "WALL_STUCK_DRAG_MULT", 20, "-", Provenance::Invented, "Drag multiplier while adhered.", true, 1, 1000, true },
+    { "WALL_RELEASE_FORCE", 5.0000000000000002e-11, "N", Provenance::Invented, "Normal force needed to pull an adhered cell off the glass. Sits between a full cell's buoyant weight (1.6e-10 N) and an empty one's (4.9e-12 N), so charge state decides whether a cell can free itself.", true, 1e-13, 1e-08, true },
+    { "HASH_CELL_FACTOR", 2.2000000000000002, "-", Provenance::Invented, "Spatial hash cell size in units of CELL_DIAMETER.", true, 1.05, 8, false },
     { "DT_PHYSICS", 0.001, "s", Provenance::Invented, "Fixed physics timestep. Never varies with frame rate.", true, 1.0000000000000001e-05, 0.01, true },
     { "TAXIS_MEMORY_TIME", 2, "s", Provenance::Invented, "Run-and-tumble temporal comparison window. See ADR-007.", true, 0.050000000000000003, 60, true },
     { "TAXIS_DARK_THRESHOLD", 0.001, "W/m^2", Provenance::Invented, "[REF 1.5] Below this irradiance a cell does not move (canon: 'does not move in darkness').", true, 0, 1000, true },
@@ -195,10 +201,12 @@ inline constexpr ParamMeta PARAM_TABLE[] = {
     { "DIFFUSIVITY_20C", 4.2869152950615823e-14, "m^2/s", Provenance::Derived, "= Einstein-Stokes kT/gamma at 20 C", false, 0.0, 0.0, false },
     { "DIFFUSIVITY_SETPOINT", 1.8678155730650127e-13, "m^2/s", Provenance::Derived, "= Einstein-Stokes at the setpoint; 4.24x the 20 C value -- drives P4", false, 0.0, 0.0, false },
     { "CONDUCTION_COEFF", 3.7573448136933928e-05, "W/K", Provenance::Derived, "= 4 pi k_water a  (Nu = 2, sphere in still fluid)", false, 0.0, 0.0, false },
+    { "CONTACT_STABILITY_RATIO", 0.12500498476121263, "-", Provenance::Derived, "= k dt / gamma -- per-step contact displacement as a fraction of the overlap. Must stay below 1 for stability; below 0.25 for monotone convergence (ADR-018)", false, 0.0, 0.0, false },
+    { "CONTACT_REST_OVERLAP_EMPTY", 0.041684186856822236, "-", Provenance::Derived, "= rest overlap under an empty cell's buoyant weight, as a fraction of a diameter", false, 0.0, 0.0, false },
     { "LIFE_GROWTH_RATE", 1.0028171015045505e-06, "1/s", Provenance::Derived, "= ln2 / doubling time", false, 0.0, 0.0, false },
     { "TNT_GRAMS_PER_FULL_CELL", 358.50860420650093, "g", Provenance::Derived, "= E_max / 4184 J/g", false, 0.0, 0.0, false },
     { "WIEN_LAMBDA_AT_SETPOINT", 7.8410346082556516e-06, "m", Provenance::Derived, "= Wien b / T -- the THERMAL peak, distinct from the Petrova line", false, 0.0, 0.0, false },
 };
-inline constexpr int PARAM_COUNT = 74;
+inline constexpr int PARAM_COUNT = 78;
 
 } // namespace astro::canon

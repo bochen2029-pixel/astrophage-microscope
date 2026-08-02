@@ -11,6 +11,7 @@
 #include "core/canon_generated.h"
 #include "core/result.h"
 #include "sim/cell_store.cuh"
+#include "sim/hash.cuh"
 #include "sim/integrator.cuh"
 
 namespace astro::sim {
@@ -22,6 +23,8 @@ struct MotionConfig {
     GravityAxis gravity_axis = GravityAxis::Y;   // ADR-006
     // Off only for analytic tests, where a terminal velocity must be exact.
     bool        thermal_noise = true;
+    bool        contact_enabled = true;
+    bool        adhesion_enabled = true;
     double      ambient_temp = canon::AMBIENT_TEMP_DEFAULT;
 };
 
@@ -34,6 +37,14 @@ struct WorldDesc {
 
 struct World {
     CellStore    cells;
+    SpatialHash  hash;
+    // Tick stage 5 writes these; stage 6 reads them. They exist SPECIFICALLY so
+    // that contact reads every neighbour's position from before the step --
+    // computing forces and positions in one kernel is a read/write race and
+    // makes the run nondeterministic (ADR-018).
+    double*      d_fx = nullptr;
+    double*      d_fy = nullptr;
+    double*      d_fz = nullptr;
     Chamber      chamber{};
     MotionConfig motion{};
     uint64_t     tick = 0;

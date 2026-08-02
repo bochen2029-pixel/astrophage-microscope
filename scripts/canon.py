@@ -123,11 +123,21 @@ BASE = [
      None, (273.15, 373.15, False)),
 
     # --- Mechanics / numerics -----------------------------------------------
-    ("CONTACT_STIFFNESS", 1.0e-6, "N/m", INVENTED,
-     "Soft-sphere repulsion; tuned so rest overlap < 5%.", None, (1e-9, 1e-3, True)),
+    ("CONTACT_STIFFNESS", 1.1802e-5, "N/m", INVENTED,
+     "= DRAG_COEFF_20C / (8 * DT_PHYSICS). STABILITY-LIMITED, not rigidity-tuned: "
+     "in an overdamped medium an explicit spring moves k*d*dt/gamma per step, so "
+     "k must stay below gamma/dt or contact overshoots and oscillates. See ADR-018.",
+     None, (1e-9, 1e-3, True)),
     ("WALL_STICKINESS", 0.15, "-", INVENTED,
      "Adhesion probability on coverslip contact.", None, (0.0, 1.0, False)),
     ("WALL_STUCK_DRAG_MULT", 20.0, "-", INVENTED, "Drag multiplier while adhered.", None, (1.0, 1e3, True)),
+    ("WALL_RELEASE_FORCE", 5.0e-11, "N", INVENTED,
+     "Normal force needed to pull an adhered cell off the glass. Sits between a "
+     "full cell's buoyant weight (1.6e-10 N) and an empty one's (4.9e-12 N), so "
+     "charge state decides whether a cell can free itself.",
+     None, (1e-13, 1e-8, True)),
+    ("HASH_CELL_FACTOR", 2.2, "-", INVENTED,
+     "Spatial hash cell size in units of CELL_DIAMETER.", None, (1.05, 8.0, False)),
     ("DT_PHYSICS", 1.0e-3, "s", INVENTED,
      "Fixed physics timestep. Never varies with frame rate.", None, (1e-5, 1e-2, True)),
     ("TAXIS_MEMORY_TIME", 2.0, "s", INVENTED,
