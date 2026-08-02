@@ -11,7 +11,7 @@ Every gate re-runs all earlier gates. Gates never weaken.
 | M2 | Motion | OU integrator, buoyancy, boundaries → **P1** | M2 | ✅ `m2-green` |
 | M3 | Optics | defocus, DOF, objectives, diffraction ring, focal plane | M3 | ✅ `m3-green` |
 | M4 | Neighbourhood | spatial hash, contact, adhesion | M4 | ✅ `m4-green` |
-| M5 | Fields | Grid2D, explicit diffusion, fixed-point deposit, brushes, overlays | M5 | ☐ |
+| M5 | Fields | Grid2D, explicit diffusion, fixed-point deposit, brushes, overlays | M5 | ✅ `m5-green` |
 | M6 | Thermal | mass–energy, ignition latch, thermostat → **P2 P3 P4** | M6 | ✅ `m6-green` |
 | M7 | Light | Petrova emission, thrust, irradiance + occlusion → **P5** | M7 | ✅ `m7-green` |
 | M8 | Taxis | run-and-tumble, phototaxis, CO₂ field, chemotaxis | M8 | ☐ |
@@ -145,7 +145,15 @@ Three findings, all in ADR-018:
 
 **Scope.** `PHYSICS.md` §8. Run-and-tumble with temporal comparison, FEED/BREED/IDLE state machine, the darkness rule, CO₂ field and chemotaxis, the CO₂ injection brush.
 
-**Gate.** M7 gate + a population in a light gradient migrates measurably up-gradient (mean position shift > 3σ of the null over 10⁴ ticks); cells in darkness show zero emission and pure Brownian statistics.
+**Gate.** M7 gate + a population migrates measurably up-gradient; cells in darkness emit exactly zero and their displacement distribution matches the taxis-off null.
+
+**Clarifications the M8 session asked for, answered here so the gate is unambiguous:**
+
+- **The gradient is the culture's own self-shadowing** — Beer–Lambert plus exact per-cell occlusion. It is real and strong: 8,000 cells lit along one axis already measure an 8× energy ratio between the lit face and the far side (M7). No contract change. A spatial profile on `LightSource` (Gaussian spot, linear ramp) is **out of M8's budget**; it needs `fields_v2.h` and belongs with `shadow-garden` at M11.
+- **The null is the identical scenario with the taxis controller disabled**, same seed, same tick count, with 3σ measured from that. "Pure Brownian" was sloppy wording on my part — buoyancy still sediments cells in darkness, so the null is never zero drift.
+- **Emission must discharge the store.** `dE/dt = −emit_power` (PHYSICS.md §6) is **not implemented** — nothing subtracts it today, because nothing set `emit_power` nonzero before M8. It is in M8's scope.
+- **Gate the controller on `CELL_FLAG_AWAKE`.** Dormant cells are inert powder: no tumbling, no emission.
+- **CO₂ uptake stays in M9.** With no sink there is no depletion halo at M8, so BREED climbs a brush-injected blob. M8 must still *fix the sampling policy* (near-field per-cell vs far-field grid) so M9's uptake cannot reintroduce the ADR-019/020/021 trap.
 
 ---
 

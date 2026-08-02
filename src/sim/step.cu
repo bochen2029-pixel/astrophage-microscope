@@ -85,7 +85,12 @@ void world_step(World& w) {
     //   8 field_diffuse   M5
     //   9 irradiance      M7
     //  10 lifecycle       M9   (mutates the store; must stay last)
-    //  11 stats           M6
+    //  11 stats           M9  -- NOT SHIPPED. world_stats below returns only
+    //                          tick, time and counts; the means and the energy
+    //                          ledger need a deterministic device reduction
+    //                          (INV-2: tree reduction or fixed point, never
+    //                          atomicAdd on float). Lands with M9's charts,
+    //                          which are its first real consumer.
     hash_build(w.hash, w.cells.view, w.cells.count);
 
     // Stage 4 is interleaved with the temperature field's own substeps, so it
