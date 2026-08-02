@@ -173,6 +173,6 @@ Scenarios planned for M11 include *First Light* (heat a slide of inert powder un
 
 Astrophage, Taumoeba, the Petrova line, and the Hail Mary are Andy Weir's, from *Project Hail Mary* (2021). This is an unaffiliated, non-commercial fan simulation.
 
-Code is MIT licensed — see [LICENSE](LICENSE). The licence covers the code, not the fiction.
+Code is MIT licensed — see [LICENSE](LICENSE). The licence covers the code, not the fiction; see [NOTICE.md](NOTICE.md).
 
 Built collaboratively with [Claude Code](https://claude.com/claude-code).
