@@ -21,6 +21,13 @@ struct HudState {
     int32_t respawn_count = 0;
     float   respawn_charge = 0.0f;
 
+    // Live charge control: recharges the whole population in place. This is how
+    // P1 is demonstrated interactively -- sweep past the neutral line and the
+    // culture stops rising and starts sinking.
+    bool    set_charge_requested = false;
+    float   live_charge = 0.0f;
+    bool    paused = false;
+
     float fps = 0.0f;
     float frame_ms = 0.0f;
 };

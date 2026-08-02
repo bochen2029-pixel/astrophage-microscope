@@ -92,6 +92,7 @@ astro_strict(astro_fields)
 
 add_library(astro_sim STATIC
     src/sim/cell_store.cu
+    src/sim/integrator.cu
     src/sim/step.cu)
 target_link_libraries(astro_sim PUBLIC astro_core astro_fields)
 astro_strict(astro_sim)
@@ -119,6 +120,8 @@ astro_test(test_cell_store   tests/physics/test_cell_store.cu)
 # Scope geometry is pure arithmetic, so the M1 "scale bar is correct at all three
 # objectives" and "no size fudge" conditions are checked headless, not by eye.
 astro_test(test_scope        tests/physics/test_scope.cpp)
+astro_test(test_motion       tests/physics/test_motion.cpp)
+astro_test(test_buoyancy     tests/physics/test_buoyancy.cu)
 
 # ---------------------------------------------------------------------------
 # tools -- headless runner. The determinism oracle (INV-8) and the scenario

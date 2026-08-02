@@ -16,6 +16,8 @@ void print_usage() {
         "  --charge F         initial charge fraction, 0..1\n"
         "  --objective N      0 = 10x survey, 1 = 40x working, 2 = 100x detail\n"
         "  --zoom F           digital zoom on top of the objective\n"
+        "  --ticks-per-frame N  fixed ticks per frame, ignoring wall clock;\n"
+        "                       makes a capture reproducible on any machine\n"
         "  --width N          window width\n"
         "  --height N         window height\n"
         "  --frames N         run N frames then exit (0 = until closed)\n"
@@ -42,6 +44,7 @@ Options parse_args(int argc, char** argv) {
         else if (want("--height"))     o.height = static_cast<int>(next_int(o.height));
         else if (want("--frames"))     o.frames = static_cast<int>(next_int(o.frames));
         else if (want("--objective")) o.objective = static_cast<int>(next_int(-1));
+        else if (want("--ticks-per-frame")) o.ticks_per_frame = static_cast<int>(next_int(0));
         else if (want("--charge")) {
             if (i + 1 >= argc) o.bad = true;
             else o.charge = static_cast<float>(std::atof(argv[++i]));

@@ -58,18 +58,34 @@ int main() {
     CHECK(std::fabs(WIEN_LAMBDA_AT_SETPOINT - PETROVA_WAVELENGTH) > 1e-5);
 
     // --- transport -----------------------------------------------------------
-    const double gamma = 6.0 * 3.14159265358979323846 * WATER_VISCOSITY_20C * a;
+    // Vogel-Fulcher is the ONE viscosity model, used by the simulator and by the
+    // oracle alike. Deriving gamma from the tabulated 20 C measurement instead
+    // would leave a 2.5e-5 systematic offset between oracle and simulation that
+    // every transport test would then have to absorb in its tolerance.
+    const double mu_vf_room = VF_A * std::exp(VF_B / (AMBIENT_TEMP_DEFAULT - VF_C));
+    const double gamma = 6.0 * 3.14159265358979323846 * mu_vf_room * a;
     CHECK_CLOSE(DRAG_COEFF_20C, gamma, 1e-12);
+
+    // The tabulated measurement is the cross-check ON the fit, and that is its
+    // whole job. If the fit ever drifts from reality by more than 0.5 %, the
+    // problem is the fit, not the tolerance.
+    CHECK_CLOSE(mu_vf_room, WATER_VISCOSITY_20C, 5e-3);
     CHECK_CLOSE(CONDUCTION_COEFF, 4.0 * 3.14159265358979323846 * WATER_CONDUCTIVITY * a, 1e-12);
     CHECK_CLOSE(WATER_THERMAL_DIFFUSIVITY,
                 WATER_CONDUCTIVITY / (WATER_DENSITY * WATER_SPECIFIC_HEAT), 1e-12);
 
-    // Vogel-Fulcher must reproduce the tabulated 20 C viscosity, or P4's
-    // 3.4x viscosity drop at the setpoint is built on sand.
-    const double mu20 = VF_A * std::exp(VF_B / (293.15 - VF_C));
-    CHECK_CLOSE(mu20, WATER_VISCOSITY_20C, 2e-3);
     CHECK_CLOSE(WATER_VISCOSITY_SETPOINT, VF_A * std::exp(VF_B / (CELL_TEMP_SETPOINT - VF_C)), 1e-12);
-    CHECK(WATER_VISCOSITY_20C / WATER_VISCOSITY_SETPOINT > 3.0);
+    // The fit must also hold at the far end of the range it is used over, or
+    // P4's magnitude is guesswork. It is less accurate up there (~1%), which is
+    // exactly why the tabulated value is kept alongside it.
+    CHECK_CLOSE(WATER_VISCOSITY_SETPOINT, WATER_VISCOSITY_96C, 2e-2);
+
+    // P4 rests on this: viscosity drops ~3.5x between room temperature and the
+    // Astrophage setpoint, so a live cell jitters visibly more than a dead one.
+    // The exact ratio depends on the fit, so assert the magnitude, not a digit.
+    CHECK(mu_vf_room / WATER_VISCOSITY_SETPOINT > 3.0);
+    const double motility = DIFFUSIVITY_SETPOINT / DIFFUSIVITY_20C;
+    CHECK(motility > 4.0 && motility < 4.6);
 
     // --- cross-check against the emitted oracle -------------------------------
     using namespace astro::expected;

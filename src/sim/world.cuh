@@ -8,25 +8,42 @@
 #include <cstdint>
 
 #include "contracts/telemetry_v1.h"
+#include "core/canon_generated.h"
 #include "core/result.h"
 #include "sim/cell_store.cuh"
+#include "sim/integrator.cuh"
 
 namespace astro::sim {
 
+// Everything the motion stages need. Passed by value into kernels, so POD.
+struct MotionConfig {
+    Boundary    boundary_x = Boundary::Reflecting;
+    Boundary    boundary_y = Boundary::Reflecting;
+    GravityAxis gravity_axis = GravityAxis::Y;   // ADR-006
+    // Off only for analytic tests, where a terminal velocity must be exact.
+    bool        thermal_noise = true;
+    double      ambient_temp = canon::AMBIENT_TEMP_DEFAULT;
+};
+
 struct WorldDesc {
-    Chamber  chamber{4.0e-3, 4.0e-3, 6.0e-5};
+    Chamber  chamber{canon::CHAMBER_W, canon::CHAMBER_H, canon::CHAMBER_D};
     int32_t  capacity = 0;          // 0 = size to the initial population
     uint64_t seed = 20260802ull;
+    MotionConfig motion{};
 };
 
 struct World {
-    CellStore cells;
-    Chamber   chamber{};
-    uint64_t  tick = 0;
-    uint64_t  seed = 0;
-    double    physics_rate = 1.0;
-    double    biology_rate = 1.0;
+    CellStore    cells;
+    Chamber      chamber{};
+    MotionConfig motion{};
+    uint64_t     tick = 0;
+    uint64_t     seed = 0;
+    double       physics_rate = 1.0;
+    double       biology_rate = 1.0;
 };
+
+// Tick stages 2, 5, 6 (src/sim/integrator.cu).
+void motion_step(World& w, double dt);
 
 Error world_create(World& w, const WorldDesc& d);
 void  world_destroy(World& w);

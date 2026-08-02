@@ -45,7 +45,8 @@ inline constexpr double TAU_N2_LETHAL_CONC = 0.01; // [kg/m^3] INVENTED -- Nitro
 inline constexpr double TAU_N2_TOLERANCE_INIT = 0; // [-] INVENTED -- Heritable trait in [0,1]. 0.825 => the 'Taumoeba-82.5' strain.
 inline constexpr double TAU_MUTATION_SIGMA = 0.02; // [-] INVENTED -- Per-division trait drift; drives the breeding scenario.
 inline constexpr double TAU_BIOMASS_YIELD = 0.59999999999999998; // [-] INVENTED -- Fraction of prey biomass converted.
-inline constexpr double WATER_VISCOSITY_20C = 0.0010020000000000001; // [Pa*s] REAL
+inline constexpr double WATER_VISCOSITY_20C = 0.0010020000000000001; // [Pa*s] REAL -- tabulated; VF cross-check
+inline constexpr double WATER_VISCOSITY_96C = 0.00029310000000000002; // [Pa*s] REAL -- tabulated at 96.415 C, interpolated from 95/100 C. VF gives 2.898e-4.
 inline constexpr double WATER_DENSITY = 998.20000000000005; // [kg/m^3] REAL -- at 20 C
 inline constexpr double WATER_CONDUCTIVITY = 0.59799999999999998; // [W/m/K] REAL
 inline constexpr double WATER_SPECIFIC_HEAT = 4182; // [J/kg/K] REAL
@@ -86,9 +87,9 @@ inline constexpr double PETROVA_PHOTON_ENERGY_EV = 0.047715593608836308; // [eV]
 inline constexpr double PETROVA_PHOTONS_PER_FULL_CELL = 1.9620972733654462e+26; // [-] DERIVED = E_max / E_photon
 inline constexpr double WATER_VISCOSITY_SETPOINT = 0.00028984712533041231; // [Pa*s] DERIVED = Vogel-Fulcher at CELL_TEMP_SETPOINT
 inline constexpr double WATER_THERMAL_DIFFUSIVITY = 1.4325163582348751e-07; // [m^2/s] DERIVED = k / (rho cp)
-inline constexpr double DRAG_COEFF_20C = 9.4436275166909197e-08; // [kg/s] DERIVED = 6 pi mu(20C) a
+inline constexpr double DRAG_COEFF_20C = 9.4412235020422974e-08; // [kg/s] DERIVED = 6 pi mu(20C) a
 inline constexpr double DRAG_COEFF_SETPOINT = 2.7317447988064303e-08; // [kg/s] DERIVED = 6 pi mu(96.415C) a
-inline constexpr double DIFFUSIVITY_20C = 4.2858239975545048e-14; // [m^2/s] DERIVED = Einstein-Stokes kT/gamma at 20 C
+inline constexpr double DIFFUSIVITY_20C = 4.2869152950615823e-14; // [m^2/s] DERIVED = Einstein-Stokes kT/gamma at 20 C
 inline constexpr double DIFFUSIVITY_SETPOINT = 1.8678155730650127e-13; // [m^2/s] DERIVED = Einstein-Stokes at the setpoint; 4.24x the 20 C value -- drives P4
 inline constexpr double CONDUCTION_COEFF = 3.7573448136933928e-05; // [W/K] DERIVED = 4 pi k_water a  (Nu = 2, sphere in still fluid)
 inline constexpr double LIFE_GROWTH_RATE = 1.0028171015045505e-06; // [1/s] DERIVED = ln2 / doubling time
@@ -149,7 +150,8 @@ inline constexpr ParamMeta PARAM_TABLE[] = {
     { "TAU_N2_TOLERANCE_INIT", 0, "-", Provenance::Invented, "[REF 1.8] Heritable trait in [0,1]. 0.825 => the 'Taumoeba-82.5' strain.", true, 0, 1, false },
     { "TAU_MUTATION_SIGMA", 0.02, "-", Provenance::Invented, "Per-division trait drift; drives the breeding scenario.", true, 0, 0.5, false },
     { "TAU_BIOMASS_YIELD", 0.59999999999999998, "-", Provenance::Invented, "Fraction of prey biomass converted.", true, 0, 1, false },
-    { "WATER_VISCOSITY_20C", 0.0010020000000000001, "Pa*s", Provenance::Real, "", false, 0.0, 0.0, false },
+    { "WATER_VISCOSITY_20C", 0.0010020000000000001, "Pa*s", Provenance::Real, "tabulated; VF cross-check", false, 0.0, 0.0, false },
+    { "WATER_VISCOSITY_96C", 0.00029310000000000002, "Pa*s", Provenance::Real, "tabulated at 96.415 C, interpolated from 95/100 C. VF gives 2.898e-4.", false, 0.0, 0.0, false },
     { "WATER_DENSITY", 998.20000000000005, "kg/m^3", Provenance::Real, "at 20 C", true, 500, 2000, false },
     { "WATER_CONDUCTIVITY", 0.59799999999999998, "W/m/K", Provenance::Real, "", false, 0.0, 0.0, false },
     { "WATER_SPECIFIC_HEAT", 4182, "J/kg/K", Provenance::Real, "", false, 0.0, 0.0, false },
@@ -188,15 +190,15 @@ inline constexpr ParamMeta PARAM_TABLE[] = {
     { "PETROVA_PHOTONS_PER_FULL_CELL", 1.9620972733654462e+26, "-", Provenance::Derived, "= E_max / E_photon", false, 0.0, 0.0, false },
     { "WATER_VISCOSITY_SETPOINT", 0.00028984712533041231, "Pa*s", Provenance::Derived, "= Vogel-Fulcher at CELL_TEMP_SETPOINT", false, 0.0, 0.0, false },
     { "WATER_THERMAL_DIFFUSIVITY", 1.4325163582348751e-07, "m^2/s", Provenance::Derived, "= k / (rho cp)", false, 0.0, 0.0, false },
-    { "DRAG_COEFF_20C", 9.4436275166909197e-08, "kg/s", Provenance::Derived, "= 6 pi mu(20C) a", false, 0.0, 0.0, false },
+    { "DRAG_COEFF_20C", 9.4412235020422974e-08, "kg/s", Provenance::Derived, "= 6 pi mu(20C) a", false, 0.0, 0.0, false },
     { "DRAG_COEFF_SETPOINT", 2.7317447988064303e-08, "kg/s", Provenance::Derived, "= 6 pi mu(96.415C) a", false, 0.0, 0.0, false },
-    { "DIFFUSIVITY_20C", 4.2858239975545048e-14, "m^2/s", Provenance::Derived, "= Einstein-Stokes kT/gamma at 20 C", false, 0.0, 0.0, false },
+    { "DIFFUSIVITY_20C", 4.2869152950615823e-14, "m^2/s", Provenance::Derived, "= Einstein-Stokes kT/gamma at 20 C", false, 0.0, 0.0, false },
     { "DIFFUSIVITY_SETPOINT", 1.8678155730650127e-13, "m^2/s", Provenance::Derived, "= Einstein-Stokes at the setpoint; 4.24x the 20 C value -- drives P4", false, 0.0, 0.0, false },
     { "CONDUCTION_COEFF", 3.7573448136933928e-05, "W/K", Provenance::Derived, "= 4 pi k_water a  (Nu = 2, sphere in still fluid)", false, 0.0, 0.0, false },
     { "LIFE_GROWTH_RATE", 1.0028171015045505e-06, "1/s", Provenance::Derived, "= ln2 / doubling time", false, 0.0, 0.0, false },
     { "TNT_GRAMS_PER_FULL_CELL", 358.50860420650093, "g", Provenance::Derived, "= E_max / 4184 J/g", false, 0.0, 0.0, false },
     { "WIEN_LAMBDA_AT_SETPOINT", 7.8410346082556516e-06, "m", Provenance::Derived, "= Wien b / T -- the THERMAL peak, distinct from the Petrova line", false, 0.0, 0.0, false },
 };
-inline constexpr int PARAM_COUNT = 73;
+inline constexpr int PARAM_COUNT = 74;
 
 } // namespace astro::canon

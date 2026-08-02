@@ -83,13 +83,37 @@ void hud_draw(HudState& hud, const Stats& stats, render::Camera& cam,
     ImGui::Text("stage at %.0f, %.0f um", cam.center_x * 1e6, cam.center_y * 1e6);
     if (ImGui::Button("centre stage")) { cam.center_x = 0.0; cam.center_y = 0.0; }
 
+    ImGui::SeparatorText("Charge  (P1: the 3% line)");
+    // The neutral-buoyancy figure is the most useful number on this panel:
+    // below it cells rise, above it they sink, and the transition is sharp.
+    const float neutral = static_cast<float>(canon::CHARGE_NEUTRAL_BUOYANCY);
+    if (ImGui::SliderFloat("charge##live", &hud.live_charge, 0.0f, 0.10f, "%.5f"))
+        hud.set_charge_requested = true;
+    const bool sinking = hud.live_charge > neutral;
+    ImGui::TextColored(sinking ? ImVec4(1.0f, 0.55f, 0.35f, 1.0f)
+                               : ImVec4(0.45f, 0.75f, 1.0f, 1.0f),
+                       "%s   neutral at %.4f%%", sinking ? "SINKING" : "RISING",
+                       neutral * 100.0);
+    // Density is the readout that makes the mechanism legible, not just the
+    // outcome: an empty cell is 25x lighter than water, a full one 32x denser.
+    {
+        const double mass = canon::CELL_MASS_DRY +
+                            hud.live_charge * canon::CELL_ENERGY_MAX /
+                            (canon::C_LIGHT * canon::C_LIGHT);
+        const double density = mass / canon::CELL_VOLUME;
+        ImGui::Text("%.0f kg/m3  (%.2fx water)   mass %.3f ng",
+                    density, density / canon::WATER_DENSITY, mass * 1e12);
+    }
+    ImGui::SameLine();
+    if (ImGui::SmallButton("neutral")) {
+        hud.live_charge = neutral;
+        hud.set_charge_requested = true;
+    }
+
     ImGui::SeparatorText("Population");
+    ImGui::Checkbox("paused", &hud.paused);
     ImGui::SliderInt("count", &hud.respawn_count, 1000, capacity);
-    ImGui::SliderFloat("charge", &hud.respawn_charge, 0.0f, 1.0f, "%.4f");
-    // P1's neutral-buoyancy point is the most useful number on this panel once
-    // motion exists at M2, so surface it now rather than burying it in a doc.
-    ImGui::TextDisabled("neutral buoyancy at %.3f%% charge",
-                        canon::CHARGE_NEUTRAL_BUOYANCY * 100.0);
+    ImGui::SliderFloat("spawn charge", &hud.respawn_charge, 0.0f, 1.0f, "%.4f");
     if (ImGui::Button("respawn")) hud.respawn_requested = true;
 
     ImGui::End();

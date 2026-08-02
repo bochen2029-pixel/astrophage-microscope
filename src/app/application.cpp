@@ -118,6 +118,7 @@ Error app_init(Application& a, const Options& o) {
 
     a.hud.respawn_count = count;
     a.hud.respawn_charge = o.charge;
+    a.hud.live_charge = o.charge;
     std::printf("[app] chamber %.2f x %.2f mm, %.0f um deep | %d cells | seed %llu\n",
                 a.world.chamber.w * 1e3, a.world.chamber.h * 1e3, a.world.chamber.d * 1e6,
                 a.world.cells.count, static_cast<unsigned long long>(o.seed));
@@ -145,14 +146,30 @@ int app_run(Application& a) {
 
         // Fixed-tick accumulator (src/app/MODULE.md). Render frame rate floats;
         // DT_PHYSICS never does. Cap the catch-up rather than spiral.
-        a.accumulator += dt_real * a.world.physics_rate;
-        int substeps = 0;
-        while (a.accumulator >= canon::DT_PHYSICS && substeps < 8) {
-            sim::world_step(a.world);
-            a.accumulator -= canon::DT_PHYSICS;
-            ++substeps;
+        if (a.hud.paused) {
+            a.accumulator = 0.0;
+        } else if (a.options.ticks_per_frame > 0) {
+            // Wall clock ignored entirely: the same command yields the same
+            // simulated time on any machine. Required for golden captures.
+            for (int i = 0; i < a.options.ticks_per_frame; ++i) sim::world_step(a.world);
+        } else {
+            a.accumulator += dt_real * a.world.physics_rate;
+            int substeps = 0;
+            while (a.accumulator >= canon::DT_PHYSICS && substeps < 8) {
+                sim::world_step(a.world);
+                a.accumulator -= canon::DT_PHYSICS;
+                ++substeps;
+            }
+            if (substeps == 8) a.accumulator = 0.0;   // drop time, do not lag
         }
-        if (substeps == 8) a.accumulator = 0.0;   // drop simulated time, do not lag
+
+        if (a.hud.set_charge_requested) {
+            a.hud.set_charge_requested = false;
+            if (Error e = sim::cell_store_set_charge(a.world.cells, a.hud.live_charge)) {
+                std::printf("[app] set charge failed: %s\n", status_str(e.status));
+                return 1;
+            }
+        }
 
         if (a.hud.respawn_requested) {
             a.hud.respawn_requested = false;

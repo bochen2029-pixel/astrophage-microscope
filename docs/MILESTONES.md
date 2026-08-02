@@ -8,7 +8,7 @@ Every gate re-runs all earlier gates. Gates never weaken.
 |---|---|---|---|---|
 | M0 | Harness | build system, generated canon, RNG, determinism skeleton, scripts | `gate.ps1 -Milestone M0` | ✅ `m0-green` |
 | M1 | Cell store & first pixels | GPU SoA, spawn, CUDA-GL interop, instanced discs, camera, scale bar | M1 | ✅ `m1-green` |
-| M2 | Motion | OU integrator, buoyancy, boundaries → **P1** | M2 | ☐ |
+| M2 | Motion | OU integrator, buoyancy, boundaries → **P1** | M2 | ✅ `m2-green` |
 | M3 | Optics | defocus, DOF, objectives, diffraction ring, focal plane | M3 | ☐ |
 | M4 | Neighbourhood | spatial hash, contact, adhesion | M4 | ☐ |
 | M5 | Fields | Grid2D, explicit diffusion, fixed-point deposit, brushes, overlays | M5 | ☐ |
@@ -63,6 +63,14 @@ Every gate re-runs all earlier gates. Gates never weaken.
 **Gate.** M1 gate + tests T1, T2, T3, T4, T6, T8, T14 green against `tests/golden/expected_values.h`. Visually: set charge below 3.006 % and the culture rises; above, it sinks; at 3.006 % it hovers.
 
 **Do not.** No thermal model yet — `T_local` is a scenario constant. No thrust source yet; T6 drives `emit_power` directly.
+
+**✅ Delivered 2026-08-02.** T1 −1681.5 μm/s, T2 +52.1 μm/s, T3 hovering, T4 MSD/4Dt = 1.020, T6 35.33 μm/s. Drift velocity is linear in charge to **Pearson −1.000000** and crosses zero at **3.00577 %** against a canon-derived 3.00577 %.
+
+Two corrections landed with it, both found by the oracle before any code shipped:
+- **ADR-016** — the integrator in the original spec (`v` propagated exactly, then `r += v·dt`) gives **47× too much diffusion** for an empty cell. Replaced with the exact joint position–velocity propagator.
+- The oracle and the simulator were using **two different viscosity models** (tabulated vs. Vogel–Fulcher). Unified on VF, which the simulator has no choice about; the tabulated values stay as cross-checks on the fit.
+
+**T14's statistic changed, and became stricter.** A whole-population position correlation saturates near 0.84 no matter which statistic is used — not from wall pile-up, but because cells within a hair of 3.006 % have near-zero drift and simply stay where they spawned. That is correct physics. T14 now asserts the sharp form of P1 — drift *velocity* linear in charge with the zero crossing at the canon value — plus group separation (> 1 mm gap after 60 s; measured 3.26 mm).
 
 ---
 

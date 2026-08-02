@@ -26,13 +26,13 @@ Regenerate with `python scripts/derive.py`. `scripts/audit.ps1` fails if this fi
 
 | Quantity | Value | Unit | Note |
 |---|---|---|---|
-| Drag coefficient gamma(20 C) | `9.44363e-08` | kg/s | 6 pi mu a |
-| Diffusivity D(20 C) | `4.28582e-14` | m^2/s | = `0.0429` um^2/s |
-| RMS 2D displacement in 1 s (20 C) | `0.4140` | um | MSD = 4Dt |
+| Drag coefficient gamma(20 C) | `9.44122e-08` | kg/s | 6 pi mu a |
+| Diffusivity D(20 C) | `4.28692e-14` | m^2/s | = `0.0429` um^2/s |
+| RMS 2D displacement in 1 s (20 C) | `0.4141` | um | MSD = 4Dt |
 | Diffusivity D(96.415 C) | `1.86782e-13` | m^2/s | = `0.1868` um^2/s |
 | RMS 2D displacement in 1 s (96.415 C) | `0.8644` | um | **4.36x -- drives P4** |
-| Momentum relaxation tau, empty | `2.22372e-07` | s | |
-| Momentum relaxation tau, full | `0.000176953` | s | **796x spread -> OU integrator** |
+| Momentum relaxation tau, empty | `2.22429e-07` | s | |
+| Momentum relaxation tau, full | `0.000176998` | s | **796x spread -> OU integrator** |
 
 The 800x mass spread between an empty and a full cell is why the integrator must be the
 exact-propagator Ornstein-Uhlenbeck update and not a naive overdamped or Verlet scheme.
@@ -43,8 +43,8 @@ See `docs/PHYSICS.md` Sec 3.
 | Quantity | Value | Unit | Note |
 |---|---|---|---|
 | Empty cell terminal velocity | `-52.1` | um/s | negative = **rises** |
-| Full cell terminal velocity | `+1681.0` | um/s | **sinks** |
-| Reynolds number at max speed | `0.0167` | - | Stokes valid (<< 1) |
+| Full cell terminal velocity | `+1681.5` | um/s | **sinks** |
+| Reynolds number at max speed | `0.0168` | - | Stokes valid (<< 1) |
 
 ## 4. Petrova emission and photon thrust
 
@@ -57,9 +57,9 @@ See `docs/PHYSICS.md` Sec 3.
 
 | Emission power | Thrust F = P/c | Terminal velocity |
 |---|---|---|
-| `1.00` mW | `3.336e-12` N | `35.32` um/s |
-| `10.00` mW | `3.336e-11` N | `353.22` um/s |
-| `47.59` mW | `1.588e-10` N | `1681.04` um/s |
+| `1.00` mW | `3.336e-12` N | `35.33` um/s |
+| `10.00` mW | `3.336e-11` N | `353.31` um/s |
+| `47.59` mW | `1.588e-10` N | `1681.47` um/s |
 
 **`47.59` mW is exactly the power a fully charged cell needs to hover** against its own
 weight. That is why `PETROVA_MAX_POWER` defaults to 50 mW (ADR-005).
@@ -131,25 +131,25 @@ Emitted verbatim into `tests/golden/expected_values.h`.
 
 | Symbol | Value | Unit | Rel. tol | Meaning |
 |---|---|---|---|---|
-| `T1_V_SETTLE_FULL` | `0.00168104` | m/s | 0.005 | Stokes terminal velocity, fully charged cell (down) |
-| `T2_V_RISE_EMPTY` | `-5.2094e-05` | m/s | 0.005 | Stokes terminal velocity, empty cell (negative = rises) |
+| `T1_V_SETTLE_FULL` | `0.00168147` | m/s | 0.005 | Stokes terminal velocity, fully charged cell (down) |
+| `T2_V_RISE_EMPTY` | `-5.21073e-05` | m/s | 0.005 | Stokes terminal velocity, empty cell (negative = rises) |
 | `T3_CHARGE_NEUTRAL` | `0.0300577` | - | 0.001 | Charge fraction at neutral buoyancy |
-| `T4_DIFFUSIVITY_20C` | `4.28582e-14` | m^2/s | 0.03 | Einstein-Stokes D = kT/gamma at 20 C |
-| `T4_RMS_DISP_1S_20C` | `4.14045e-07` | m | 0.03 | 2D RMS displacement in 1 s, MSD = 4Dt |
+| `T4_DIFFUSIVITY_20C` | `4.28692e-14` | m^2/s | 0.03 | Einstein-Stokes D = kT/gamma at 20 C |
+| `T4_RMS_DISP_1S_20C` | `4.14097e-07` | m | 0.03 | 2D RMS displacement in 1 s, MSD = 4Dt |
 | `T5_DELTA_MASS_FULL` | `1.66898e-11` | kg | 1e-09 | Mass gained charging 0 -> 1.5 MJ |
 | `T6_THRUST_1MW` | `3.33564e-12` | N | 0.005 | Photon thrust F = P/c at P = 1 mW |
-| `T6_VTERM_1MW` | `3.53216e-05` | m/s | 0.005 | Terminal velocity under 1 mW thrust |
+| `T6_VTERM_1MW` | `3.53306e-05` | m/s | 0.005 | Terminal velocity under 1 mW thrust |
 | `T7_CONDUCTION_20C` | `0.00287118` | W | 0.005 | Heat loss of an awake cell into 20 C water |
 | `T7_ENDURANCE_20C` | `5.22434e+08` | s | 0.005 | Time to drain 1.5 MJ at that rate |
-| `T8_REYNOLDS_FULL` | `0.0167466` | - | 0.005 | Reynolds number at max terminal velocity; must stay << 1 |
+| `T8_REYNOLDS_FULL` | `0.0167552` | - | 0.005 | Reynolds number at max terminal velocity; must stay << 1 |
 | `T12_DIFFUSIVITY_SETPOINT` | `1.86782e-13` | m^2/s | 0.03 | D at the setpoint temperature (drives P4) |
-| `T12_MOTILITY_RATIO` | `4.35812` | - | 0.03 | Live/dead Brownian mobility ratio |
+| `T12_MOTILITY_RATIO` | `4.35702` | - | 0.03 | Live/dead Brownian mobility ratio |
 | `T15_KOMOROV_ENERGY` | `1.5e+06` | J | 0.001 | Dimitri's laser: 1 kW x 25 min |
 | `T15_KOMOROV_MASS` | `1.66898e-11` | kg | 0.001 | Mass gained in the Komorov experiment |
 | `T16_PHOTON_ENERGY` | `7.64488e-21` | J | 0.0001 | Petrova photon energy |
 | `T17_PETROVA_FREQ` | `1.15376e+13` | Hz | 0.0001 | Petrova frequency |
 | `T20_WIEN_SETPOINT` | `7.84103e-06` | m | 0.0001 | Thermal blackbody peak; must differ from the Petrova line |
 | `HOVER_POWER_FULL` | `0.0475923` | W | 0.005 | Emission power a full cell needs to hover |
-| `TAU_MOMENTUM_EMPTY` | `2.22372e-07` | s | 1e-06 | Momentum relaxation time, empty cell |
-| `TAU_MOMENTUM_FULL` | `0.000176953` | s | 1e-06 | Momentum relaxation time, full cell |
+| `TAU_MOMENTUM_EMPTY` | `2.22429e-07` | s | 1e-06 | Momentum relaxation time, empty cell |
+| `TAU_MOMENTUM_FULL` | `0.000176998` | s | 1e-06 | Momentum relaxation time, full cell |
 

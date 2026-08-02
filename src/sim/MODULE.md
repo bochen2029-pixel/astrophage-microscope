@@ -12,7 +12,7 @@ The simulation itself: the cell and Taumoeba stores, the integrator, and every p
 |---|---|---|
 | `cell_store.{cuh,cu}` | ✅ SoA allocation, spawn, free list (compaction at M9) | M1 |
 | `world.cuh` + `step.cu` | ✅ world lifetime, the tick sequence, `Stats` | M1 |
-| `integrator.cu` | exact-propagator OU update (PHYSICS.md §3) | M2 |
+| `integrator.{cuh,cu}` | ✅ exact joint position–velocity OU propagator, buoyancy, boundaries (PHYSICS.md §3, ADR-016) | M2 |
 | `hash.cu` | spatial hash by counting sort; SoA reorder | M4 |
 | `contact.cu` | soft-sphere repulsion, wall adhesion | M4 |
 | `thermal.cu` | ignition latch, thermostat, conduction (PHYSICS.md §5) | M6 |
@@ -40,11 +40,24 @@ Produces `cell_store_v1.h`, `snapshot_v1.h`. Consumes `fields_v1.h`, `scenario_v
 
 ## Status
 
-**M1 complete.** The store allocates as one carved device blob, spawns with per-cell
-streams, and enforces capacity; `world_step` advances the clock and carries the stage
-list as comments so each milestone inserts at the documented position. Tested by
-`test_cell_store`.
+**M2 complete.** The store allocates as one carved device blob, spawns with per-cell
+streams, and enforces capacity. Motion is live: cells sediment, rise, and diffuse
+correctly, with **P1** emergent. Tested by `test_cell_store`, `test_motion` (analytic,
+host-side) and `test_buoyancy` (emergent, device-side).
 
-Physics begins at M2. `world_stats` returns only tick, time, and counts — the means
-and the energy ledger need the M6 device reduction, and the HUD hides what is not yet
-computed rather than displaying a plausible-looking zero.
+`world_stats` still returns only tick, time, and counts — the means and the energy
+ledger need the M6 device reduction, and the HUD hides what is not yet computed rather
+than displaying a plausible-looking zero.
+
+**Before you touch `integrator.cuh`, read ADR-016.** The obvious scheme — propagate
+velocity exactly, then `r += v·dt` — is wrong by 47× in diffusion for an empty cell,
+because velocity fully decorrelates inside one timestep at `dt/τ = 4497`. The joint
+position–velocity propagator with its correlated 2×2 noise is not decoration.
+
+Two further traps in that file:
+- **`ou_position_shape` has two branches.** `2x − 3 + 4e⁻ˣ − e⁻²ˣ` cancels to zero in
+  its first three orders, so below `x ≈ 1e-2` the direct form returns noise instead of
+  `(2/3)x³`. Both branches and the crossover are pinned by `test_motion`.
+- **"Reflecting" means rest, not bounce.** At Re ≪ 1 there is no inertia to rebound
+  with; a mirror reflection would inject energy that does not exist. Clamp the
+  position, zero the normal velocity.

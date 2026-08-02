@@ -44,7 +44,14 @@ m_dry = B["CELL_MASS_DRY"]
 m_store_max = B["CELL_ENERGY_MAX"] / c ** 2
 m_full = m_dry + m_store_max
 rho_w = B["WATER_DENSITY"]
-mu20 = B["WATER_VISCOSITY_20C"]
+T_room = B["AMBIENT_TEMP_DEFAULT"]
+# The oracle must use the SAME viscosity model the simulator uses, or every
+# transport quantity below carries a systematic offset that the tests then have
+# to paper over with a loose tolerance. The simulator has no choice about this:
+# it needs Vogel-Fulcher for the temperature dependence that produces P4.
+# WATER_VISCOSITY_20C stays in canon as the real-world measurement, and
+# test_canon cross-checks the fit against it -- that is its job, not this one's.
+mu20 = mu_water(T_room)
 mu96 = mu_water(B["CELL_TEMP_SETPOINT"])
 gamma20 = 6.0 * math.pi * mu20 * a
 gamma96 = 6.0 * math.pi * mu96 * a
@@ -53,7 +60,6 @@ lam = B["PETROVA_WAVELENGTH"]
 E_photon = h * c / lam
 cond = 4.0 * math.pi * B["WATER_CONDUCTIVITY"] * a          # W/K
 alpha_w = B["WATER_CONDUCTIVITY"] / (rho_w * B["WATER_SPECIFIC_HEAT"])
-T_room = B["AMBIENT_TEMP_DEFAULT"]
 
 
 def stokes_v(rho_p, mu=mu20):

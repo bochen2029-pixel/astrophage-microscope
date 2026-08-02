@@ -99,7 +99,14 @@ BASE = [
      "Fraction of prey biomass converted.", None, (0.0, 1.0, False)),
 
     # --- Medium (water) ------------------------------------------------------
-    ("WATER_VISCOSITY_20C", 1.002e-3, "Pa*s", REAL, None, None, None),
+    # These two tabulated values are CROSS-CHECKS on the Vogel-Fulcher fit, not
+    # inputs: the simulator computes viscosity from VF everywhere, because it
+    # needs the temperature dependence that produces P4. test_canon asserts the
+    # fit reproduces both within its accuracy (~0.3% at 20 C, ~1% at 96 C).
+    ("WATER_VISCOSITY_20C", 1.002e-3, "Pa*s", REAL, "tabulated; VF cross-check", None, None),
+    ("WATER_VISCOSITY_96C", 2.931e-4, "Pa*s", REAL,
+     "tabulated at 96.415 C, interpolated from 95/100 C. VF gives 2.898e-4.",
+     None, None),
     ("WATER_DENSITY", 998.2, "kg/m^3", REAL, "at 20 C", None, (500.0, 2000.0, False)),
     ("WATER_CONDUCTIVITY", 0.598, "W/m/K", REAL, None, None, None),
     ("WATER_SPECIFIC_HEAT", 4182.0, "J/kg/K", REAL, None, None, None),

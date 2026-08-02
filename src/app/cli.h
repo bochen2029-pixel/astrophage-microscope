@@ -15,6 +15,10 @@ struct Options {
     // without driving the UI.
     int      objective  = -1;        // -1 = canon::OBJECTIVE_DEFAULT
     float    zoom       = 1.0f;
+    // Fixed ticks per frame decouples the simulation from wall-clock entirely:
+    // the same command produces the same simulated time on any machine, which is
+    // what golden captures (M3) require. 0 = real-time accumulator.
+    int      ticks_per_frame = 0;
 
     bool     headless   = false;     // hidden window; still a real GL context
     bool     gl_debug   = false;     // GL_DEBUG_OUTPUT; nonzero errors fail

@@ -132,6 +132,26 @@ Append-only. Every contradiction in the source material and every non-obvious en
 
 ---
 
+## ADR-016 — The integrator propagates position and velocity jointly, not velocity alone
+
+**Status:** accepted, 2026-08-02 (M2). **Corrects the scheme originally written in `PHYSICS.md` §3.2.**
+**Context.** The spec called for an exact Ornstein–Uhlenbeck update on velocity followed by `r += v·dt`. That is a standard-looking scheme and it is wrong here. When `dt ≫ τ` the velocity decorrelates completely *inside* one step, so the post-step velocity says nothing useful about the displacement across that step. Carrying it over the full `dt` inflates the position variance by `dt·γ/(2·mass)`.
+
+Measured before writing any code:
+
+| | τ | dt/τ | MSD ratio vs. truth | displacement error |
+|---|---|---|---|---|
+| empty cell | 2.22e-7 s | 4497 | 2248× | **47×** |
+| full cell | 1.77e-4 s | 5.65 | 2.83× | 1.7× |
+
+A 47× error in Brownian motion would have been invisible in a screenshot and would have quietly falsified every downstream result that depends on transport — taxis, mixing, encounter rates for predation.
+
+**Decision.** Use the exact joint position–velocity OU propagator (Chandrasekhar 1943; Ermak & Buckholz 1980), with the correlated 2×2 noise given in `PHYSICS.md` §3.2. Verified: as `dt/τ → ∞` the position variance reduces to `2·D·dt` to four significant figures.
+**Consequences.** Six gaussian variates per cell per tick instead of three, and a Cholesky factor per axis — a few dozen extra flops, entirely affordable. The `2x − 3 + 4E − E²` term needs a series expansion below `x ≈ 1e-2` or catastrophic cancellation silently returns zero diffusion; `test_motion` pins both branches and the crossover between them.
+**Why it was caught.** `docs/VERIFICATION.md` states the Einstein diffusivity independently of the simulator, so the scheme could be checked against it arithmetically before a line of it was written. That is the entire purpose of the oracle.
+
+---
+
 ## ADR-015 — Projected coverage, not volume fraction, sets the default population
 
 **Status:** accepted, 2026-08-02 (M1).

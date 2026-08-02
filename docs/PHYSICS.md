@@ -65,23 +65,34 @@ An empty cell is violently overdamped at `DT_PHYSICS` = 1 ms (dt/τ ≈ 4500). A
 
 **Use the exact-propagator Ornstein–Uhlenbeck velocity update** (the "O" step of BAOAB). It is the analytic solution of the linear-drag + white-noise problem, unconditionally stable at any dt, and degrades automatically to the overdamped limit as dt/τ → ∞. One code path covers the whole 800× range.
 
-### 3.2 The update
+### 3.2 The update — exact position **and** velocity propagator
 
-Per cell per tick, with `T_local` sampled from the temperature field (§7):
+**Propagating velocity exactly and then writing `r += v·dt` is wrong, and wrong by a lot.** When `dt ≫ τ` the velocity fully decorrelates *within* a single step, so the final velocity is not representative of the displacement over that step. Carrying it across the whole `dt` overshoots: for an empty cell at `DT_PHYSICS` it produces **47× too much diffusion** (variance ratio `dt·γ/2m` = 2248). See ADR-016.
+
+Use the exact Ornstein–Uhlenbeck propagator for the **joint** position–velocity distribution (Chandrasekhar 1943; Ermak & Buckholz 1980). With `β = γ/mass`, `x = β·dt`, `E = exp(−x)`, and terminal velocity `v_T = F/γ`:
 
 ```
-γ  = 6 π μ(T_local) CELL_RADIUS
-τ  = mass / γ
-c1 = exp(-dt / τ)
-c2 = sqrt((1 - c1*c1) * K_BOLTZ * T_local / mass)
+deterministic part
+    v ← v·E + v_T·(1 − E)
+    r ← r + v_T·dt + (v − v_T)·(1 − E)/β        (v here is the pre-step velocity)
 
-v ← c1 * v  +  (F / γ) * (1 - c1)  +  c2 * ξ        ξ ~ N(0, I3), from the cell's PCG32 stream
-r ← r + v * dt
+stochastic part, per axis, with kT = K_BOLTZ · T_local
+    σ²_vv = (kT/mass)      · (1 − E²)
+    σ²_rr = (kT/(mass·β²)) · (2x − 3 + 4E − E²)
+    σ_rv  = (kT/(mass·β))  · (1 − E)²
+
+    Δr = σ_rr · z1
+    Δv = (σ_rv/σ_rr)·z1 + sqrt(σ²_vv − σ_rv²/σ²_rr)·z2       z1, z2 ~ N(0,1)
 ```
 
-`(F/γ)(1−c1)` relaxes toward the terminal velocity `F/γ`; `c2·ξ` injects thermal noise at exactly the fluctuation–dissipation-correct amplitude. **Do not "simplify" either term.**
+Position and velocity noise are **correlated** — that 2×2 Cholesky is not optional, and dropping it breaks the fluctuation–dissipation balance.
 
-Numerical note: for dt/τ > 40, `c1` underflows to 0 and the expression is still exactly right. For dt/τ < 1e-6, use `expm1` to keep `(1 − c1)` accurate.
+This reduces correctly at both ends of the 800× mass range: as `x → ∞`, `σ²_rr → 2·D·dt` (Einstein diffusion, verified to 4 significant figures for an empty cell); as `x → 0` it becomes ballistic. That is exactly the property §3.1 demands.
+
+**Numerical care.**
+- Use `expm1` for `(1 − E)` and `(1 − E²)`.
+- `2x − 3 + 4E − E²` suffers catastrophic cancellation for small `x`: the first three orders cancel exactly and the leading term is `(2/3)x³`. Below `x ≈ 1e-2` use the series `(2/3)x³ − (1/2)x⁴ + (7/30)x⁵`, or an empty cell at a small `dt` silently gets zero diffusion.
+- Six gaussian variates per cell per tick (two per axis). `gaussian_pair` returns both variates of a Box–Muller call for exactly this reason.
 
 ### 3.3 Viscosity
 

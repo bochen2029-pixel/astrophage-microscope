@@ -241,15 +241,57 @@ Error cell_store_spawn(CellStore& s, const SpawnParams& p, const Chamber& c, uin
     return ok();
 }
 
+namespace {
+
+__global__ void set_charge_kernel(CellStoreView v, double energy) {
+    const int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i >= v.count) return;
+    if (!(v.flags[i] & CELL_FLAG_OCCUPIED)) return;
+    v.energy[i] = energy;
+}
+
+} // namespace
+
+Error cell_store_set_charge(CellStore& s, double charge) {
+    if (s.count <= 0) return ok();
+    const double energy = clamp01(charge) * canon::CELL_ENERGY_MAX;
+    const int block = 256;
+    set_charge_kernel<<<(s.count + block - 1) / block, block>>>(s.view, energy);
+    ASTRO_TRY(cuda_check(cudaGetLastError(), "set_charge_kernel launch"));
+    return ok();
+}
+
+namespace {
+
+Error download3(const double* dx, const double* dy, const double* dz,
+                double* x, double* y, double* z, int32_t n, const char* what) {
+    if (n <= 0) return ok();
+    const size_t bytes = sizeof(double) * static_cast<size_t>(n);
+    ASTRO_TRY(cuda_check(cudaMemcpy(x, dx, bytes, cudaMemcpyDeviceToHost), what));
+    ASTRO_TRY(cuda_check(cudaMemcpy(y, dy, bytes, cudaMemcpyDeviceToHost), what));
+    ASTRO_TRY(cuda_check(cudaMemcpy(z, dz, bytes, cudaMemcpyDeviceToHost), what));
+    return ok();
+}
+
+} // namespace
+
 Error cell_store_download_positions(const CellStore& s, double* x, double* y, double* z,
                                     int32_t max_count) {
     const int32_t n = s.count < max_count ? s.count : max_count;
+    return download3(s.view.x, s.view.y, s.view.z, x, y, z, n, "download positions");
+}
+
+Error cell_store_download_velocities(const CellStore& s, double* vx, double* vy, double* vz,
+                                     int32_t max_count) {
+    const int32_t n = s.count < max_count ? s.count : max_count;
+    return download3(s.view.vx, s.view.vy, s.view.vz, vx, vy, vz, n, "download velocities");
+}
+
+Error cell_store_download_energy(const CellStore& s, double* energy, int32_t max_count) {
+    const int32_t n = s.count < max_count ? s.count : max_count;
     if (n <= 0) return ok();
-    const size_t bytes = sizeof(double) * static_cast<size_t>(n);
-    ASTRO_TRY(cuda_check(cudaMemcpy(x, s.view.x, bytes, cudaMemcpyDeviceToHost), "download x"));
-    ASTRO_TRY(cuda_check(cudaMemcpy(y, s.view.y, bytes, cudaMemcpyDeviceToHost), "download y"));
-    ASTRO_TRY(cuda_check(cudaMemcpy(z, s.view.z, bytes, cudaMemcpyDeviceToHost), "download z"));
-    return ok();
+    return cuda_check(cudaMemcpy(energy, s.view.energy, sizeof(double) * static_cast<size_t>(n),
+                                 cudaMemcpyDeviceToHost), "download energy");
 }
 
 } // namespace astro::sim

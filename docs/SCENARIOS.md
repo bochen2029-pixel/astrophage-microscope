@@ -16,7 +16,9 @@ Room-temperature chamber, 800 dormant cells at 0 % charge, no light.
 ### 2. `three-percent-line` — Buoyancy · teaches **P1**
 Awake cells, charge uniform on [0, 10 %], gravity along −y, no light.
 **Beat.** The field **sorts itself vertically**. Below 3.006 % charge cells rise; above, they sink; a sharp band forms at the neutral line. Then illuminate: charging cells cross the line one by one and rain downward.
-**Accept.** After 60 s, mean charge of the top third < 3.006 % < mean charge of the bottom third; measured empty-cell rise −52.1 ± 3 μm/s; full-cell fall +1681 ± 60 μm/s.
+**Accept.** After 60 s, mean charge of the top third < 3.006 % < mean charge of the bottom third; the below-neutral and above-neutral groups separate by > 1 mm; measured empty-cell rise −52.1 ± 3 μm/s; full-cell fall +1681 ± 60 μm/s.
+
+**Do not accept on a position correlation.** It saturates around 0.84 for Pearson *and* Spearman alike, because cells within a hair of 3.006 % have near-zero drift velocity — a cell at 3.1 % moves 20 μm in a minute — and so stay wherever they spawned, contributing pure noise. That is correct physics, not a defect. The sharp form of the claim is on **velocity**: drift velocity is linear in charge (measured Pearson −1.000000) with its zero crossing at `CHARGE_NEUTRAL_BUOYANCY`.
 
 ### 3. `komorov` — The 1 kW laser · *the canonical experiment*
 A single cell on a microbalance. Charge beam at 1 kW for 25 minutes.

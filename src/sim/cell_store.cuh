@@ -52,8 +52,16 @@ void  cell_store_destroy(CellStore& s);
 // not on how many cells exist or in what order they were created (INV-1).
 Error cell_store_spawn(CellStore& s, const SpawnParams& p, const Chamber& c, uint64_t seed);
 
-// Debug/telemetry only -- a full device-to-host copy. Never call per tick.
+// Sets every cell's stored energy to `charge` * CELL_ENERGY_MAX. Drives the
+// HUD charge slider, which is how P1 is demonstrated interactively: sweep it
+// past CHARGE_NEUTRAL_BUOYANCY and the culture stops rising and starts sinking.
+Error cell_store_set_charge(CellStore& s, double charge);
+
+// Debug/telemetry/test only -- full device-to-host copies. Never call per tick.
 Error cell_store_download_positions(const CellStore& s, double* x, double* y, double* z,
                                     int32_t max_count);
+Error cell_store_download_velocities(const CellStore& s, double* vx, double* vy, double* vz,
+                                     int32_t max_count);
+Error cell_store_download_energy(const CellStore& s, double* energy, int32_t max_count);
 
 } // namespace astro::sim
