@@ -370,7 +370,10 @@ def write(path, content, check):
         with open(full, "r", encoding="utf-8", newline="") as f:
             old = f.read()
     if check:
-        if old != content:
+        # Compare line-ending-normalised. Git may check these files out with CRLF
+        # depending on core.autocrlf, and a fresh clone must not report STALE
+        # (which would fail audit A1 for a session that has changed nothing).
+        if old is None or old.replace("\r\n", "\n") != content.replace("\r\n", "\n"):
             print(f"STALE: {path}  (run: python scripts/derive.py)")
             return False
         print(f"  ok   {path}")

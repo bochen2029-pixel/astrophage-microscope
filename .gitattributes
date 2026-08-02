@@ -1,0 +1,28 @@
+* text=auto
+
+# Generated artifacts are byte-compared by `scripts/derive.py --check` (audit A1).
+# Pin them to LF so a checkout on any core.autocrlf setting does not report a
+# stale artifact for a session that changed nothing. derive.py also normalises
+# line endings before comparing, so this is belt and braces -- both matter,
+# because one protects the diff and the other protects the check.
+src/core/canon_generated.h      text eol=lf
+tests/golden/expected_values.h  text eol=lf
+docs/VERIFICATION.md            text eol=lf
+
+# PowerShell is happiest with CRLF.
+*.ps1 text eol=crlf
+
+# Sources and docs: LF in the repository.
+*.py   text eol=lf
+*.h    text eol=lf
+*.cuh  text eol=lf
+*.cpp  text eol=lf
+*.cu   text eol=lf
+*.md   text eol=lf
+*.json text eol=lf
+*.txt  text eol=lf
+
+# Goldens are compared byte-for-byte and must never be converted.
+goldens/** binary
+*.png binary
+*.asph binary
