@@ -8,8 +8,10 @@
 #include "render/cells_pass.h"
 #include "render/gl_context.h"
 #include "render/post_pass.h"
+#include "sim/accept.h"
 #include "sim/world.cuh"
 #include "ui/hud.h"
+#include "ui/scenario_panel.h"
 
 namespace astro::app {
 
@@ -31,6 +33,13 @@ struct Application {
     // The runtime-parameter overlay the inspector edits (ADR-034). Initialised from canon
     // in app_init; its non_canon_run flag is mirrored into the World each frame.
     astro::ParamSet    params{};
+
+    // The objective panel evaluates the scenario's accept checks app-side each HUD tick
+    // (ui may not include sim) and hands the results to scenario_panel_draw (M11e).
+    sim::RunAggregates obj_agg;
+    sim::MetricNeeds   obj_needs{};
+    ui::ObjectiveCheck obj_checks[contract::MAX_ACCEPT_CHECKS]{};
+    int                obj_count = 0;
 
     double accumulator = 0.0;   // fixed-tick residue, seconds
     int    frames_done = 0;

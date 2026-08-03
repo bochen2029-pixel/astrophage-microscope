@@ -58,6 +58,51 @@ bool write_ppm(const char* path, int w, int h) {
     return true;
 }
 
+const char* op_symbol(contract::CompareOp op) {
+    switch (op) {
+        case contract::CompareOp::Eq: return "==";
+        case contract::CompareOp::Ne: return "!=";
+        case contract::CompareOp::Lt: return "<";
+        case contract::CompareOp::Le: return "<=";
+        case contract::CompareOp::Gt: return ">";
+        case contract::CompareOp::Ge: return ">=";
+        case contract::CompareOp::Approx: return "~=";
+    }
+    return "?";
+}
+
+// Metrics that need the whole run (a velocity fit, a doubling series, the flash total) are
+// not meaningful live; the panel shows those as "measured at run end" rather than a
+// misleading cross. Everything else reads straight from the current Stats or a live download.
+bool metric_is_live(contract::Metric m) {
+    switch (m) {
+        case contract::Metric::RiseVelocityEmpty:
+        case contract::Metric::FallVelocityFull:
+        case contract::Metric::DoublingTimeS:
+        case contract::Metric::ImpulsePerCycle: return false;
+        default: return true;
+    }
+}
+
+// Evaluate the loaded scenario's accept block app-side (ui may not include sim) and fill the
+// plain-data array the objective panel displays. Called at HUD rate, so the per-check
+// downloads (correlations, max tolerance) cost a D2H a few times a second, not per frame.
+void evaluate_objective(Application& a) {
+    sim::aggregates_sample(a.obj_agg, a.stats_cache, a.world, a.obj_needs, 2.0, 4.0);
+    a.obj_count = a.scenario.accept_count < contract::MAX_ACCEPT_CHECKS
+                      ? a.scenario.accept_count : contract::MAX_ACCEPT_CHECKS;
+    for (int i = 0; i < a.obj_count; ++i) {
+        const contract::AcceptCheck& chk = a.scenario.accept[i];
+        const double m = sim::metric_measure(chk.metric, a.stats_cache, a.obj_agg, a.world, a.scenario);
+        a.obj_checks[i].metric   = sim::metric_name(chk.metric);
+        a.obj_checks[i].op       = op_symbol(chk.op);
+        a.obj_checks[i].measured = m;
+        a.obj_checks[i].target   = chk.value;
+        a.obj_checks[i].pass     = sim::accept_eval(chk, m);
+        a.obj_checks[i].live     = metric_is_live(chk.metric);
+    }
+}
+
 void handle_input(Application& a) {
     const ImGuiIO& io = ImGui::GetIO();
     GLFWwindow* win = a.gl.window;
@@ -118,6 +163,7 @@ Error app_init(Application& a, const Options& o) {
             return e;
         }
         a.has_scenario = true;
+        a.obj_needs = sim::metric_needs(a.scenario);   // which aggregates the objective needs
         capacity = a.world.cells.capacity;
     } else {
         const int32_t count = o.cells > 0 ? o.cells : canon::DEFAULT_CELLS;
@@ -289,11 +335,16 @@ int app_run(Application& a) {
             // frame cost enough to fail the 200k-cell benchmark outright. This is
             // what ARCHITECTURE.md Sec 3.1 has always specified -- "~30 Hz, not
             // every tick" -- and the HUD cannot show the difference.
-            if ((a.frames_done & 3) == 0) a.stats_cache = sim::world_stats(a.world);
+            if ((a.frames_done & 3) == 0) {
+                a.stats_cache = sim::world_stats(a.world);
+                if (a.has_scenario) evaluate_objective(a);
+            }
             const contract::Stats stats = a.stats_cache;
             ui::hud_draw(a.hud, stats, a.camera, a.cells_pass.capacity,
                          a.world.chamber.w, a.world.chamber.h, a.world.chamber.d);
             ui::params_panel_draw(a.params);
+            ui::scenario_panel_draw(a.has_scenario ? a.scenario.objective_text : nullptr,
+                                    a.obj_checks, a.obj_count, a.has_scenario);
             ui::chart_panel_draw(a.charts, stats);
             ui::draw_scale_bar(a.camera, a.gl.fb_width, a.gl.fb_height);
         }

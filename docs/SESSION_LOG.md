@@ -6,6 +6,16 @@ Format: milestone · what landed · what is pending · open questions · gotchas
 
 ---
 
+## 2026-08-03 — M11e (Content: the objective/acceptance panel) — GREEN · **the scenario grades itself on screen**
+
+**Landed.** `scenario_panel.cpp`: the loaded scenario's objective text + a live checkmark per accept check. The catch — `ui` may not include `sim`, and `accept_eval`/`metric_measure` live in `sim` — so the **app** evaluates the checks (it links both: samples a `RunAggregates` at HUD rate, calls `sim::metric_measure` + `sim::accept_eval`) and hands a plain-data `ObjectiveCheck[]` to the panel. Verified by screenshot: first-light shows **3/3 live checks passing** (awake 1>=1, medium 369.5~=369.6, boil 0==0), green. Split from the original M11e (Iron Rule 9): the cell inspector + live overrides are M11f. No new ADR.
+
+**Honest about the derived metrics.** Velocity fit, doubling, and flash impulse need the whole run, so they show "measured at run end" rather than a misleading live cross; direct metrics + correlations are live. The panel agrees with `headless --assert` by construction (same functions). Gate: `M11d.1`'s headless auto-play now draws the panel every frame, so it exercises the app-side eval for all eight scenarios (exit 0).
+
+**Pending / next.** M11f: the cell inspector (click → state + the P1 line via picking; the HUD Charge section already teaches P1) and the sim reading overridden params for a curated set (so the inspector sliders bite). Then M12 Ship.
+
+---
+
 ## 2026-08-03 — M11d (Content: app auto-play + the parameter inspector) — GREEN · **the scenarios can be watched**
 
 **Landed.** The app plays scenarios. `--scenario ID` loads + instantiates one (its own clock + scope + capacity) and `scenario_apply_drive` runs before every `world_step`, so first-light ignites, the spin-drive flash empties the store, etc. New `params_panel.cpp`: every `PARAM_TABLE` entry with a provenance badge (CANON gold, INVENTED orange, DERIVED blue, REAL grey) over the `core/params.h` `ParamSet`, with the canon lock toggles; unlocking a CANON param flips the **NON-CANON RUN** badge (HUD + panel, from `Stats.non_canon_run`). Split from the original M11d (Iron Rule 9): the cell inspector + objective panel are M11e. No new ADR (uses ADR-034 + the M11b driver).

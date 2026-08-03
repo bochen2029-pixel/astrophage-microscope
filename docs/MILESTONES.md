@@ -301,17 +301,31 @@ provenance view plus the lock guard, never an editor that does nothing.
 **Gate.** M11c gate + `astrophage --scenario <id> --headless --gl-debug` auto-plays every scenario
 cleanly (exit 0, no GL errors, containment held).
 
-### M11e — Content: the objective panel, the cell inspector, and live overrides
+### M11e — Content: the objective/acceptance panel
 
-**Scope.** The **objective/acceptance panel** (`scenario_panel.cpp`) — the accept checkmarks, live,
-against a `RunAggregates` sampled in the app loop; the results are computed app-side (which links
-`sim`) and passed to the panel, since `ui` may not include `sim`. The **cell inspector**
-(`inspector_panel.cpp`, click a cell → its state + the P1 buoyancy line; the HUD Charge section
-already teaches P1, so this is the per-cell view). And **the sim reading overridden param values**
-for a curated tunable set (via `World` fields), so the inspector's sliders finally affect physics.
+**Split from the original M11e (Iron Rule 9).** The objective panel is self-contained and
+verifiable; the cell inspector (picking) and live overrides (kernel plumbing) are M11f.
 
-**Gate.** M11d gate + a live-override check (override a param, run, confirm the physics changed) and
-the objective panel agreeing with `headless --assert`.
+**Scope.** The **objective/acceptance panel** (`scenario_panel.cpp`): the scenario's objective text
+and one checkmark per accept check, live, for the loaded scenario. The results are computed
+**app-side** (`application.cpp` links `sim`: it samples a `RunAggregates` at HUD rate and calls
+`sim::metric_measure` + `sim::accept_eval`) and handed as a plain-data array to the panel, since
+`ui` may not include `sim` (`ui/MODULE.md`). Derived metrics that need the whole run (velocity fit,
+doubling, flash impulse) show "measured at run end"; direct metrics and correlations are live.
+
+**Gate.** M11d gate — `M11d.1`'s headless auto-play draws the objective panel every frame, so it
+exercises the app-side evaluation (the same `metric_measure`/`accept_eval` as `headless --assert`,
+so they agree by construction). first-light shows 3/3 live checks passing.
+
+### M11f — Content: the cell inspector and live overrides
+
+**Scope.** The **cell inspector** (`inspector_panel.cpp`, click a cell → its state + the P1 buoyancy
+line; the HUD Charge section already teaches P1, so this is the per-cell view via picking). And
+**the sim reading overridden param values** for a curated tunable set (via `World` fields the app
+fills from the `ParamSet`), so the inspector's sliders finally affect physics and its value editing
+becomes real (labelled pending in M11d, ADR-034).
+
+**Gate.** M11e gate + a live-override check: override a param, run, confirm the physics changed.
 
 ---
 

@@ -7,7 +7,7 @@ A sealed 4 mm chamber of water. Cells 10 μm across, black at every wavelength, 
 Deliberately **not** the interstellar scale — no ships, no Petrova arc, no Tau Ceti. Just what you would see down the eyepiece.
 
 ```
-Status:  M11d of M12 green  ·  C++20 + CUDA 13.1  ·  sm_89  ·  Windows 11
+Status:  M11e of M12 green  ·  C++20 + CUDA 13.1  ·  sm_89  ·  Windows 11
          ALL FIVE signature phenomena are live; cells behave, divide, die,
          and run on a multi-rate clock. Predation and content remain.
 ```
@@ -180,7 +180,8 @@ Without `-App`, the core library and the full test suite build with **no network
 | M11b | Content: acceptance metrics, scenario driving, all 8 pass T24 | ✅ `m11b-green` |
 | M11c | Content: runtime-parameter overlay, canon locks, non-canon flag, CSV export | ✅ `m11c-green` |
 | M11d | Content: app auto-play of scenarios + the parameter inspector (provenance + canon locks) | ✅ `m11d-green` |
-| M11e | Content: the objective/acceptance panel, the cell inspector, and live param overrides | ☐ |
+| M11e | Content: the objective/acceptance panel (live checkmarks, evaluated app-side) | ✅ `m11e-green` |
+| M11f | Content: the cell inspector + the sim reading overridden params (live tuning) | ☐ |
 | M12 | Ship: snapshot/replay, performance pass, packaging | ☐ |
 
 **M7 was the line where all five signature phenomena came live.** Everything after it adds behaviour and content on top of a physics core that is now complete.

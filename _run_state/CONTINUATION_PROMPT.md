@@ -20,14 +20,18 @@ A sealed 4 mm × 4 mm × 60 μm chamber of water. Cells 10 μm across, black at 
 wavelength, each holding up to 1.5 MJ as neutrino mass. Real Stokes drag, Langevin
 dynamics, Fickian diffusion, conduction, photon momentum.
 
-**M0 through M10b are green, plus the deferred M7b view modes.** All five signature
-phenomena are live; cells behave, divide, die, run on a multi-rate clock with slot
-compaction; all five view modes draw distinctly; the Taumoeba predator crawls,
-engulfs, and **evolves** — under a rising N₂ ramp the Taumoeba-82.5 strain breeds
-itself by directional selection (deterministically). The **scenario spine is in**
-(M11a): all 8 scenarios load, instantiate, and run. **Next up: M11b** — make each
-scenario pass its `accept` block (acceptance + driving + derived metrics). Physics is
-closed but for the spin-drive flash (M11b).
+**M0 through M11e are green.** All five signature phenomena are live; cells behave,
+divide, die, run on a multi-rate clock with slot compaction; all five view modes draw
+distinctly; the Taumoeba predator crawls, engulfs, and **evolves** (Taumoeba-82.5 by
+directional selection, deterministically). The **content is complete, self-verifying,
+and playable in the app**: all 8 scenarios load, drive themselves, and **pass their
+objectives** (T24 — first-light ignites, the spin-drive flash empties the store, the
+buoyancy sort forms, bloom doubles, the 82.5 strain breeds); `headless --scenario ID
+--assert` grades them and `--csv` exports telemetry. In the app, `--scenario ID`
+auto-plays them, the **parameter inspector** shows every canon value with provenance
+badges + the non-canon lock guard, and the **objective panel** grades the run live.
+Physics is closed (the spin-drive flash landed in M11b). **Next up: M11f** — the cell
+inspector + the sim reading overridden params (live tuning); then M12 Ship → `v1.0`.
 
 **This is a simulator and visualisation, not a game.** No win state, no story mode,
 no asset files — everything procedural or generated.
@@ -103,7 +107,7 @@ fix the contract.
 
 ## 3. The state, in numbers
 
-**24 tests green, 12 golden images, 10 audit invariant checks, 31 ADRs.**
+**28 tests green, 12 golden images, 10 audit invariant checks, 34 ADRs. Content complete through M11e.**
 
 ```
 test_canon ......... generated constants consistent; the right params carry the canon lock
@@ -329,40 +333,35 @@ network access beyond dependency fetch, Windows settings, spending money.
 
 ---
 
-## 6. What is next — M11b (Content: acceptance, driving, physics scenarios)
+## 6. What is next — M11f (cell inspector + live overrides), then M12 Ship
 
-Predation is **complete** (M10a + M10b), all physics milestones are behind us, and
-**M11a shipped the scenario spine** (ADR-031): a hand-rolled jsonc loader
-(`src/sim/json.h`), `scenario_load`/`scenario_instantiate` (`src/sim/scenario.{h,cpp}`),
-all 8 `scenarios/*.json`, `headless --scenario ID`, and `test_scenario`. Every scenario
-loads, instantiates, and runs bit-reproducibly. M11 was **split into M11a / M11b / M11c**
-(Iron Rule 9); M11b makes the scenarios **pass their objectives**.
+All physics is behind us and **all of M11a–M11e is green**: the scenario spine (M11a,
+ADR-031); acceptance + driving + the spin-drive flash (M11b, ADR-032/033); the
+runtime-parameter overlay + canon locks + CSV export (M11c, ADR-034); app auto-play +
+the parameter inspector (M11d); and the objective panel (M11e). M11 was split
+a→f as it went (Iron Rule 9). The eight scenarios load, drive, pass their `accept`
+blocks (`headless --scenario ID --assert`, T24) **and** play in the app with a live
+objective panel and the provenance inspector.
 
-**M11b scope.** Three pieces, two of them ADRs to settle before coding:
-1. **The accept-evaluation framework + `--assert` runner.** `AcceptCheck` + measured
-   metrics → pass/fail; `headless --scenario ID --assert` exits nonzero on a miss. The
-   vocabulary is in `telemetry_v1.h`; the `Metric`-name→enum map is in `scenario.cpp`.
-2. **Scenario *driving* (ADR).** first-light needs the heat brush; taumoeba the N₂ ramp.
-   The schema (`scenario_v1.h`) has `tools` availability, not scripted *events* — add a
-   minimal scripted-stimulus list, almost certainly a **`scenario_v2` bump**, applied by
-   the runner at the right ticks. The crux.
-3. **Derived metrics (from full state, not `Stats`) + the spin-drive flash.**
-   rise/fall velocities (three-percent-line), charge-depth/height correlations
-   (shadow-garden), doubling-time (bloom), impulse-per-cycle (spin-drive-face). The
-   **spin-drive flash** — an external high-intensity `PETROVA_WAVELENGTH` pulse forcing
-   full-rate discharge (PHYSICS.md §6) — is **new physics, its own ADR**. taumoeba's
-   accept is `test_evolution`'s, so it is mostly reuse.
+**M11f scope** (two pieces):
+1. **The cell inspector** (`src/ui/inspector_panel.cpp`): click a cell → its state, with
+   the P1 buoyancy line (density, sink/rise). Picking = mouse → chamber coord via the
+   camera → nearest cell from a positions download. The HUD Charge section already
+   computes that line — reuse it. Copy the panel idiom from `params_panel.cpp` and the
+   app-side-evaluation idiom from `scenario_panel.cpp` (**`ui` may not include `sim`** —
+   the app computes, the panel displays).
+2. **The sim reads overridden param values** for a curated tunable set
+   (`PETROVA_MAX_POWER`, `LIFE_DOUBLING_TIME`, …) via `World` fields the app fills from
+   `a.params` (the `ParamSet`, ADR-034), so the inspector's sliders finally affect physics
+   and its value editing becomes real (labelled pending in M11d). The full
+   `constexpr`→runtime refactor of every use site stays deferred — no scenario overrides a
+   param today and it buys little.
 
-**Gate `M11b` (already wired):** M11a gate + **T24 — every `scenarios/*.json` passes
-`--assert`.** Tune each scenario's parameters + thresholds until it lands (the M10b arc
-is the model for that empirical loop).
-
-**Watch for:** accept thresholds must trace to a physical value or a canon constant, not
-a magic number (meta-lesson 2); assert the metric the scenario is *about*, not a proxy
-that passes while broken (meta-lesson 4); loading/driving scenarios must add no per-tick
-host traffic (the 200k benchmark is the guard). **M11c** is then the inspector +
-canon-lock + cell-inspector + CSV UI (`test_param_locks`), and the runtime-param system
-that lets `param_overrides` apply.
+**Gate `M11f`:** M11e gate + a live-override check (override a param, run, confirm the
+physics changed). **Verify UI with `--headless --screenshot out.ppm` + PPM→PNG** — the
+app's headless mode is a hidden real GL context, so a screenshot captures the full frame
+(ImGui included); that is how M11d/M11e's panels were checked. You are not blind without a
+display.
 
 ### Then M12
 
@@ -495,9 +494,13 @@ photography shows irregular grains, so **both morphologies ship**.
 State which milestone you are taking, produce the **change manifest** the session
 ritual requires (files to touch, contract changes y/n, tests to add, rollback plan,
 diff budget), and confirm the last gate is green before you change anything
-(`gate.ps1 -Milestone M10b`).
+(`gate.ps1 -Milestone M11e`).
 
-If you are picking up **M11**, say up front whether you are adding a JSON dependency
-(an ADR either way) or hand-rolling the parser, and name the acceptance metric each
-scenario is *actually about* before you wire its `accept` block — a scenario that
-passes on a proxy is the meta-lesson-4 trap.
+If you are picking up **M11f**, copy the panel idiom from `src/ui/params_panel.cpp` and
+the app-side-evaluation idiom from `src/ui/scenario_panel.cpp` (**`ui` may not include
+`sim`** — the app computes, the panel displays). For the live-override half, add one
+`World` field per curated param and have that kernel read it instead of `canon::` — a
+small, verifiable set, not a `constexpr`→runtime refactor of everything. **Screenshot
+every panel** (`--headless --screenshot out.ppm` + PPM→PNG) and look at it; a golden that
+passes can still look wrong (meta-lesson 11). If you disagree with a decision, read
+`docs/DECISIONS.md` first — every contradiction is already adjudicated there.

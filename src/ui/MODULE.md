@@ -15,8 +15,8 @@ Dear ImGui panels: the HUD, instrument controls, the cell inspector, the paramet
 | `instrument_panel.cpp` | overlays, clock presets, the tool brushes | M5 |
 | `params_panel.cpp` | ✅ provenance badges over `core/params.h`'s `ParamSet` + the canon lock toggles (M11d, ADR-034). Value editing pending the runtime read path (M11e) | M11d |
 | `chart_panel.cpp` | population, energy, temperature, tolerance time series | M9 |
-| `inspector_panel.cpp` | clicked-cell readout including the buoyancy line | M11e (not built) |
-| `scenario_panel.cpp` | scenario picker, objective text, acceptance checkmarks (view onto `sim/accept.cpp`) | M11e (not built) |
+| `scenario_panel.cpp` | ✅ objective text + acceptance checkmarks, evaluated **app-side** and handed in as plain data (`ui` may not include `sim`), M11e | M11e |
+| `inspector_panel.cpp` | clicked-cell readout including the buoyancy line | M11f (not built) |
 
 ## Contracts
 

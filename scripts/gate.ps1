@@ -248,7 +248,9 @@ if (($n -gt 11) -or ($n -eq 11 -and $suffix -ge 'c')) {
     Gate 'M11c.1' 'canon locks default-on, non-canon flag' { return (Run-Test 'test_param_locks') }
 }
 
-# ------------------------------ M11d: app auto-play + the parameter inspector
+# ---- M11d/M11e: app auto-play, the parameter inspector, and the objective panel
+# M11d.1 also covers M11e: the app auto-play draws the objective panel, whose checks are
+# evaluated app-side with the same metric_measure/accept_eval as headless --assert.
 if (($n -gt 11) -or ($n -eq 11 -and $suffix -ge 'd')) {
     Gate 'M11d.1' 'app auto-plays every scenario headless (no GL errors, contained)' {
         $exe = Find-Exe 'astrophage'
