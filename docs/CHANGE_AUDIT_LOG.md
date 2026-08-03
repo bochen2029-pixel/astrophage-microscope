@@ -65,3 +65,6 @@ One line per `scripts/audit.ps1` run. Append-only.
 2026-08-03 13:13  5646314-dirty  AUDIT PASS  (7 checks)
 2026-08-03 13:52  3ad8d1d-dirty  AUDIT PASS  (7 checks)
 2026-08-03 14:44  6e5e186-dirty  AUDIT PASS  (7 checks)
+2026-08-03 15:13  2e7926f  AUDIT PASS  (7 checks)
+2026-08-03 15:25  2e7926f-dirty  AUDIT PASS  (7 checks)
+2026-08-03 15:50  2e7926f-dirty  AUDIT PASS  (7 checks)

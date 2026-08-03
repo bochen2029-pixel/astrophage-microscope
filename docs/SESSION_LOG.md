@@ -6,6 +6,18 @@ Format: milestone · what landed · what is pending · open questions · gotchas
 
 ---
 
+## 2026-08-03 — M11f (Content: cell inspector + live param overrides) — GREEN · **the inspector's sliders finally move physics**
+
+**Landed.** Two features that close M11's UI. (1) The **cell inspector** (`inspector_panel.cpp`): click a cell -> its state with the P1 buoyancy line prominent (SINKING/RISING, density, x water). Picking is app-side -- cursor -> chamber via the camera, nearest cell from a positions download, the slot latched with its id so a recycled slot drops the pick -- and one cell is read at HUD rate through a new `cell_store_sample`, converted to display units, handed to the panel as plain data (`ui` may not include `sim`). `--inspect N` pre-selects a slot for headless screenshots. (2) The **curated live overrides** (ADR-035): `PETROVA_MAX_POWER` / `PETROVA_FLASH_POWER` / `CO2_MASS_PER_DIVISION` each get a `World` field the app fills from the `ParamSet` every frame; the kernels read it (threaded via **defaulted** args, so every other caller is unchanged). The params panel now draws a real LIVE slider for exactly these three, read-only otherwise. New ADR-035; no contract change.
+
+**Verified.** `test_param_override` (M11f.1): halving the division quota grows faster (7942 > canon 4000 > double-quota 2000), 2x flash power discharges 2x the store (ratio 2.0000), and **the default reproduces canon exactly (4000 == 4000)** -- the determinism half is the honest guard (a gate that only checks "override changes something" could pass while perturbing M9a). Screenshot (three-percent-line --inspect 0): the inspector reads "SINKING -- 1155 kg/m3, 1.16x water" for a 3.499% cell; exactly the 3 curated params carry a LIVE slider. M11f.2: the app renders a picked cell headless, zero GL errors. Full gate M0..M11f green; determinism replay hash unchanged.
+
+**Gotchas.** Defaults MUST be the `canon::` value bit-for-bit (World default member initializers) or a hash moves. The `--screenshot` + `--gl-debug` combo trips one pixel-transfer perf warning (glReadPixels) -- the gate uses them separately, as M11d does. `pick_id == 0` is a safe "unlatched" sentinel: cell ids start at 1 (0 = no cell).
+
+**Pending / next.** M12 Ship: snapshot/replay + time scrubber, perf pass, colourblind LUT, **Taumoeba rendering** (still invisible), the M7b render remainder (`render_view_v3` for pre-ignition `temp_cell`), packaging, then v1.0. Deferred together: scenario `param_overrides` application (parsed, unapplied -- no scenario needs one) and the full `constexpr`->runtime refactor.
+
+---
+
 ## 2026-08-03 — M11e (Content: the objective/acceptance panel) — GREEN · **the scenario grades itself on screen**
 
 **Landed.** `scenario_panel.cpp`: the loaded scenario's objective text + a live checkmark per accept check. The catch — `ui` may not include `sim`, and `accept_eval`/`metric_measure` live in `sim` — so the **app** evaluates the checks (it links both: samples a `RunAggregates` at HUD rate, calls `sim::metric_measure` + `sim::accept_eval`) and hands a plain-data `ObjectiveCheck[]` to the panel. Verified by screenshot: first-light shows **3/3 live checks passing** (awake 1>=1, medium 369.5~=369.6, boil 0==0), green. Split from the original M11e (Iron Rule 9): the cell inspector + live overrides are M11f. No new ADR.

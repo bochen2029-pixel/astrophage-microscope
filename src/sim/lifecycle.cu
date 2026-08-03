@@ -117,13 +117,13 @@ __global__ void death_kernel(CellStoreView v, unsigned char disposition) {
 // run to run (ADR-025). This is INV-2's reasoning one level up: it is not the
 // arithmetic that must be associative here, it is the allocation.
 __global__ void mark_kernel(CellStoreView v, int32_t* flagsum, int32_t* total,
-                            int32_t* dead) {
+                            int32_t* dead, double quota) {
     const int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i >= v.count) return;
     const uint32_t f = v.flags[i];
     const bool occupied = (f & CELL_FLAG_OCCUPIED) != 0u;
     const bool alive    = (f & CELL_FLAG_ALIVE) != 0u;
-    const bool divides  = occupied && alive && ready_to_divide(v.co2_held[i]);
+    const bool divides  = occupied && alive && ready_to_divide(v.co2_held[i], quota);
     flagsum[i] = divides ? 1 : 0;
     // COUNTS, not prefixes: summing ones with atomicAdd is order-independent
     // because integer addition is associative, so this is safe where the ordered
@@ -138,12 +138,12 @@ __global__ void mark_kernel(CellStoreView v, int32_t* flagsum, int32_t* total,
 // base + the parent's exclusive prefix, so the mapping from parent to daughter
 // slot is a pure function of the population, not of execution order.
 __global__ void divide_kernel(CellStoreView v, const int32_t* prefix, int32_t base,
-                              int32_t old_count, uint64_t first_id, Chamber c) {
+                              int32_t old_count, uint64_t first_id, Chamber c, double quota) {
     const int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i >= old_count) return;
     const uint32_t f = v.flags[i];
     if (!(f & CELL_FLAG_OCCUPIED) || !(f & CELL_FLAG_ALIVE)) return;
-    if (!ready_to_divide(v.co2_held[i])) return;
+    if (!ready_to_divide(v.co2_held[i], quota)) return;
 
     const int32_t slot = base + prefix[i];
     if (slot >= v.capacity) return;              // store full: skip, do not wrap
@@ -244,7 +244,8 @@ void lifecycle_step(World& w, double dt) {
     cudaMemset(w.cells.d_birth_count, 0, sizeof(int32_t));
     cudaMemset(w.cells.d_dead_count, 0, sizeof(int32_t));
     mark_kernel<<<grid, block>>>(w.cells.view, w.cells.d_scan_flags,
-                                 w.cells.d_birth_count, w.cells.d_dead_count);
+                                 w.cells.d_birth_count, w.cells.d_dead_count,
+                                 w.co2_mass_per_division);
 
     int32_t births = 0, deads = 0;
     cudaMemcpy(&births, w.cells.d_birth_count, sizeof(int32_t), cudaMemcpyDeviceToHost);
@@ -272,7 +273,7 @@ void lifecycle_step(World& w, double dt) {
         if (base + births > w.cells.capacity) births = w.cells.capacity - base;
         if (births > 0) {
             divide_kernel<<<grid, block>>>(w.cells.view, w.cells.d_birth_prefix, base, n,
-                                           w.cells.next_id, w.chamber);
+                                           w.cells.next_id, w.chamber, w.co2_mass_per_division);
             w.divisions_this_window += births;
             w.cells.next_id += static_cast<uint64_t>(births);
             w.cells.count += births;

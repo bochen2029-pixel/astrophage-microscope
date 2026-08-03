@@ -263,6 +263,27 @@ if (($n -gt 11) -or ($n -eq 11 -and $suffix -ge 'd')) {
     }
 }
 
+# ---------------------------- M11f: the cell inspector and live param overrides
+if (($n -gt 11) -or ($n -eq 11 -and $suffix -ge 'f')) {
+    # The sim reads the curated live-tunable overrides so a tuned parameter changes the
+    # physics -- AND an untouched override is bit-identical to canon, so no earlier gate
+    # moved (ADR-035). The determinism half is the honest guard: this could not pass while
+    # secretly perturbing M9a/M11b.
+    Gate 'M11f.1' 'sim reads curated overrides; default bit-identical to canon (ADR-035)' {
+        return (Run-Test 'test_param_override')
+    }
+    # Picking is a mouse click a headless run cannot make, so --inspect pre-selects a slot;
+    # this exercises the inspector's per-cell download and panel draw. Zero GL errors, and
+    # the run stays contained (the app prints its end-state, checked by exit code).
+    Gate 'M11f.2' 'cell inspector renders a picked cell headless (no GL errors)' {
+        $exe = Find-Exe 'astrophage'
+        if (-not $exe) { return $false }
+        & $exe --scenario three-percent-line --inspect 0 --headless --gl-debug `
+               --frames 20 --ticks-per-frame 20 *>&1 | Out-Null
+        return ($LASTEXITCODE -eq 0)
+    }
+}
+
 # ----------------------------------------------------------------- M12: ship
 if ($n -ge 12) {
     Gate 'M12.1' 'snapshot round trip (T21, T23)' { return (Run-Test 'test_snapshot') }

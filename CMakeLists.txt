@@ -152,6 +152,9 @@ astro_test(test_scenario     tests/physics/test_scenario.cu)
 # the build dir) and headless both find them without a working-directory assumption.
 target_compile_definitions(test_scenario PRIVATE ASTRO_SCENARIOS_DIR="${CMAKE_SOURCE_DIR}/scenarios")
 astro_test(test_param_locks tests/physics/test_param_locks.cpp)
+# M11f: the sim reads the curated live-tunable overrides, and an untouched override is
+# bit-identical to canon (ADR-035). Needs a CUDA device -- it steps real worlds.
+astro_test(test_param_override tests/physics/test_param_override.cu)
 
 # ---------------------------------------------------------------------------
 # tools -- headless runner. The determinism oracle (INV-8) and the scenario

@@ -27,9 +27,12 @@ ASTRO_HD inline double co2_uptake_rate(double co2_local) {
            (co2_local + canon::LIFE_CO2_HALF_SATURATION);
 }
 
-// A cell that has banked a division's worth of CO2 enters mitosis.
-ASTRO_HD inline bool ready_to_divide(double co2_held) {
-    return co2_held >= canon::CO2_MASS_PER_DIVISION;
+// A cell that has banked a division's worth of CO2 enters mitosis. `quota` defaults to
+// canon so existing callers are unchanged and bit-identical; lifecycle.cu passes the World
+// override (ADR-035), which equals canon unless the inspector tuned it.
+ASTRO_HD inline bool ready_to_divide(double co2_held,
+                                     double quota = canon::CO2_MASS_PER_DIVISION) {
+    return co2_held >= quota;
 }
 
 // NOTE: M9a splits the instant the quota is banked. The TIMED mitosis event

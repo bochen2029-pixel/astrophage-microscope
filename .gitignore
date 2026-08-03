@@ -30,6 +30,8 @@ _deps/
 *.asph
 *.csv
 !scenarios/*.csv
+# gate/audit logs written under _run_state/ are transient, not handoff docs
+_run_state/*.log
 
 # python
 __pycache__/

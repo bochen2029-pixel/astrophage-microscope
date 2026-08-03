@@ -130,10 +130,14 @@ ASTRO_HD inline Vec3 taxis_emit_dir(Vec3 heading) { return -normalize(heading); 
 // PHYSICS.md Sec 6: dE/dt = -emit_power. Clamped to what the store can actually
 // supply this tick so energy cannot go negative; a cell that empties starves
 // through the existing M6 path at stage 4.
-ASTRO_HD inline double taxis_emit_power(TaxisState s, double energy, double dt) {
+// `max_power` is the emission cap. It defaults to canon so every existing caller (the
+// tests, and any future kernel) is unchanged and bit-identical; taxis.cu passes the World
+// override (ADR-035), which equals canon unless the inspector tuned it.
+ASTRO_HD inline double taxis_emit_power(TaxisState s, double energy, double dt,
+                                        double max_power = canon::PETROVA_MAX_POWER) {
     if (s == TaxisState::Idle || energy <= 0.0) return 0.0;
     const double avail = dt > 0.0 ? energy / dt : 0.0;
-    return canon::PETROVA_MAX_POWER < avail ? canon::PETROVA_MAX_POWER : avail;
+    return max_power < avail ? max_power : avail;
 }
 
 } // namespace astro::sim

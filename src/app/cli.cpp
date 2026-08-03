@@ -36,6 +36,7 @@ void print_usage() {
         "  --vsync            cap to the display refresh (off by default)\n"
         "  --screenshot PATH  write a PPM of the last frame\n"
         "  --scenario ID      load a scenario and auto-play its drive script\n"
+        "  --inspect N        pre-select cell slot N in the inspector (headless picking)\n"
         "  --help\n");
 }
 
@@ -128,6 +129,7 @@ Options parse_args(int argc, char** argv) {
         else if (want("--scenario")) {
             if (i + 1 >= argc) o.bad = true; else o.scenario = argv[++i];
         }
+        else if (want("--inspect")) o.inspect_slot = static_cast<int32_t>(next_int(-1));
         else if (want("--help") || want("-h")) o.help = true;
         else { std::printf("unknown argument: %s\n", a); o.bad = true; }
     }

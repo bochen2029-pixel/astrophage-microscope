@@ -10,7 +10,7 @@ using namespace astro::contract;
 
 namespace {
 
-__global__ void taxis_kernel(CellStoreView v, double dt) {
+__global__ void taxis_kernel(CellStoreView v, double dt, double max_power) {
     const int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i >= v.count) return;
     const uint32_t f = v.flags[i];
@@ -72,7 +72,7 @@ __global__ void taxis_kernel(CellStoreView v, double dt) {
 
     // dE/dt = -emit_power (PHYSICS.md Sec 6). Nothing debited the store for
     // emitting before M8 because nothing ever set emit_power nonzero.
-    const double p = taxis_emit_power(state, v.energy[i], dt);
+    const double p = taxis_emit_power(state, v.energy[i], dt, max_power);
     v.emit_power[i] = static_cast<float>(p);
     v.energy[i] -= p * dt;
 }
@@ -83,7 +83,7 @@ void taxis_step(World& w, double dt) {
     const int32_t n = w.cells.count;
     if (n <= 0) return;
     const int block = 256;
-    taxis_kernel<<<(n + block - 1) / block, block>>>(w.cells.view, dt);
+    taxis_kernel<<<(n + block - 1) / block, block>>>(w.cells.view, dt, w.petrova_max_power);
 }
 
 } // namespace astro::sim

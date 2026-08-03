@@ -77,6 +77,26 @@ Error cell_store_spawn(CellStore& s, const SpawnParams& p, const Chamber& c, uin
 // past CHARGE_NEUTRAL_BUOYANCY and the culture stops rising and starts sinking.
 Error cell_store_set_charge(CellStore& s, double charge);
 
+// One cell's state, downloaded for the inspector (M11f). SI units, host-side; the UI
+// converts to display units and the P1 buoyancy line. `valid` is false for an empty or
+// out-of-range slot, so a stale pick reads as "no cell" rather than as garbage.
+struct CellSample {
+    uint64_t id = 0;
+    uint32_t flags = 0;
+    uint8_t  death_cause = 0;
+    double   x = 0, y = 0, z = 0;        // [m]
+    double   vx = 0, vy = 0, vz = 0;     // [m/s]
+    double   energy = 0;                 // [J]
+    float    temp_cell = 0;              // [K]
+    double   biomass = 0;                // [kg]
+    float    age_s = 0;                  // [s]
+    bool     valid = false;
+};
+
+// Debug/telemetry/UI only -- one cell's state for the inspector. A handful of small D2H
+// copies; call at HUD rate for ONE picked slot, never per tick over the population.
+Error cell_store_sample(const CellStore& s, int32_t slot, CellSample& out);
+
 // Debug/telemetry/test only -- full device-to-host copies. Never call per tick.
 Error cell_store_download_positions(const CellStore& s, double* x, double* y, double* z,
                                     int32_t max_count);

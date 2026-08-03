@@ -132,6 +132,24 @@ Append-only. Every contradiction in the source material and every non-obvious en
 
 ---
 
+## ADR-035 — Curated live-tunable overrides, and the cell inspector
+
+**Status:** accepted, 2026-08-03 (M11f).
+
+**Context.** ADR-034 built the `ParamSet` overlay and deferred two things to a later milestone: making the inspector's value editing *actually affect physics*, and the cell inspector itself. The sim reads `constexpr canon::` at every use site (Iron Rule 3), so for an edit to bite, the sim must read the overlay's value instead. The tempting move -- thread a `ParamSet` through every kernel signature -- is exactly the `constexpr`->runtime refactor ADR-034 warned against: it touches every hot path, for a feature no scenario uses today, and multiplies the determinism surface.
+
+**Decision -- a small CURATED set of overrides, one `World` field each.** A handful of parameters get a `double` field on `World`, defaulted to *exactly* their `canon::` value; the kernel that needs one reads `w.<field>` instead of `canon::<CONST>` (passed as a kernel argument, the flash's existing idiom). The app fills these fields from the `ParamSet` every frame. Adding a parameter to the set is four edits: a `World` field, one kernel read-site, one app push line, and the `param_live` flag. The M11f set is `PETROVA_MAX_POWER` (emission cap), `PETROVA_FLASH_POWER` (spin-drive discharge rate), and `CO2_MASS_PER_DIVISION` (mitosis quota) -- one per touched kernel (taxis, flash, lifecycle), spanning the emission, discharge, and growth phenomena. The physics functions (`taxis_emit_power`, `ready_to_divide`) take the value as a **defaulted** argument (`= canon::...`), so every other caller -- the tests, any future kernel -- is unchanged and bit-identical.
+
+**Determinism is preserved by construction, and that is half the gate.** Each field's default is the canon constant, and the kernel does the identical arithmetic on the identical `double`, so an untouched run is bit-identical to M11e (INV-8). `test_param_override` asserts both directions: a tuned parameter changes the population/discharge in the predicted direction, AND the default reproduces the canon run exactly (4000 == 4000). A gate that only checked "the override changes something" could pass while silently perturbing M9a/M11b; the default-equals-canon half is the honest guard (meta-lesson: what can your assertion not see).
+
+**The panel stays honest.** The inspector draws a real editable slider ONLY for the curated `param_live` set (range and log-scale from the canon table); every other parameter stays read-only, because a control that silently does nothing is worse than one labelled pending (`ui/MODULE.md`). A `CANON` parameter in the set (none today) still sits behind its lock -- unlocking it flags the run non-canon (ADR-034), then it becomes editable. The full `constexpr`->runtime refactor stays deferred: it is only worth doing when a scenario or a use case needs a parameter outside this set.
+
+**The cell inspector.** Click a cell -> its state with the P1 buoyancy line prominent (`ui/MODULE.md`: the buoyancy line is what teaches P1). Picking is app-side: cursor -> chamber coordinate via the camera, nearest cell from a positions download, the slot latched with its id so a recycled slot drops the pick rather than showing a stranger. The per-cell state is read at HUD rate through a new `cell_store_sample` (one small D2H for one cell), converted to display units, and handed to the panel as plain data -- `ui` may not include `sim` (the same boundary the objective panel uses). `--inspect N` pre-selects a slot so the panel is verifiable in a headless screenshot, since a click is not expressible headless.
+
+**Consequences / the gate.** `M11f.1` (`test_param_override`) + `M11f.2` (the app renders a picked cell headless with zero GL errors). No contract change: `CellSample` is a sim-internal read type, `CellReadout` is ui-internal display data, and picking reuses the existing `CellStoreView`. Scenario `param_overrides` (parsed since ADR-031, still unapplied) would now flow through this overlay, but no scenario sets one, so wiring that path stays deferred with the full refactor.
+
+---
+
 ## ADR-032 — Scenario driving and acceptance: a scripted-stimulus list, derived metrics, two schema affordances
 
 **Status:** accepted, 2026-08-03 (M11b).

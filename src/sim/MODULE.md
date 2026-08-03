@@ -10,7 +10,7 @@ The simulation itself: the cell and Taumoeba stores, the integrator, and every p
 
 | File | Owns | Milestone |
 |---|---|---|
-| `cell_store.{cuh,cu}` | ✅ SoA allocation, spawn, prefix-sum slots, stable compaction (ADR-028) | M1/M9c |
+| `cell_store.{cuh,cu}` | ✅ SoA allocation, spawn, prefix-sum slots, stable compaction (ADR-028); `cell_store_sample` one-cell D2H for the inspector (M11f) | M1/M9c |
 | `world.cuh` + `step.cu` | ✅ world lifetime, the tick sequence, `Stats` | M1 |
 | `integrator.{cuh,cu}` | ✅ exact joint position–velocity OU propagator, buoyancy, boundaries (PHYSICS.md §3, ADR-016) | M2 |
 | `hash.cu` | spatial hash by counting sort; SoA reorder | M4 |
@@ -44,6 +44,7 @@ Produces `cell_store_v1.h`, `snapshot_v1.h`. Consumes `fields_v1.h`, `scenario_v
 - **Never special-case P1–P5** — or the Taumoeba-82.5 arc. If you are writing an `if` to make a signature phenomenon or the 0.825 strain happen, the model is wrong somewhere upstream. Selection does the work.
 - **The Taumoeba `biomass` field is DRY biomass** (`TAU_MASS_DRY`), the growth variable it divides on — NOT the water-blob mass `TAU_MASS`, which sets only its drag. They are as distinct as a cell's `CELL_MASS_DRY` and total mass. Conflating them makes a division need ~2655 prey instead of ~8, and no evolution arc can run (ADR-030).
 - **The N₂ death draws one uniform *unconditionally*** from each alive Taumoeba's stream — survivor and dier alike. Drawing only in the death branch would make the stream depend on the N₂ history and silently break the determinism the gate rests on (ADR-022).
+- **The curated live-tunable overrides (`World::petrova_max_power`, `petrova_flash_power`, `co2_mass_per_division`, ADR-035) DEFAULT TO CANON** and the kernels do the identical arithmetic on them, so an untouched world is bit-identical to M11e. If you add one, default the field to its `canon::` value and give the physics function a `= canon::...` argument — anything else moves a hash. The value is read at the kernel launch, not baked in.
 
 ## Status
 

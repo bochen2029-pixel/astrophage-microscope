@@ -9,48 +9,51 @@
 
 ## Where the build stands
 
-**Last green: `m11e-green`. Next milestone: M11f — the cell inspector + live param overrides.**
+**Last green: `m11f-green`. Next milestone: M12 — Ship (→ v1.0). It is big; split it first.**
 
-The content is complete, self-verifying, and **fully playable in the app**: `astrophage --scenario
-first-light` ignites the culture, the parameter inspector shows every canon value with provenance
-badges + the non-canon lock guard, and the objective panel grades the scenario live (3/3 for
-first-light). Headless: all 8 scenarios pass `--assert` (T24), `--csv` exports telemetry. 28 tests,
-12 goldens, 34 ADRs.
+M11 is DONE. All eight scenarios load, drive themselves, pass their accept blocks, and are fully
+playable: auto-play, the parameter inspector (provenance + canon locks + **live sliders for a curated
+set that now move physics**), the objective panel (live checkmarks), and the **cell inspector** (click a
+cell → its state + the P1 buoyancy line). 29 tests, 12 goldens, 35 ADRs.
 
 ## Start here
 
 ```bash
 git -C C:\Astrophage tag --list
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/gate.ps1 -Milestone M11e
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/gate.ps1 -Milestone M11f
 ```
 
-Then read `CONTINUATION_PROMPT.md` (full ritual + roadmap), and for M11f specifically: the M11 section
-of `docs/MILESTONES.md` (M11f), **ADR-034**, `src/ui/params_panel.cpp` + `src/ui/scenario_panel.cpp`
-(the panel + app-side-eval patterns to copy), and `src/app/application.cpp` (the loop, picking, and
-where to add the `World` override fields).
+Then read `CONTINUATION_PROMPT.md` (full ritual + roadmap) and the **M12** section of `docs/MILESTONES.md`.
 
-## What M11f is
+## What M12 is — and split it before starting (Iron Rule 9)
 
-1. **`inspector_panel.cpp` — the cell inspector.** Click a cell (mouse → chamber coord via the camera
-   → nearest cell from a positions download) → its state, with the **P1 buoyancy line** (density,
-   sink/rise). The HUD Charge section already computes that line — reuse it. Per-cell view.
-2. **The sim reads overridden param values** for a curated tunable set (`PETROVA_MAX_POWER`,
-   `LIFE_DOUBLING_TIME`, …) via `World` fields the app fills from `a.params` (`ParamSet`), so the
-   inspector's sliders finally affect physics (ADR-034). Then `params_panel.cpp`'s value editing
-   becomes real (labelled pending in M11d). The full `constexpr`→runtime refactor stays deferred.
+M12's gate names five tests that **do not exist yet** (`test_snapshot`, `test_perf`) plus `package.ps1`,
+and `src/sim/snapshot.cpp` is listed in the inventory but is **not built**. This is two or three sessions,
+not one. A sane split:
 
-**Gate.** M11e gate + a live-override check (override a param, run, confirm the physics changed).
+- **M12a — Snapshot + replay.** `src/sim/snapshot.{h,cpp}` (ASPH: magic, version, seed, tick, the 3
+  override fields from ADR-035, SoA buffers, field grids), save/load bit-identical within a build, and
+  the time scrubber. Gate: `test_snapshot` (T21) — restore reproduces the FNV-1a hash, and a run
+  replayed across a save/restore boundary is bit-identical (INV-8).
+- **M12b — Perf + render remainder.** The perf pass to budget (`RENDERING.md §7`; `test_perf` = T27-T29),
+  **Taumoeba rendering** (the app draws only Astrophage today — the predators run but are invisible), the
+  M7b render remainder (bloom over Petrova, the cross-fade slider, the real T-field false-colour behind
+  Thermal IR; pre-ignition warm-up needs `temp_cell` in the render instance → a **`render_view_v3`** bump),
+  and the colourblind LUT toggle.
+- **M12c — Package + v1.0.** Static-runtime `.zip` that runs on a scrubbed-PATH clean machine
+  (`package.ps1`), the user guide, then tag `v1.0`.
 
-## After M11f
-
-**M12 Ship** — snapshot/replay + time scrubber, the perf pass to budget, colourblind LUT, packaging
-(clean-machine `.zip`), **Taumoeba rendering** (the app draws only Astrophage today), the M7b render
-remainder (bloom over Petrova, cross-fade, T-field false-colour; pre-ignition warm-up needs
-`temp_cell` in the render instance → `render_view_v3`), then tag `v1.0`.
+Decide the split in `MILESTONES.md` first, each half with its own gate.
 
 ## Loose ends (non-blocking)
 
-- Untracked `_run_state/*_gate.log` files clutter `git status` (a sandbox rule blocked deleting them;
-  a `.gitignore` line — `_run_state/*.log` — would tidy it).
+- `_run_state/*.log` is now gitignored, so gate/audit logs no longer clutter `git status`.
+- Scenario `param_overrides` (parsed since M11a) still **unapplied** — deferred with the full
+  `constexpr`→runtime refactor (ADR-035). No scenario sets one, so nothing is broken; wire it when a
+  scenario needs it (it would flow through the ParamSet overlay → the ADR-035 World fields).
 - `scope` center/focal_plane parsed but the app applies only the view mode + objective.
-- CSV `git_describe` is a placeholder (packaging, M12, injects it).
+- CSV `git_describe` is a placeholder (packaging, M12c, injects it).
+- The curated live-override set is 3 params (ADR-035). Adding one is 4 edits: a `World` field
+  (default `canon::`), one kernel read-site, one app push line in `apply_param_overrides`, the
+  `param_live` flag. `CELL_TEMP_SETPOINT` (CANON, tunable) would be a great P2 demo but threads
+  `thermal.cuh` — do it behind its canon lock.

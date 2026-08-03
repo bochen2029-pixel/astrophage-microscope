@@ -37,6 +37,10 @@ struct Options {
 
     const char* screenshot = nullptr; // write a PPM of the final frame and exit
     const char* scenario   = nullptr; // load a scenario and auto-play its drive script (M11d)
+    // Pre-select a cell slot for the inspector (M11f). Picking is a mouse click, which a
+    // headless run cannot make, so this is how the inspector panel is verified in a
+    // screenshot. -1 = no pre-pick (the normal interactive path clicks to select).
+    int32_t  inspect_slot = -1;
     // Suppress all ImGui drawing. Golden images must test the RENDERER, not the
     // panel layout -- otherwise every HUD tweak invalidates every golden.
     bool     no_ui      = false;

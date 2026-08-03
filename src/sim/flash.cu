@@ -61,7 +61,9 @@ void flash_step(World& w, double dt) {
     if (!w.flash_active || n <= 0 || w.d_flash_accum == nullptr) return;
     const int block = 256;
     const int grid = (n + block - 1) / block;
-    flash_kernel<<<grid, block>>>(w.cells.view, dt, canon::PETROVA_FLASH_POWER, w.d_flash_accum);
+    // The discharge rate is the World override (ADR-035), which defaults to canon
+    // PETROVA_FLASH_POWER -- so an untouched flash is bit-identical to M11b (ADR-033).
+    flash_kernel<<<grid, block>>>(w.cells.view, dt, w.petrova_flash_power, w.d_flash_accum);
 }
 
 void world_flash_audit(const World& w, double& impulse_ns, double& discharged_j) {

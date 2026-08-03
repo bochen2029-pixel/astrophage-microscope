@@ -13,10 +13,10 @@ Dear ImGui panels: the HUD, instrument controls, the cell inspector, the paramet
 | `hud.cpp` | ✅ clock, counts, fps, scope controls, population, energy ledger, and the **NON-CANON RUN badge** (M11d) | M1 |
 | `scale_bar.h` | ✅ pure length-snapping function — header-only so `test_scope` can check it with no GL | M1 |
 | `instrument_panel.cpp` | overlays, clock presets, the tool brushes | M5 |
-| `params_panel.cpp` | ✅ provenance badges over `core/params.h`'s `ParamSet` + the canon lock toggles (M11d, ADR-034). Value editing pending the runtime read path (M11e) | M11d |
+| `params_panel.cpp` | ✅ provenance badges over `core/params.h`'s `ParamSet` + the canon lock toggles (M11d, ADR-034); a real editable slider for the curated **LIVE** override set the sim reads, read-only otherwise (M11f, ADR-035) | M11d |
 | `chart_panel.cpp` | population, energy, temperature, tolerance time series | M9 |
 | `scenario_panel.cpp` | ✅ objective text + acceptance checkmarks, evaluated **app-side** and handed in as plain data (`ui` may not include `sim`), M11e | M11e |
-| `inspector_panel.cpp` | clicked-cell readout including the buoyancy line | M11f (not built) |
+| `inspector_panel.cpp` | ✅ clicked-cell readout with the P1 buoyancy line prominent; the app picks + downloads one cell and hands in a plain-data `CellReadout` (M11f, ADR-035) | M11f |
 
 ## Contracts
 

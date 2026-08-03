@@ -329,6 +329,35 @@ Error cell_store_download_energy(const CellStore& s, double* energy, int32_t max
                                  cudaMemcpyDeviceToHost), "download energy");
 }
 
+Error cell_store_sample(const CellStore& s, int32_t slot, CellSample& out) {
+    out = CellSample{};
+    if (slot < 0 || slot >= s.count) return ok();   // out.valid stays false
+    const CellStoreView& v = s.view;
+    // One element per SoA array. Scattered arrays, so scattered copies -- but this is one
+    // cell at HUD rate, not the population, so the cost is a few microseconds.
+    struct Field { void* dst; const void* src; size_t bytes; };
+    const Field fields[] = {
+        { &out.id,          v.id          + slot, sizeof(uint64_t) },
+        { &out.flags,       v.flags       + slot, sizeof(uint32_t) },
+        { &out.death_cause, v.death_cause + slot, sizeof(uint8_t)  },
+        { &out.x,           v.x           + slot, sizeof(double)   },
+        { &out.y,           v.y           + slot, sizeof(double)   },
+        { &out.z,           v.z           + slot, sizeof(double)   },
+        { &out.vx,          v.vx          + slot, sizeof(double)   },
+        { &out.vy,          v.vy          + slot, sizeof(double)   },
+        { &out.vz,          v.vz          + slot, sizeof(double)   },
+        { &out.energy,      v.energy      + slot, sizeof(double)   },
+        { &out.temp_cell,   v.temp_cell   + slot, sizeof(float)    },
+        { &out.biomass,     v.biomass     + slot, sizeof(double)   },
+        { &out.age_s,       v.age_s       + slot, sizeof(float)    },
+    };
+    for (const Field& f : fields)
+        ASTRO_TRY(cuda_check(cudaMemcpy(f.dst, f.src, f.bytes, cudaMemcpyDeviceToHost),
+                             "cell_store_sample"));
+    out.valid = (out.flags & CELL_FLAG_OCCUPIED) != 0u;
+    return ok();
+}
+
 // ---------------------------------------------------------------------------
 // Compaction (ADR-028). Everything here is a pure function of the flags array,
 // so the result is independent of execution order -- INV-2 one level up, the

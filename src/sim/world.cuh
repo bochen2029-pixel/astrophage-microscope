@@ -135,6 +135,18 @@ struct World {
     // Stats.non_canon_run, which surfaces in the HUD and every telemetry export header.
     bool         non_canon_run = false;
 
+    // Curated live-tunable parameter overrides (ADR-035). The runtime ParamSet overlay
+    // (ADR-034) edits values, but the sim reads constexpr canon everywhere by default; a
+    // SMALL curated set is threaded through instead of a constexpr->runtime refactor of
+    // every use site. Each field DEFAULTS TO EXACTLY ITS canon value, so an untouched run
+    // is bit-identical to M11e (INV-8) -- the kernels do the identical arithmetic on the
+    // identical double. The app fills these from the ParamSet each frame; a scenario or a
+    // test may set them directly. Adding a param here is: a field, one kernel read-site,
+    // one app push line, and the param_live flag.
+    double       petrova_max_power     = canon::PETROVA_MAX_POWER;      // taxis emission cap [W]
+    double       petrova_flash_power   = canon::PETROVA_FLASH_POWER;    // spin-drive discharge rate [W]
+    double       co2_mass_per_division = canon::CO2_MASS_PER_DIVISION;  // mitosis CO2 quota [kg]
+
     // Spin-drive flash (ADR-033): armed by the scenario driver for the flash window,
     // recomputed every tick. While set, flash.cu forces stimulated full-rate discharge
     // (PHYSICS.md Sec 6) and accumulates the momentum/energy audit below in fixed point
