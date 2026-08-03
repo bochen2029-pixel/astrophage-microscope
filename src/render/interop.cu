@@ -49,6 +49,34 @@ __global__ void fill_instances(CellInstance* out, CellStoreView v, int32_t count
     out[i] = inst;
 }
 
+// A Taumoeba becomes a CellInstance at its true size (TAU_RADIUS, 4x a cell), marked with
+// the render-only predator bit so the fragment shader draws it distinctly. Written at
+// `offset` so the predators occupy [offset, offset + count) after the cells (M12b).
+__global__ void fill_taumoeba(CellInstance* out, TaumoebaView t, int32_t count, int32_t offset) {
+    const int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i >= count) return;
+
+    CellInstance inst;
+    inst.x_um = static_cast<float>(t.x[i] * 1.0e6);
+    inst.y_um = static_cast<float>(t.y[i] * 1.0e6);
+    inst.z_um = static_cast<float>(t.z[i] * 1.0e6);
+    inst.radius_um = static_cast<float>(canon::TAU_RADIUS * 1.0e6);   // true size, never inflated
+
+    // Reuse `charge` to carry N2 tolerance, so a future Analysis channel can colour the
+    // evolution; emission is meaningless for a predator.
+    inst.charge = t.tolerance ? t.tolerance[i] : 0.0f;
+    inst.emit_power_norm = 0.0f;
+
+    const uint32_t flags = t.flags[i];
+    inst.flags_packed = (flags & 0xFFFFu) | RENDER_FLAG_TAUMOEBA;
+    inst.dir_packed = 0u;
+
+    const uint32_t seed = static_cast<uint32_t>(splitmix64(t.id[i]) >> 32);
+    inst.shape_seed = seed | 1u;                                     // an irregular blob
+
+    out[offset + i] = inst;
+}
+
 } // namespace
 
 Error interop_register(InteropBuffer& b, unsigned int gl_buffer, size_t instance_capacity) {
@@ -67,10 +95,14 @@ void interop_unregister(InteropBuffer& b) {
     b = InteropBuffer{};
 }
 
-Error interop_fill_cells(InteropBuffer& b, const CellStoreView& cells, int32_t count) {
+Error interop_fill_frame(InteropBuffer& b, const CellStoreView& cells, int32_t cell_count,
+                         const TaumoebaView& tau, int32_t tau_count, int32_t& total_out) {
+    if (cell_count < 0) cell_count = 0;
+    if (tau_count < 0) tau_count = 0;
+    total_out = cell_count + tau_count;
     if (!b.resource) return fail(Status::InvalidArgument, "interop buffer not registered");
-    if (count <= 0) return ok();
-    if (static_cast<size_t>(count) > b.capacity)
+    if (total_out <= 0) return ok();
+    if (static_cast<size_t>(total_out) > b.capacity)
         return fail(Status::CapacityExceeded, "instance count exceeds buffer capacity");
 
     if (cudaGraphicsMapResources(1, &b.resource, 0) != cudaSuccess)
@@ -84,12 +116,17 @@ Error interop_fill_cells(InteropBuffer& b, const CellStoreView& cells, int32_t c
         return fail(Status::CudaError, "cudaGraphicsResourceGetMappedPointer");
     }
 
+    // Cells into [0, cell_count), Taumoeba into [cell_count, total). ONE map -- the buffer is
+    // WriteDiscard, so a second map would throw away the cells the first kernel just wrote.
     const int block = 256;
-    fill_instances<<<(count + block - 1) / block, block>>>(dev, cells, count);
+    if (cell_count > 0)
+        fill_instances<<<(cell_count + block - 1) / block, block>>>(dev, cells, cell_count);
+    if (tau_count > 0)
+        fill_taumoeba<<<(tau_count + block - 1) / block, block>>>(dev, tau, tau_count, cell_count);
     const cudaError_t launch = cudaGetLastError();
 
     cudaGraphicsUnmapResources(1, &b.resource, 0);
-    if (launch != cudaSuccess) return fail(Status::CudaError, "fill_instances launch");
+    if (launch != cudaSuccess) return fail(Status::CudaError, "interop fill launch");
     return ok();
 }
 

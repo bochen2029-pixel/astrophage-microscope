@@ -6,6 +6,18 @@ Format: milestone · what landed · what is pending · open questions · gotchas
 
 ---
 
+## 2026-08-03 — M12b (Ship: Taumoeba rendering) — GREEN · **the predators are no longer invisible**
+
+**Landed.** The Taumoeba ran but never drew (the app filled the instance buffer from the cell store only). Now they render as `CellInstance`s appended after the cells in the same instanced draw (`RenderFrame::taumoeba_offset`, designed for this since render_view_v2). New contract `contracts/taumoeba_view_v1.h` (`TaumoebaView`) so render reads the predator store without including `sim/`; `interop_fill_frame` maps the GL buffer ONCE (WriteDiscard forbids two) and fills cells `[0,cell_count)` + Taumoeba `[cell_count,total)`; the fragment shader branches on a render-only marker bit (0x8000) into a translucent teal membrane. New ADR-037; new additive contract, no bump.
+
+**Byte-identical for cells.** The predator branch reads bit 15 of `flags_packed`, which sim never sets, so a cell always skips it and every measurement golden is unchanged (M3.2 re-verified green; imgdiff is tolerant anyway). The instance buffer is sized `cell_cap + tau_cap`; `CellsPass::capacity` still reports the cell capacity so the HUD and respawn clamp are unaffected.
+
+**Verified by screenshot** (meta-lesson 11): the taumoeba scenario breeds the 20 predators into thousands, and they render as green irregular membrane blobs consuming the black Astrophage -- distinct, visible, reading as organisms (they reuse the cell morphology's `shape_seed`). Gate green: the app renders the scenario headless with zero GL errors, all goldens match.
+
+**Pending / next.** M12c: the perf pass (T27-T29, `test_perf`), the M7b render remainder (bloom over Petrova, cross-fade, T-field false-colour; `render_view_v3` for pre-ignition `temp_cell`), the colourblind LUT, the time scrubber over M12a's snapshots. Then M12d: package + `v1.0`. Deferred: a distinct amoeba silhouette, a tolerance-coloured Analysis channel (the view already carries `tolerance`).
+
+---
+
 ## 2026-08-03 — M12a (Ship: snapshot save/load + replay determinism) — GREEN · **a run saves and resumes bit-identically**
 
 **Landed.** `src/sim/snapshot.cu` — the ASPH full-state dump (`contracts/snapshot_v1.h`): header, the ADR-035 overrides on the `ParamOverride` array, the CellStore + TaumoebaStore SoA in declaration order, and the T/CO2/N2 fields (irradiance is rebuilt, never stored). `snapshot_save` / `snapshot_load` / `snapshot_state_hash`. The array list is written once per store (`collect_*_spans`) and reused for both directions, so save and load can't disagree about layout. New ADR-036; no contract change. M12 was split M12a/b/c first (Iron Rule 9).

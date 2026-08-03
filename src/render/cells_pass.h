@@ -23,7 +23,10 @@ struct CellsPass {
     int u_na = -1, u_immersion = -1, u_morphology = -1;
 };
 
-Error cells_pass_create(CellsPass& p, int32_t instance_capacity);
+// The instance buffer holds cells AND the Taumoeba appended after them (M12b), so it is sized
+// cell_capacity + tau_capacity. `p.capacity` reports the CELL capacity (what the app shows and
+// clamps respawns to); the larger interop buffer is an internal detail.
+Error cells_pass_create(CellsPass& p, int32_t cell_capacity, int32_t tau_capacity);
 void  cells_pass_destroy(CellsPass& p);
 
 // Clears to the mode's background and draws `count` instances.

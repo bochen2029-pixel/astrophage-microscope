@@ -349,20 +349,32 @@ oracle over the *whole* state, not the position/velocity/energy subset `headless
 bit-identical (replay across save/restore); a corrupted magic or version is rejected; and the round
 trip survives a run that has divided, died, spawned predators, and broken a canon lock.
 
-### M12b — Performance, Taumoeba rendering, the render remainder, the scrubber
+### M12b — Taumoeba rendering
 
-**Scope.** The perf pass to budget (`RENDERING.md §7`, `test_perf` = T27–T29), **Taumoeba rendering**
-(the app draws only Astrophage today — the predators run but are invisible), the M7b render remainder
-(bloom over Petrova, the cross-fade slider, the real T-field false-colour behind Thermal IR;
-pre-ignition warm-up needs `temp_cell` in the render instance → a `render_view_v3` bump), the
-colourblind LUT toggle, and the time scrubber over M12a's snapshots.
+**Scope.** The predators run but are **invisible** — the app draws only Astrophage. The
+`render_view_v2` `RenderFrame` already anticipates this (`taumoeba_offset`: instances
+`[taumoeba_offset, count)` are Taumoeba), so they render as `CellInstance`s appended after the cells
+in the same buffer and the same instanced draw. Needs a `TaumoebaView` contract (render may not
+include `sim/`), a second interop fill kernel in a single map (WriteDiscard forbids two), and a
+cleanly-separated fragment-shader branch so predators read distinctly and the cell path (and every
+golden) is byte-identical.
 
-**Gate.** M12a gate + `test_perf` (T27–T29) + a screenshot showing Taumoeba rendered and the new
-view affordances working.
+**Gate.** M12a gate + the app renders the `taumoeba` scenario headless with zero GL errors and the
+goldens still match; a screenshot shows the predators visible and distinct among the cells.
 
-### M12c — Package and v1.0
+### M12c — Performance, the render remainder, the scrubber
+
+**Scope.** The perf pass to budget (`RENDERING.md §7`, `test_perf` = T27–T29, notably T29's
+zero-steady-state-allocation), the M7b render remainder (bloom over Petrova, the cross-fade slider,
+the real T-field false-colour behind Thermal IR; pre-ignition warm-up needs `temp_cell` in the render
+instance → a `render_view_v3` bump), the colourblind LUT toggle, and the time scrubber over M12a's
+snapshots.
+
+**Gate.** M12b gate + `test_perf` (T27–T29) + a screenshot of the new view affordances.
+
+### M12d — Package and v1.0
 
 **Scope.** `scripts/package.ps1`: a static-runtime `.zip` that runs on a scrubbed-PATH clean machine,
 the user guide, `README.md` finalisation, and CSV `git_describe` injection.
 
-**Gate.** M12b gate + the packaged `.zip` runs on a scrubbed-PATH clean environment. Tag `v1.0`.
+**Gate.** M12c gate + the packaged `.zip` runs on a scrubbed-PATH clean environment. Tag `v1.0`.

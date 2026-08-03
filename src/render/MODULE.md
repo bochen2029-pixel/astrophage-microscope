@@ -11,8 +11,8 @@ Everything that produces pixels: GL context, CUDA-GL interop, the single instanc
 | File | Owns | Milestone |
 |---|---|---|
 | `gl_context.cpp` | ✅ GL 4.6 core context, debug output, ImGui bootstrap | M1 |
-| `interop.cu` | ✅ `cudaGraphicsGLRegisterBuffer`; the kernel that writes `CellInstance` | M1 |
-| `cells_pass.cpp` | ✅ instanced disc draw, SDF fragment shader | M1 |
+| `interop.cu` | ✅ `cudaGraphicsGLRegisterBuffer`; the kernels that write `CellInstance` for cells and, appended after them in one map, the Taumoeba (M12b, ADR-037) | M1 |
+| `cells_pass.cpp` | ✅ instanced disc draw, SDF fragment shader; the predator branch on the render-only marker bit (M12b) | M1 |
 | `camera.h` | ✅ scope pan/zoom/focal plane, objective presets (header-only, so it is host-testable) | M1 |
 | `optics.h` | ✅ circle of confusion, energy-conserving opacity, Becke amplitude, DOF — header-only, host-testable | M3 |
 | `morphology.h` | ✅ area-preserving irregular silhouettes, core/rim profile — header-only, host-testable (ADR-023) | M8b |

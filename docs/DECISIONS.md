@@ -132,6 +132,22 @@ Append-only. Every contradiction in the source material and every non-obvious en
 
 ---
 
+## ADR-037 — Taumoeba rendering: appended instances, a view contract, and a marker bit
+
+**Status:** accepted, 2026-08-03 (M12b).
+
+**Context.** The predators ran but were invisible — the app filled the instance buffer from the cell store only. `render_view_v2`'s `RenderFrame` already anticipated the fix (`taumoeba_offset`: instances `[taumoeba_offset, count)` are Taumoeba), so the intended design is to append the predators as `CellInstance`s after the cells and draw them in the same instanced pass. Three things had to be settled to build it.
+
+**A `TaumoebaView` contract, symmetric with `CellStoreView`.** `render/` may not include `src/sim/` (it reads contracts), so it cannot see the `TaumoebaStore`. The interop kernel that turns a predator into a `CellInstance` needs a device view, exactly as `fill_instances` reads a `CellStoreView`. New frozen contract `contracts/taumoeba_view_v1.h` exposes only what the draw needs (id, flags, position, tolerance). The app (which links both) builds one from the store and hands it to render — the same shape as passing `w.cells.view`. A per-array download or a host round-trip was never on the table: positions must not touch host memory (ARCHITECTURE §3.1).
+
+**One map, not two.** The GL buffer is registered `WriteDiscard`, so mapping it a second time to add the predators would discard the cells the first kernel just wrote. `interop_fill_frame` therefore maps once, launches `fill_instances` into `[0, cell_count)` and `fill_taumoeba` into `[cell_count, total)`, and unmaps. The instance buffer is sized `cell_capacity + tau_capacity`; `CellsPass::capacity` still reports the *cell* capacity so the HUD and the respawn clamp keep meaning what they meant (the larger buffer is an internal detail).
+
+**A render-only marker bit, not a `CellInstance` field.** The predators must draw distinctly (they are 4× a cell and are amoebae, not powder), but `CellInstance` is a frozen 36-byte GL contract and adding a field would be a `render_view_v3` bump for one bit. Instead `fill_taumoeba` sets `RENDER_FLAG_TAUMOEBA` (bit 15 of `flags_packed`) — a bit in the `CellFlags` region that sim never sets — and the fragment shader branches on it into a translucent teal membrane. Because a cell always reads 0 there, the branch is a no-op for cells and every measurement golden is byte-identical (the M3 goldens carry no predators; the gate re-verifies them). The bit crosses the GLSL boundary uncompiler-checked, the same hazard class as ADR-017's duplicated optics formulas — hence the shared constant and the change-one-change-both comment.
+
+**Consequences / the gate.** `M12b.1`: the app renders the `taumoeba` scenario headless with zero GL errors, and the goldens still match. Verified by screenshot: at the predator swarm's peak the green membranes tile the field, and early on individual irregular blobs consume the black culture. Deferred: a distinct amoeba *silhouette* (they reuse the cell morphology today), a tolerance-coloured Analysis channel (the view already carries `tolerance`), and hiding non-emitters in Petrovascope (the predators show in every mode as a visualization aid).
+
+---
+
 ## ADR-036 — The snapshot: a full-state oracle, a `.cu`, and what snapshot_v1 does not carry
 
 **Status:** accepted, 2026-08-03 (M12a).

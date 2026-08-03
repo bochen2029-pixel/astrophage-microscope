@@ -9,55 +9,56 @@
 
 ## Where the build stands
 
-**Last green: `m12a-green`. Next milestone: M12b — perf, Taumoeba rendering, the render remainder, the scrubber.**
+**Last green: `m12b-green`. Next milestone: M12c — perf pass + the render remainder + the scrubber.**
 
-The physics and content are complete; M12 (Ship) is underway, split M12a/b/c (Iron Rule 9). **M12a is done:**
-a run saves and resumes bit-identically (`src/sim/snapshot.cu`, the ASPH full-state dump), and the
-snapshot `state_hash` is now the INV-8 oracle at full resolution. 30 tests, 12 goldens, 36 ADRs.
+Physics and content are complete; M12 (Ship) is well underway, split M12a/b/c/d (Iron Rule 9).
+Done: **M12a** (snapshot save/load + bit-identical replay), **M12b** (Taumoeba rendering — the
+predators finally draw, as marked `CellInstance`s appended after the cells). 30 tests, 12 goldens,
+37 ADRs.
 
 ## Start here
 
 ```bash
 git -C C:\Astrophage tag --list
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/gate.ps1 -Milestone M12a
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/gate.ps1 -Milestone M12b
 ```
 
-Then read `CONTINUATION_PROMPT.md`, the **M12b** section of `docs/MILESTONES.md`, and — since M12b is
-render/UI-heavy — `docs/RENDERING.md`, `src/render/MODULE.md`, `contracts/render_view_v2.h`, and the
-render passes (`cells_pass.cpp`, `field_pass.cpp`, `bloom.cpp`, `post_pass.cpp`, `luts.cpp`).
+Then read `CONTINUATION_PROMPT.md`, the **M12c** section of `docs/MILESTONES.md`, and — since M12c is
+render/perf-heavy — `docs/RENDERING.md` (esp. §5 LUTs, §7 perf), `src/render/MODULE.md`,
+`contracts/render_view_v2.h`, and the render passes (`field_pass.cpp`, `bloom.cpp`, `luts.cpp`,
+`cells_pass.cpp`). It is a big milestone — consider splitting it (perf / render-remainder / scrubber).
 
-## What M12b is (a big milestone — consider splitting again if it won't fit)
+## What M12c is
 
-1. **The perf pass to budget** (`RENDERING.md §7`): `test_perf` (T27-T29) does not exist yet — build it.
-   The app already has `--benchmark` (M1.5 renders 200k cells at target fps); T27-T29 formalise the
-   frame/memory/throughput budgets. Q9 (the 27→8 bucket neighbour walk) is the best remaining perf lever
-   and only worth it once a scenario stresses throughput.
-2. **Taumoeba rendering** — the app draws only Astrophage today; the predators run but are **invisible**.
-   They need an instanced pass like the cells (40 um, distinct morphology/colour), fed from the
-   TaumoebaStore via interop.
-3. **The M7b render remainder** — bloom over Petrova, the cross-fade slider, the real T-field
-   false-colour behind Thermal IR. Pre-ignition warm-up needs `temp_cell` in the render instance →
-   a **`render_view_v3`** bump (add `_v3.h`, update every consumer, ADR, one commit; `_v1`/`_v2` are
-   frozen — nothing may include two versions).
-4. **The colourblind LUT toggle** (`luts.cpp`) and **the time scrubber** over M12a's snapshots (record a
-   ring of snapshots, scrub back — `snapshot_save`/`snapshot_load` are ready; motion config is the
-   caller's to restore, ADR-036).
+1. **The perf pass** (`RENDERING.md §7`): build `test_perf` (T27-T29). The headline is **T29 —
+   zero device allocation in the steady-state tick loop** (all scratch is preallocated at
+   world_create); a `cudaMemGetInfo` delta over N warmed-up steps at 200k cells catches a leak
+   regression. The render frame budget (T27) is already gated by M1.5's `--benchmark`; T28 is
+   sim-tick throughput (keep any timing floor generous — timing gates are flaky).
+2. **The M7b render remainder** — bloom over the Petrova emission (`bloom.cpp` exists), the
+   cross-fade slider (`ScopeState::mode_blend`/`mode_blend_to` already in render_view_v2), the real
+   T-field false-colour behind Thermal IR (`field_pass.cpp` + a LUT). **Pre-ignition warm-up needs
+   `temp_cell` in the render instance → a `render_view_v3` bump**: add the field to `CellInstance`
+   (it grows 36→40 bytes, re-`static_assert`), update the vertex attribute bindings in
+   `cells_pass.cpp` AND the interop fill in the SAME commit (ADR + `_v2`→`_v3`; nothing may include
+   both — same names, same namespace). The bit-15 predator marker (ADR-037) stays as-is.
+3. **The colourblind LUT toggle** (`ScopeState::colorblind_safe` already carried) and **the time
+   scrubber** over M12a's snapshots (record a ring of `snapshot_save`s, scrub back with
+   `snapshot_load`; motion config is the caller's to restore, ADR-036).
 
-**Gate.** M12a gate + `test_perf` (T27-T29) + a screenshot showing Taumoeba rendered and the new view
-affordances. Verify UI by screenshot (meta-lesson 11): `astrophage --scenario taumoeba --headless
---screenshot out.ppm`, PPM→PNG, look.
+**Gate.** M12b gate + `test_perf` (T27-T29) + a screenshot of the new view affordances. Verify UI by
+screenshot (meta-lesson 11).
 
-## After M12b
+## After M12c
 
-**M12c** — `scripts/package.ps1` (static-runtime `.zip` that runs on a scrubbed-PATH clean machine), the
-user guide, CSV `git_describe` injection, then tag **`v1.0`**.
+**M12d** — `scripts/package.ps1` (static-runtime `.zip` that runs on a scrubbed-PATH clean machine),
+the user guide, CSV `git_describe` injection, then tag **`v1.0`**.
 
 ## Loose ends (non-blocking)
 
-- Scenario `param_overrides` (parsed since M11a) still unapplied — deferred with the full
-  `constexpr`→runtime refactor (ADR-035). They would flow through the ParamSet overlay → the ADR-035
-  World fields; wire it if a scenario needs one.
-- `snapshot_v1` carries no `next_taumoeba_id` (reconstructed `max(id)+1`, exact unless the top-id predator
-  was culled) and no motion config (the caller restores it). A `snapshot_v2` would close the first;
-  neither blocks M12b (ADR-036).
+- Taumoeba reuse the cell morphology (green blobs, not a distinct amoeba silhouette) and are shown in
+  every view mode. A tolerance-coloured Analysis channel is easy — `TaumoebaView` already carries
+  `tolerance` (ADR-037).
+- Scenario `param_overrides` still unapplied (ADR-035); `snapshot_v1` carries no `next_taumoeba_id`
+  or motion config (ADR-036). Neither blocks M12c.
 - `scope` center/focal_plane parsed but the app applies only the view mode + objective.

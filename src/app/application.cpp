@@ -296,8 +296,9 @@ Error app_init(Application& a, const Options& o) {
     ASTRO_TRY(render::gl_context_create(a.gl, gd));
     glfwSetScrollCallback(a.gl.window, scroll_callback);
 
-    // Registered with CUDA, so it must be created after the GL context.
-    ASTRO_TRY(render::cells_pass_create(a.cells_pass, capacity));
+    // Registered with CUDA, so it must be created after the GL context. The instance buffer
+    // holds cells AND the Taumoeba appended after them (M12b), hence the tau capacity too.
+    ASTRO_TRY(render::cells_pass_create(a.cells_pass, capacity, a.world.taumoeba.capacity));
     ASTRO_TRY(render::post_pass_create(a.post_pass));
 
     // A scenario already spawned its populations and set its own clock + scope; a plain run
@@ -428,15 +429,22 @@ int app_run(Application& a) {
             }
         }
 
-        if (Error e = render::interop_fill_cells(a.cells_pass.interop, a.world.cells.view,
-                                                 a.world.cells.count)) {
+        // Cells plus the Taumoeba appended after them, filled into the GL buffer in a single
+        // map (M12b). The predators render as marked CellInstances in the same instanced draw.
+        const contract::TaumoebaView tau{a.world.taumoeba.id, a.world.taumoeba.flags,
+                                         a.world.taumoeba.x, a.world.taumoeba.y, a.world.taumoeba.z,
+                                         a.world.taumoeba.tolerance, a.world.taumoeba.count};
+        int32_t draw_count = 0;
+        if (Error e = render::interop_fill_frame(a.cells_pass.interop, a.world.cells.view,
+                                                 a.world.cells.count, tau, a.world.taumoeba.count,
+                                                 draw_count)) {
             std::printf("[app] interop fill failed: %s (%s)\n", status_str(e.status),
                         e.detail ? e.detail : "");
             return 1;
         }
 
         render::cells_pass_draw(a.cells_pass, a.camera, a.gl.fb_width, a.gl.fb_height,
-                                a.world.cells.count, a.hud.mode, a.hud.channel,
+                                draw_count, a.hud.mode, a.hud.channel,
                                 a.options.morphology);
         // The condenser affects the field as well as the cells, so it goes after
         // them. Applied to the ILLUMINATED modes -- Brightfield and Thermal IR (the

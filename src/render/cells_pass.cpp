@@ -255,6 +255,18 @@ void main() {
     bool awake = (v_flags & FLAG_AWAKE) != 0u;
     float cov_a = max(contrast, 0.0);        // positive coverage: the disc fill
 
+    // Predators (Taumoeba) carry a render-only marker bit set in interop.cu (0x8000, see
+    // RENDER_FLAG_TAUMOEBA). They are 4x a cell and read the same in every mode: a translucent
+    // teal membrane blob, distinct from the opaque black Astrophage. Sim never sets this bit,
+    // so a cell always skips this branch and every measurement golden is byte-identical.
+    if ((v_flags & 0x8000u) != 0u) {
+        vec3 tcol  = alive ? vec3(0.28, 0.85, 0.62) : vec3(0.45, 0.46, 0.50);
+        float talpha = cov_a * (alive ? 0.55 : 0.35) * v_alpha_scale;
+        if (talpha <= 0.002) discard;
+        frag = vec4(tcol, clamp(talpha, 0.0, 1.0));
+        return;
+    }
+
     vec3 color;
     float alpha;
     if (u_mode == 0) {
@@ -334,7 +346,10 @@ unsigned int compile(unsigned int type, const char* const* srcs, int n, const ch
 
 } // namespace
 
-Error cells_pass_create(CellsPass& p, int32_t instance_capacity) {
+Error cells_pass_create(CellsPass& p, int32_t cell_capacity, int32_t tau_capacity) {
+    // The VBO and the CUDA-registered buffer hold cells then Taumoeba; p.capacity below stays
+    // the CELL capacity so the app's HUD and respawn clamp keep meaning what they meant.
+    const int32_t instance_capacity = cell_capacity + tau_capacity;
     const char* vsrc[] = {kVersion, kShapeGLSL, kVertBody};
     const char* fsrc[] = {kVersion, kShapeGLSL, kFragBody};
     const unsigned int vs = compile(GL_VERTEX_SHADER, vsrc, 3, "cells.vert");
@@ -390,7 +405,7 @@ Error cells_pass_create(CellsPass& p, int32_t instance_capacity) {
     glVertexAttribDivisor(3, 1);
     glBindVertexArray(0);
 
-    p.capacity = instance_capacity;
+    p.capacity = cell_capacity;   // the app reads this as the cell capacity (see header)
     ASTRO_TRY(interop_register(p.interop, p.instance_vbo,
                                static_cast<size_t>(instance_capacity)));
     return ok();

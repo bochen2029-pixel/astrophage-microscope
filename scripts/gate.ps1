@@ -294,14 +294,28 @@ if (($n -gt 12) -or ($n -eq 12 -and $suffix -ge 'a')) {
     }
 }
 
-# ---------------------------- M12b: performance, Taumoeba rendering, render remainder
+# ---------------------------- M12b: Taumoeba rendering
 if (($n -gt 12) -or ($n -eq 12 -and $suffix -ge 'b')) {
-    Gate 'M12b.1' 'performance budget (T27-T29)' { return (Run-Test 'test_perf') }
+    # The predators (invisible until now) render as marked CellInstances appended after the
+    # cells in the same instanced draw (ADR-037). The taumoeba scenario breeds thousands, so
+    # this exercises the second fill kernel at scale; zero GL errors, and the goldens (M3.2,
+    # re-run above) still match because the predator branch is a no-op for cells.
+    Gate 'M12b.1' 'app renders Taumoeba (taumoeba scenario headless, no GL errors)' {
+        $exe = Find-Exe 'astrophage'
+        if (-not $exe) { return $false }
+        & $exe --scenario taumoeba --headless --gl-debug --frames 20 --ticks-per-frame 20 *>&1 | Out-Null
+        return ($LASTEXITCODE -eq 0)
+    }
 }
 
-# ---------------------------- M12c: package and v1.0
+# ---------------------------- M12c: performance, the render remainder, the scrubber
 if (($n -gt 12) -or ($n -eq 12 -and $suffix -ge 'c')) {
-    Gate 'M12c.1' 'clean-environment package' {
+    Gate 'M12c.1' 'performance budget (T27-T29)' { return (Run-Test 'test_perf') }
+}
+
+# ---------------------------- M12d: package and v1.0
+if (($n -gt 12) -or ($n -eq 12 -and $suffix -ge 'd')) {
+    Gate 'M12d.1' 'clean-environment package' {
         & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'scripts\package.ps1') -Verify *>&1 | Out-Null
         return ($LASTEXITCODE -eq 0)
     }
