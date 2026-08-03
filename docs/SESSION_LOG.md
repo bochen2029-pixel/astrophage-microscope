@@ -6,6 +6,20 @@ Format: milestone · what landed · what is pending · open questions · gotchas
 
 ---
 
+## 2026-08-03 — M11b (Content: acceptance, driving, the flash) — GREEN · **all 8 scenarios pass their objectives**
+
+**Landed.** The acceptance layer on M11a's spine. `scenario_v2` adds a scripted `drive[]` (ADR-032): `scenario_apply_drive` (sim) applies heat / N₂-ramp / flash / top-up stimuli each tick, shared by headless and (later) the app. `sim/accept.{h,cpp}` measures every objective from `Stats` + a `RunAggregates`; `headless --scenario ID --assert` runs to the horizon and exits nonzero on a missed check. The **spin-drive flash** (`flash.cu`, ADR-033, new canon `PETROVA_FLASH_POWER`) is the one new physics. **T24 green: all 8 ACCEPT.** New ADR-032/033. Contract bump v1→v2 (drive, `thermal_active`, compaction flags, `duration_s`).
+
+**Derived metrics** (from full state, not just `Stats`): displacement-based velocity fit (three-percent-line −52.1/+1681 μm/s — instantaneous velocity is 8× thermal noise, so fit drift over seconds), charge/depth & charge/height correlations, `biology_rate`-scaled doubling (bloom 706k s), max tolerance (taumoeba 0.99), the flash impulse identity (spin-drive 1.0).
+
+**Physics found while tuning (all in SCENARIOS.md):** (1) three-percent-line must be **dormant** — awake cells warm the medium, drop μ 3.36× and inflate drift 3.25×. (2) first-light cells need a small store (0-store wakes → overcools → starves) and a **neumann** boundary (robin's edge gradient makes all-awake + mean-at-setpoint incompatible). (3) komorov `thermal_active:false` + `physics_rate 100`: 44 min → 25 s, exact for a static cell. (4) shadow-garden bright source read early while the gradient is steep. (5) taumoeba mirrors `test_evolution` (24k topped-up prey via `seed_cells`).
+
+**Gotchas.** The global brush needed radius 10× chamber — `grid_brush`'s `(1-t²)²` falloff otherwise wakes centre cells first (665/800). `tol` is relative unless `tol_absolute` (first-light ±0.5 K). The flash recoil is **accounted, not applied** (a 16.7 ng discharge recoils a lone cell at ~c). Determinism preserved: `thermal_enabled`/`flash_active` default to M9b/M11a behaviour, so `world_step` is bit-identical unless a scenario opts in.
+
+**Pending / next.** M11c: the parameter inspector + canon locks (`test_param_locks`), the cell inspector, the objective panel, CSV export, and the runtime-param system that makes `param_overrides` apply. Deferred: Q9, Q18, the M7b render remainder.
+
+---
+
 ## 2026-08-02 — M11a (Content: scenario spine) — GREEN · **scenarios load and run**
 
 **Landed.** The scenario system, which was a stub (`headless` printed "arrives in M11"). A hand-rolled dependency-free jsonc reader (`src/sim/json.h`), a loader + world instantiation (`src/sim/scenario.{h,cpp}`), all **eight** `scenarios/*.json`, the `headless --scenario ID` runner, and `test_scenario`. **24 tests green.** No contract change (`Scenario`/`ScopeState`/`ParamOverride`/`AcceptCheck` all pre-existed). New ADR-031. M11 was **split into M11a/M11b/M11c** first (Iron Rule 9) — this is M11a.

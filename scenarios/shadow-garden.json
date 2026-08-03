@@ -11,18 +11,23 @@
 
   "medium": { "kind": "water", "temp_init": 293.15, "co2_init": 0.0, "n2_init": 0.0,
               "thermal_bc": "robin", "ambient_temp": 293.15,
-              "density_model": "canon-mass" },
+              "density_model": "canon-mass", "thermal_active": false },
 
+  // 1.0e15 W/m^2: a bright collimated source, ~1000x the komorov spot, chosen so the lit
+  // front layer charges to saturation within the run while everything it shadows stays at
+  // the 0.02 baseline (albedo 0 -> dCharge/dt == 0 in the dark). P5 is about the occlusion
+  // gradient, not the thermostat, so the cells are dormant: they still absorb (feeding
+  // gates on alive, not awake), with no thermostat drain to blur the read.
   "light": { "sources": [
-      { "dir_x": 1.0, "dir_y": 0.0, "irradiance": 500.0, "wavelength": 5.5e-7 }
+      { "dir_x": 1.0, "dir_y": 0.0, "irradiance": 1.0e15, "wavelength": 5.5e-7 }
     ], "ambient": 0.0 },
 
   "populations": [
     { "kind": "astrophage", "count": 12000, "placement": "uniform",
-      "charge": { "dist": "constant", "value": 0.02 }, "awake": true }
+      "charge": { "dist": "constant", "value": 0.02 }, "awake": false }
   ],
 
-  "clock": { "preset": "metabolic" },
+  "clock": { "preset": "motion" },
 
   "scope": { "mode": "analysis", "objective": "WORKING",
              "focal_plane": 0.0, "center": [0.0, 0.0] },
@@ -30,10 +35,16 @@
   "tools": ["illuminate", "seed_cells"],
   "param_overrides": {},
 
+  // Read the gradient early, while it is steep: at 1.0e15 W/m^2 a fully lit cell reaches
+  // full charge in ~19 s, so by 3 s the front layer is at ~15% charge -- a clear signal
+  // over the 0.02 dark baseline -- before saturation broadens the profile and weakens the
+  // correlation (measured: -0.88 at 3 s, -0.81 by 10 s). The dose is power*time, so the
+  // motion clock (physics_rate 10) reaches the same 3 s of culture time in 300 ticks.
   "objective": {
     "text": "Illuminate the culture and read the charge gradient down the light axis.",
+    "duration_s": 3.0,
     "accept": [
-      { "metric": "charge_depth_correlation", "op": "<", "value": -0.8, "after_s": 120 }
+      { "metric": "charge_depth_correlation", "op": "<", "value": -0.8, "after_s": 0 }
     ]
   }
 }

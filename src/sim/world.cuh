@@ -7,7 +7,7 @@
 
 #include <cstdint>
 
-#include "contracts/scenario_v1.h"
+#include "contracts/scenario_v2.h"
 #include "contracts/telemetry_v1.h"
 #include "core/canon_generated.h"
 #include "core/result.h"
@@ -130,6 +130,15 @@ struct World {
 
     contract::LightSource light{1.0f, 0.0f, 0.0f, 0.0f, 0};   // off by default
     float        ambient_irradiance = 0.0f;
+
+    // Spin-drive flash (ADR-033): armed by the scenario driver for the flash window,
+    // recomputed every tick. While set, flash.cu forces stimulated full-rate discharge
+    // (PHYSICS.md Sec 6) and accumulates the momentum/energy audit below in fixed point
+    // (INV-2): [net impulse x, y, z] then [discharged energy]. Never zeroed after
+    // world_create -- discharge only fires while flashing, so the run total IS the flash
+    // total, and impulse_per_cycle = |imp|*c / discharged (accept: ~= 1).
+    bool                flash_active = false;
+    unsigned long long* d_flash_accum = nullptr;   // 4 slots: imp_x, imp_y, imp_z, energy
 };
 
 // Tick stages 2, 5, 6 (src/sim/integrator.cu).
@@ -141,6 +150,16 @@ void thermal_step(World& w, double dt);
 
 // Tick stage 9 plus the feeding half of stage 3 (src/sim/emission.cu).
 void emission_step(World& w, double dt);
+
+// Tick stage 9b (src/sim/flash.cu). The spin-drive flash: while w.flash_active, awake
+// charged cells discharge their store at full rate as Petrova photons against the slide,
+// thrust = emit_power/C_LIGHT (PHYSICS.md Sec 6). Accumulates the momentum and energy
+// audit into w.d_flash_accum (INV-2). A no-op when the flash is not armed. ADR-033.
+void flash_step(World& w, double dt);
+
+// Download and convert the flash audit: net delivered impulse [N*s] and total discharged
+// store [J]. impulse*C_LIGHT/discharged is the impulse_per_cycle metric (~= 1, ADR-033).
+void world_flash_audit(const World& w, double& impulse_ns, double& discharged_j);
 
 // Tick stage 3 (src/sim/taxis.cu). Sets emit_power and the emission axis, and
 // debits the store for what it emits.

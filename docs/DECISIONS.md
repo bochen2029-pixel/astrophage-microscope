@@ -132,6 +132,36 @@ Append-only. Every contradiction in the source material and every non-obvious en
 
 ---
 
+## ADR-032 — Scenario driving and acceptance: a scripted-stimulus list, derived metrics, two schema affordances
+
+**Status:** accepted, 2026-08-03 (M11b).
+
+**Context.** M11a loaded and ran scenarios but evaluated nothing. Every `accept` block needs either *driving* (first-light's heat, taumoeba's N2 ramp, the spin-drive flash) or a *derived* metric (velocities, correlations, doubling, impulse) computed from full state over time. The schema had `tools` (availability) but no way to say *when* a stimulus fires.
+
+**Decision -- driving is a scripted-stimulus list (`scenario_v2`).** A `drive[]` of `Stimulus{t0_s, t1_s, kind, x, y, radius, v0, v1}`, applied every tick by `scenario_apply_drive` (sim, shared by headless and, later, the app). One struct covers a held heat brush, an N2 ramp, illumination, and the flash. Brush strengths are RATES (x dt), so a dose is invariant to `physics_rate`; `t1<=t0` is an open-ended window. `SetN2` is an absolute uniform `grid_fill` (not an additive brush), mirroring `test_evolution`'s `set_n2` so the ramp frontier `tol* = N/N_lethal - 1` is exact; `SeedCells` maintains a prey target (its `top_up_prey`). This bumps the frozen v1 to v2 (contract rule 1); nothing else changed -- `telemetry_v1.h` had already frozen the full `Metric`/`AcceptCheck` vocabulary.
+
+**Decision -- acceptance is measured in `sim/accept.cpp`.** `accept_eval` (the compare ops; `Approx` relative unless `tol_absolute`) plus `metric_measure` from a HUD-rate `Stats` and a `RunAggregates`. Two derived metrics needed care. The **velocity fit is displacement-based** (two free-cell position snapshots a few seconds apart): a cell's *instantaneous* velocity is dominated by thermal noise (+-440 vs 52 um/s of drift), but drift over seconds swamps Brownian diffusion, so `v_settle` vs charge fits cleanly (Pearson ~ -1) and its endpoints give the empty/full velocities although no cell is full. **Doubling time is scaled by `biology_rate`** (`dt_bio = dt*biology_rate`, so culture time = sim_time * biology_rate) to report the canon 6.912e5 s. Correlations and max tolerance come from a full-state download.
+
+**Decision -- two schema affordances the tuning forced, both physics, not fudge.** (1) `thermal_active`: `thermal_step` always ran the 512^2 diffusion, which a uniform-medium scenario (komorov: a dormant cell absorbing a beam as store, not heat) pays for nothing -- a flag skips the stage, and with `physics_rate 100` komorov drops from ~44 min to ~25 s, exact for a non-moving cell. (2) The global brush uses a radius 10x the chamber: `grid_brush`'s `(1-t^2)^2` falloff otherwise peaks at the centre and under-heats the edges, waking centre cells first (measured 665/800); a radius that keeps the whole field in the flat top of the falloff is a near-uniform fill.
+
+**Consequences / the gate.** `headless --scenario ID --assert` runs to the objective horizon (explicit `duration_s`, else the latest `after_s`/drive window), applies the drive, evaluates every check, exits nonzero on a miss. **T24: all eight pass.** Every threshold traces to a physical value or canon (-52.1/+1681 um/s, 369.565 K +- 0.5, r < -0.8, 6.912e5 s, >= 0.825, impulse == E/c), not a magic number (meta-lesson 2). The per-scenario reconciliations (first-light dormant buffer + neumann, three-percent-line dormant, shadow-garden dormant + bright source, taumoeba's `test_evolution` mirror) are in `docs/SCENARIOS.md`.
+
+---
+
+## ADR-033 — The spin-drive flash: stimulated full-rate discharge, accounted not applied
+
+**Status:** accepted, 2026-08-03 (M11b).
+
+**Context.** `spin-drive-face` needs the flash of `PHYSICS.md` Sec 6 -- "an external high-intensity pulse at `PETROVA_WAVELENGTH` forces full-rate discharge" -- which M11a did not have. It is the one piece of genuinely new physics in M11.
+
+**Decision.** A `flash` stimulus arms `World::flash_active`; while set, `flash_step` (tick stage 9b, `src/sim/flash.cu`) overrides taxis emission: every awake charged cell discharges its store at `PETROVA_FLASH_POWER` (new INVENTED canon, 3 MW -- canon gives no discharge rate, so it is chosen to empty a full cell in ~0.5 s), `dE/dt = -power`, clamped to the store. The discharged energy and the net recoil impulse accumulate into a fixed-point `d_flash_accum` (INV-2), and `impulse_per_cycle = |impulse| * C_LIGHT / discharged` -- a photon-momentum identity (F = P/c).
+
+**The recoil is accounted, not applied to the free cell.** A full cell holds 16.7 ng of mass-energy; discharged as photons it would recoil a lone 10 um cell at ~c (terminal velocity ~1e5 m/s), flinging it out of the chamber. But the cell is fixed to the drive face -- the recoil drives the *ship*, not the free cell -- so `emit_power` stays 0 (no OU thrust) and the impulse is booked for the HUD. Every cell discharges along +z, so the recoils add coherently along -z, which is the point of a spin drive.
+
+**Consequences / the gate.** `impulse_per_cycle ~= 1` (+-1 %), `total_energy_j ~= 0` (no cell retains its store), `boil == 0`. The identity is definitional in the kernel, so the gate's real content is that the flash *fires and fully discharges* while conserving momentum-energy -- the honest check meta-lesson 1 asks for. No determinism impact on any earlier gate: `flash_active` defaults false, so `world_step` is bit-identical to M11a unless a scenario arms it.
+
+---
+
 ## ADR-031 — The scenario spine: hand-rolled JSON, loader in sim, and the M11 split
 
 **Status:** accepted, 2026-08-02 (M11a).

@@ -25,7 +25,7 @@ If you ever find yourself opening another module's `.cu`/`.cpp` to learn what a 
 | `render_view_v2.h` | view modes, morphology, overlays, `CellInstance` GL layout, scope state | `docs/RENDERING.md` |
 | `telemetry_v1.h` | the `Stats` struct, acceptance metrics and comparison ops | `docs/SCENARIOS.md` |
 | `snapshot_v1.h` | snapshot file layout, param overrides, the FNV-1a determinism hash | `docs/ARCHITECTURE.md` §5.4 |
-| `scenario_v1.h` | parsed scenario, populations, clock presets, canon-contradiction toggles | `docs/SCENARIOS.md` |
+| `scenario_v1.h` / `scenario_v2.h` | parsed scenario, populations, clock presets, canon-contradiction toggles; **v2** adds the driving script, `thermal_active`, compaction flags, and `run_duration_s` (ADR-032). v1 retained frozen and unused; nothing may include both | `docs/SCENARIOS.md` |
 
 ## The two that carry the most weight
 

@@ -8,7 +8,7 @@
 #include "contracts/cell_store_v1.h"
 #include "contracts/fields_v1.h"
 #include "contracts/render_view_v2.h"
-#include "contracts/scenario_v1.h"
+#include "contracts/scenario_v2.h"
 #include "contracts/snapshot_v1.h"
 #include "contracts/telemetry_v1.h"
 #include "core/canon_generated.h"
@@ -28,6 +28,7 @@ static_assert(std::is_trivially_copyable_v<Stats>);
 static_assert(std::is_trivially_copyable_v<AcceptCheck>);
 static_assert(std::is_trivially_copyable_v<SnapshotHeader>);
 static_assert(std::is_trivially_copyable_v<Scenario>);
+static_assert(std::is_trivially_copyable_v<Stimulus>);   // v2 driving script (ADR-032)
 
 // The GL vertex-attribute contract. Changing this means changing the bindings in
 // render/cells_pass.cpp in the same commit.
@@ -43,7 +44,7 @@ int main() {
     CHECK(RENDER_VIEW_CONTRACT_VERSION == 2);
     CHECK(TELEMETRY_CONTRACT_VERSION == 1);
     CHECK(SNAPSHOT_CONTRACT_VERSION == 1);
-    CHECK(SCENARIO_CONTRACT_VERSION == 1);
+    CHECK(SCENARIO_CONTRACT_VERSION == 2);
 
     // 'ASPH' little-endian, so a snapshot is identifiable in a hex dump.
     CHECK(SNAPSHOT_MAGIC == 0x48505341u);

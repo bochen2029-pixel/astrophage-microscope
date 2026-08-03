@@ -20,14 +20,16 @@ The simulation itself: the cell and Taumoeba stores, the integrator, and every p
 | `taxis.{cuh,cu}` | ✅ run-and-tumble FEED/BREED/IDLE controller, emission discharge (PHYSICS.md §8, ADR-022) | M8 |
 | `lifecycle.{cuh,cu}` | ✅ CO₂ uptake, mitosis, prefix-sum slots (ADR-025); overheat death and store disposition (ADR-004) | M9a/M9b |
 | `stats.cu` | ✅ tick stage 11, fixed-point telemetry reduction (ADR-026) | M9b |
-| `json.h` + `scenario.{h,cpp}` | ✅ hand-rolled jsonc reader; scenario load + world instantiation (docs/SCENARIOS.md) | M11a |
+| `json.h` + `scenario.{h,cpp}` | ✅ hand-rolled jsonc reader; scenario load, world instantiation, and the v2 driving script `scenario_apply_drive` (docs/SCENARIOS.md, ADR-032) | M11a/M11b |
+| `accept.{h,cpp}` | ✅ acceptance evaluation + derived metrics (displacement velocities, correlations, `biology_rate`-scaled doubling, flash impulse) shared by headless and the UI (ADR-032) | M11b |
+| `flash.cu` | ✅ the spin-drive flash: stimulated full-rate discharge, fixed-point momentum/energy audit (PHYSICS.md §6, ADR-033) | M11b |
 | `step.cu` | ✅ tick sequence, the multi-rate clock and its presets (ADR-011, ADR-027) | M1/M9c |
 | `predation.{cuh,cu}` | ✅ TaumoebaStore, crawl, deterministic engulfment, digestion (M10a); N₂ lethality, heritable tolerance, division + stable compaction, the Taumoeba-82.5 arc (M10b) | M10b |
 | `snapshot.cpp` | serialise/restore, FNV-1a state hash | M12 |
 
 ## Contracts
 
-Produces `cell_store_v1.h`, `snapshot_v1.h`. Consumes `fields_v1.h`, `scenario_v1.h`, `telemetry_v1.h`.
+Produces `cell_store_v1.h`, `snapshot_v1.h`. Consumes `fields_v1.h`, `scenario_v2.h`, `telemetry_v1.h`.
 
 ## Invariants owned
 
@@ -45,8 +47,17 @@ Produces `cell_store_v1.h`, `snapshot_v1.h`. Consumes `fields_v1.h`, `scenario_v
 
 ## Status
 
-**M9c complete.** All five signature phenomena are live (M2–M7), cells behave and live
-(M8–M9b), and the multi-rate clock and slot reclamation now round out the life cycle.
+**M11b complete.** All five signature phenomena are live (M2–M7), cells behave and live
+(M8–M9c), the Taumoeba predator crawls, engulfs, and evolves (M10), and the eight scenarios
+now load, drive themselves, and pass their acceptance blocks (M11).
+
+**Driving and acceptance (M11b, ADR-032/033).** `scenario_apply_drive` applies a scripted
+`Stimulus` list each tick (heat/N₂ ramp/flash); `accept.cpp` measures each objective from
+`Stats` + a `RunAggregates`. Two subtleties: the velocity metric is **displacement-based**
+(instantaneous velocity is 8× thermal noise), and doubling time scales by `biology_rate`
+(sim time × biology_rate is culture time). `thermal_step` is now skippable (`thermal_enabled`)
+for uniform-medium scenarios, and `flash_step` (stage 9b) is a no-op unless armed — both
+default to the M9b/M11a behaviour, so determinism is preserved.
 
 **The clock (ADR-011, ADR-027).** `world_step` advances every physics stage by
 `dt = DT_PHYSICS * physics_rate`; `biology_rate` scales only the growth dt inside

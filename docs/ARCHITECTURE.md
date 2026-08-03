@@ -177,9 +177,9 @@ Must match the directory listing exactly — `audit.ps1` checks this.
 ```
 src/core     canon_generated.h, units.h, rng.cuh, vec.cuh, fixed_atomic.cuh, result.h
 src/fields   grid.cuh, diffuse.cu, irradiance.cu
-src/sim      cell_store.cu, integrator.cu, thermal.cu, emission.cu, taxis.cu,
+src/sim      cell_store.cu, integrator.cu, thermal.cu, emission.cu, flash.cu, taxis.cu,
              contact.cu, lifecycle.cu, predation.cu, hash.cu, snapshot.cpp, stats.cu, step.cu,
-             json.h, scenario.cpp
+             json.h, scenario.cpp, accept.cpp
 src/render   gl_context.cpp, interop.cu, cells_pass.cpp, field_pass.cpp,
              optics.cpp, morphology.h, post_pass.cpp, bloom.cpp, luts.cpp, camera.cpp
 src/ui       hud.cpp, inspector_panel.cpp, params_panel.cpp, instrument_panel.cpp,
@@ -187,7 +187,7 @@ src/ui       hud.cpp, inspector_panel.cpp, params_panel.cpp, instrument_panel.cp
 src/app      main.cpp, application.cpp, cli.cpp
 tools        headless.cpp, goldgen.cpp
 contracts    cell_store_v1.h, fields_v1.h, render_view_v1.h, render_view_v2.h,
-             scenario_v1.h, telemetry_v1.h, snapshot_v1.h
+             scenario_v1.h, scenario_v2.h, telemetry_v1.h, snapshot_v1.h
 ```
 
 Each `src/<module>/MODULE.md` states: purpose, owned files, contracts consumed and produced, invariants it is responsible for, current milestone status, and known gaps.

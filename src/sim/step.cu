@@ -55,6 +55,14 @@ Error world_create(World& w, const WorldDesc& d) {
         return fail(Status::OutOfMemory, "cudaMalloc predator claim");
     }
 
+    // The spin-drive flash audit accumulator (ADR-033): [imp_x, imp_y, imp_z, energy],
+    // fixed point, zeroed once and only ever added to while flashing (flash.cu).
+    if (cudaMalloc(&w.d_flash_accum, sizeof(unsigned long long) * 4) != cudaSuccess) {
+        world_destroy(w);
+        return fail(Status::OutOfMemory, "cudaMalloc flash accum");
+    }
+    cudaMemset(w.d_flash_accum, 0, sizeof(unsigned long long) * 4);
+
     w.chamber = d.chamber;
     w.motion = d.motion;
     w.seed = d.seed;
@@ -87,6 +95,7 @@ void world_destroy(World& w) {
     fields::grid_destroy(w.fields.irradiance);
     taumoeba_destroy(w.taumoeba);
     cudaFree(w.d_predator_claim);
+    cudaFree(w.d_flash_accum);
     cudaFree(w.d_stats);
     cudaFree(w.d_co2_demand);
     cudaFree(w.d_fx);
@@ -128,8 +137,10 @@ void world_step(World& w) {
     // Stage 4 is interleaved with the temperature field's own substeps, so it
     // owns stages 7 and 8 for that field. One cell deposits ~188 K into a single
     // grid cell per tick; applied all at once it would sail past boiling
-    // (ADR-020). Do NOT diffuse temperature again below.
-    thermal_step(w, dt);
+    // (ADR-020). Do NOT diffuse temperature again below. Skipped wholesale when a
+    // scenario has no thermal dynamics (thermal_enabled=false): its medium stays
+    // uniform, so 512^2 diffusion each tick would be pure cost (M11b, komorov).
+    if (w.motion.thermal_enabled) thermal_step(w, dt);
 
     // Stage 9. Rebuilt from scratch every tick -- irradiance is never
     // accumulated. Runs before motion so feeding and thrust see the same field.
@@ -144,7 +155,11 @@ void world_step(World& w) {
     // 1 ms against a field whose diffusion time across one grid cell is ~0.1 s,
     // i.e. negligible, and at M8 the only CO2 source is a brush. M9 adds uptake
     // and should re-examine whether stage 2 needs splitting out (ADR-022).
-    if (w.motion.taxis_enabled) taxis_step(w, dt);
+    // Stage 9b. The spin-drive flash overrides taxis emission while armed (ADR-033): a
+    // forced full-rate discharge against the slide, not run-and-tumble seeking. Both set
+    // emit_power and debit the store, so exactly one runs per tick.
+    if (w.flash_active) flash_step(w, dt);
+    else if (w.motion.taxis_enabled) taxis_step(w, dt);
 
     motion_step(w, dt);
 

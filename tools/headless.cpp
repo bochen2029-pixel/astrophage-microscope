@@ -20,6 +20,7 @@
 
 #include "contracts/snapshot_v1.h"
 #include "core/canon_generated.h"
+#include "sim/accept.h"
 #include "sim/scenario.h"
 #include "sim/world.cuh"
 
@@ -33,11 +34,13 @@ namespace {
 
 struct Options {
     long long          ticks = 1000;
+    bool               ticks_set = false;    // was --ticks given (vs derive the horizon)
     unsigned long long seed = 20260802ull;
     int                cells = 4096;
     double             charge = 0.02;
     bool               assert_deterministic = false;
     const char*        scenario = nullptr;
+    bool               assert_scenario = false;   // --assert: evaluate the accept block
     bool               verbose = false;
     bool               report_extent = false;
     bool               compaction = false;   // reclaim dead slots (ADR-028)
@@ -137,6 +140,90 @@ bool run(const Options& o, uint64_t& hash_out) {
     return true;
 }
 
+const char* op_symbol(contract::CompareOp op) {
+    switch (op) {
+        case contract::CompareOp::Eq: return "==";
+        case contract::CompareOp::Ne: return "!=";
+        case contract::CompareOp::Lt: return "<";
+        case contract::CompareOp::Le: return "<=";
+        case contract::CompareOp::Gt: return ">";
+        case contract::CompareOp::Ge: return ">=";
+        case contract::CompareOp::Approx: return "~=";
+    }
+    return "?";
+}
+
+// Run a scenario headless and evaluate its accept block (the T24 gate). Applies the
+// scenario's driving script every tick and samples at HUD rate. Returns true iff every
+// check passes; an empty accept block (sandbox) trivially passes without running.
+bool run_scenario_assert(const contract::Scenario& sc, sim::World& w,
+                         long long ticks_override) {
+    if (sc.accept_count == 0) {
+        std::printf("scenario %s: no objective (sandbox) -- ACCEPT\n", sc.id);
+        return true;
+    }
+
+    // Horizon: an explicit duration, else the latest accept after_s or drive window.
+    double horizon = sc.run_duration_s;
+    if (horizon <= 0.0) {
+        for (int i = 0; i < sc.accept_count; ++i)
+            if (sc.accept[i].after_s > horizon) horizon = sc.accept[i].after_s;
+        for (int i = 0; i < sc.drive_count; ++i) {
+            const double te = sc.drive[i].t1_s > sc.drive[i].t0_s ? sc.drive[i].t1_s
+                                                                  : sc.drive[i].t0_s;
+            if (te > horizon) horizon = te;
+        }
+    }
+    if (horizon <= 0.0) horizon = 60.0;   // a scenario whose objective names no time
+
+    const double dt = canon::DT_PHYSICS * w.physics_rate;
+    long long ticks = ticks_override > 0 ? ticks_override
+                                         : static_cast<long long>(std::ceil(horizon / dt));
+    if (ticks < 1) ticks = 1;
+    const long long stride = ticks > 2000 ? ticks / 2000 : 1;   // bound the D2H samples
+
+    // Velocity capture windows (three-percent-line): a couple of seconds in, while every
+    // cell is still in free drift (accept.cpp). Physical seconds, not tuned magic.
+    const double settle_s = 2.0, interval_s = 4.0;
+
+    const sim::MetricNeeds needs = sim::metric_needs(sc);
+    sim::RunAggregates agg;
+    contract::Stats st{};
+    for (long long t = 0; t < ticks; ++t) {
+        sim::scenario_apply_drive(w, sc);
+        sim::world_step(w);
+        if (t % stride == 0) {
+            st = sim::world_stats(w);
+            sim::aggregates_sample(agg, st, w, needs, settle_s, interval_s);
+        }
+    }
+    if (cudaDeviceSynchronize() != cudaSuccess) {
+        std::printf("device error during scenario assert\n");
+        return false;
+    }
+    st = sim::world_stats(w);   // final state
+    sim::aggregates_sample(agg, st, w, needs, settle_s, interval_s);
+
+    std::printf("scenario %s: assert over %.1f s (%lld ticks, %d checks)\n",
+                sc.id, st.sim_time_s, ticks, sc.accept_count);
+    bool all_pass = true;
+    for (int i = 0; i < sc.accept_count; ++i) {
+        const contract::AcceptCheck& c = sc.accept[i];
+        const double measured = sim::metric_measure(c.metric, st, agg, w, sc);
+        const bool ok = sim::accept_eval(c, measured);
+        all_pass = all_pass && ok;
+        std::printf("  [%s] %-26s %-12.6g %s %-.6g",
+                    ok ? "PASS" : "FAIL", sim::metric_name(c.metric),
+                    measured, op_symbol(c.op), c.value);
+        if (c.op == contract::CompareOp::Approx) std::printf(" (tol %.4g%s)",
+                    c.tol, c.tol_absolute ? " abs" : " rel");
+        if (c.after_s > 0.0) std::printf(" [after %.0f s]", c.after_s);
+        std::printf("\n");
+    }
+    std::printf("scenario %s: %s\n", sc.id, all_pass ? "ACCEPT" : "REJECT");
+    return all_pass;
+}
+
 void usage() {
     std::printf(
         "headless -- Astrophage simulator, no window\n"
@@ -148,6 +235,8 @@ void usage() {
         "  --compaction              reclaim dead slots each tick (ADR-028)\n"
         "  --absorbing               absorbing x/y walls, so cells die and can be reclaimed\n"
         "  --scenario ID             run a scenario headless (M11)\n"
+        "  --assert                  with --scenario: evaluate its accept block (T24),\n"
+        "                            exit nonzero on any missed check\n"
         "  --verbose\n");
 }
 
@@ -160,7 +249,7 @@ int main(int argc, char** argv) {
         auto next = [&](long long dflt) -> long long {
             return (i + 1 < argc) ? std::atoll(argv[++i]) : dflt;
         };
-        if (a == "--ticks")                     o.ticks = next(o.ticks);
+        if (a == "--ticks")                   { o.ticks = next(o.ticks); o.ticks_set = true; }
         else if (a == "--seed")                 o.seed = static_cast<unsigned long long>(next(20260802));
         else if (a == "--cells")                o.cells = static_cast<int>(next(o.cells));
         else if (a == "--charge")               o.charge = (i + 1 < argc) ? std::atof(argv[++i]) : o.charge;
@@ -170,6 +259,7 @@ int main(int argc, char** argv) {
         else if (a == "--compaction")           o.compaction = true;
         else if (a == "--absorbing")            o.absorbing = true;
         else if (a == "--scenario")             o.scenario = (i + 1 < argc) ? argv[++i] : nullptr;
+        else if (a == "--assert")               o.assert_scenario = true;
         else if (a == "--help" || a == "-h")  { usage(); return 0; }
         else { std::printf("unknown argument: %s\n", a.c_str()); usage(); return 2; }
     }
@@ -197,6 +287,15 @@ int main(int argc, char** argv) {
             std::printf("scenario '%s' instantiate failed: %s\n", sc.id, status_str(e.status));
             return 3;
         }
+
+        // --assert evaluates the accept block (T24). Exit nonzero on any missed check,
+        // so gate.ps1 can loop every scenario and fail the milestone on the first miss.
+        if (o.assert_scenario) {
+            const bool pass = run_scenario_assert(sc, w, o.ticks_set ? o.ticks : 0);
+            sim::world_destroy(w);
+            return pass ? 0 : 1;
+        }
+
         for (long long t = 0; t < o.ticks; ++t) sim::world_step(w);
         if (cudaDeviceSynchronize() != cudaSuccess) {
             std::printf("device error during scenario stepping\n");

@@ -30,6 +30,7 @@ inline constexpr double PETROVA_WAVELENGTH = 2.5984000000000001e-05; // [m] CANO
 inline constexpr double PETROVA_BEAM_HALF_ANGLE = 0.34999999999999998; // [rad] INVENTED -- ~20 deg. Directed out one side; tightness unstated.
 inline constexpr double PETROVA_MAX_POWER = 0.050000000000000003; // [W] INVENTED -- 50 mW. Chosen so max output ~= the power a full cell needs to hover. Canon gives capacity but never a discharge rate. See ADR-005.
 inline constexpr double PETROVA_SLEW_RATE = 1; // [rad/s] INVENTED -- How fast a cell can re-aim its emission axis.
+inline constexpr double PETROVA_FLASH_POWER = 3000000; // [W] INVENTED -- Spin-drive flash: the forced full-rate discharge rate while an external Petrova-band pulse plays on the face (PHYSICS.md Sec 6, ADR-033). Canon gives no discharge rate, so this is chosen large enough to empty a full cell in ~0.5 s. impulse_per_cycle is a photon-momentum identity (F = P/c) independent of its value.
 inline constexpr double CO2_LINE_A = 4.2599999999999999e-06; // [m] CANON -- nu3 asymmetric stretch; strongest IR-active CO2 band.
 inline constexpr double CO2_LINE_B = 1.8309999999999999e-05; // [m] CANON -- Book value. Real nu2 bending band is ~15 um; treat as artistic offset.
 inline constexpr double CO2_MASS_PER_DIVISION = 2.0999999999999999e-14; // [kg] INVENTED -- = 1x dry mass. Stoichiometric placeholder.
@@ -170,6 +171,7 @@ inline constexpr ParamMeta PARAM_TABLE[] = {
     { "PETROVA_BEAM_HALF_ANGLE", 0.34999999999999998, "rad", Provenance::Invented, "[REF 1.5] ~20 deg. Directed out one side; tightness unstated.", true, 0.02, 3.1415899999999999, false },
     { "PETROVA_MAX_POWER", 0.050000000000000003, "W", Provenance::Invented, "50 mW. Chosen so max output ~= the power a full cell needs to hover. Canon gives capacity but never a discharge rate. See ADR-005.", true, 9.9999999999999995e-07, 100, true },
     { "PETROVA_SLEW_RATE", 1, "rad/s", Provenance::Invented, "How fast a cell can re-aim its emission axis.", true, 0.01, 100, true },
+    { "PETROVA_FLASH_POWER", 3000000, "W", Provenance::Invented, "Spin-drive flash: the forced full-rate discharge rate while an external Petrova-band pulse plays on the face (PHYSICS.md Sec 6, ADR-033). Canon gives no discharge rate, so this is chosen large enough to empty a full cell in ~0.5 s. impulse_per_cycle is a photon-momentum identity (F = P/c) independent of its value.", true, 1000, 1000000000, true },
     { "CO2_LINE_A", 4.2599999999999999e-06, "m", Provenance::Canon, "[REF 1.5] nu3 asymmetric stretch; strongest IR-active CO2 band.", false, 0.0, 0.0, false },
     { "CO2_LINE_B", 1.8309999999999999e-05, "m", Provenance::Canon, "[REF 3.2] Book value. Real nu2 bending band is ~15 um; treat as artistic offset.", false, 0.0, 0.0, false },
     { "CO2_MASS_PER_DIVISION", 2.0999999999999999e-14, "kg", Provenance::Invented, "= 1x dry mass. Stoichiometric placeholder.", true, 2.0999999999999998e-15, 2.0999999999999999e-13, true },
@@ -268,6 +270,6 @@ inline constexpr ParamMeta PARAM_TABLE[] = {
     { "TNT_GRAMS_PER_FULL_CELL", 358.50860420650093, "g", Provenance::Derived, "= E_max / 4184 J/g", false, 0.0, 0.0, false },
     { "WIEN_LAMBDA_AT_SETPOINT", 7.8410346082556516e-06, "m", Provenance::Derived, "= Wien b / T -- the THERMAL peak, distinct from the Petrova line", false, 0.0, 0.0, false },
 };
-inline constexpr int PARAM_COUNT = 108;
+inline constexpr int PARAM_COUNT = 109;
 
 } // namespace astro::canon

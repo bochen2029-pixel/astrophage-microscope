@@ -101,7 +101,9 @@ add_library(astro_sim STATIC
     src/sim/predation.cu
     src/sim/stats.cu
     src/sim/step.cu
-    src/sim/scenario.cpp)
+    src/sim/scenario.cpp
+    src/sim/accept.cpp
+    src/sim/flash.cu)
 target_link_libraries(astro_sim PUBLIC astro_core astro_fields)
 astro_strict(astro_sim)
 

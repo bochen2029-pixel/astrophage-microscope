@@ -17,7 +17,7 @@
 
   "populations": [
     { "kind": "astrophage", "count": 2000, "placement": "uniform",
-      "charge": { "dist": "uniform", "a": 0.0, "b": 0.10 }, "awake": true }
+      "charge": { "dist": "uniform", "a": 0.0, "b": 0.10 }, "awake": false }
   ],
 
   "clock": { "preset": "motion" },

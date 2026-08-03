@@ -10,14 +10,14 @@
                "boundary_x": "reflecting", "boundary_y": "reflecting" },
 
   "medium": { "kind": "water", "temp_init": 293.15, "co2_init": 0.0, "n2_init": 0.0,
-              "thermal_bc": "robin", "ambient_temp": 293.15,
+              "thermal_bc": "neumann", "ambient_temp": 293.15,
               "density_model": "canon-mass", "store_disposition": "void" },
 
   "light": { "sources": [], "ambient": 0.0 },
 
   "populations": [
     { "kind": "astrophage", "count": 800, "placement": "uniform",
-      "charge": { "dist": "constant", "value": 0.0 }, "awake": false }
+      "charge": { "dist": "constant", "value": 0.02 }, "awake": false }
   ],
 
   "clock": { "preset": "realtime" },
@@ -28,11 +28,19 @@
   "tools": ["heat", "chill", "illuminate", "seed_cells"],
   "param_overrides": {},
 
+  // Uniform heat past the setpoint by ~5 s: +78 K over 5 s takes the whole (now uniform)
+  // medium to ~371 K, crossing 369.565 K near 4.9 s so every cell wakes together (P3).
+  // Then it stops: with the insulated boundary the awake cells absorb the ~1.5 K of excess
+  // (charging slightly) and pin the medium at the setpoint, never boiling (P2).
+  "drive": [
+    { "kind": "heat", "t0_s": 0.0, "t1_s": 5.0, "v0": 15.9, "v1": 15.9 }
+  ],
+
   "objective": {
     "text": "Wake the culture. Then try to cool it back down.",
     "accept": [
       { "metric": "awake_fraction",   "op": ">=", "value": 1.0,     "after_s": 5 },
-      { "metric": "medium_temp_mean", "op": "~=", "value": 369.565, "tol": 0.5, "after_s": 120 },
+      { "metric": "medium_temp_mean", "op": "~=", "value": 369.565, "tol": 0.5, "tol_absolute": true, "after_s": 60 },
       { "metric": "boil_event_count", "op": "==", "value": 0 }
     ]
   }

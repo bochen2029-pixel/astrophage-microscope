@@ -11,7 +11,7 @@
 
   "medium": { "kind": "water", "temp_init": 293.15, "co2_init": 0.0, "n2_init": 0.0,
               "thermal_bc": "robin", "ambient_temp": 293.15,
-              "density_model": "canon-mass" },
+              "density_model": "canon-mass", "thermal_active": false },
 
   "light": { "sources": [
       { "dir_x": 0.0, "dir_y": -1.0, "irradiance": 10.0, "wavelength": 4.26e-6 }
@@ -31,10 +31,20 @@
   "tools": ["illuminate", "charge_beam"],
   "param_overrides": {},
 
+  // The flash: an external Petrova-band pulse forces full-rate discharge (ADR-033). At
+  // PETROVA_FLASH_POWER (3 MW) a full cell (1.5 MJ) empties in ~0.5 s, so a 0.6 s pulse
+  // clears all 1000. impulse_per_cycle = |Sum recoil| * c / Sum(E_discharged) = 1 (photon
+  // momentum, F = P/c), and total_energy_j -> 0 confirms no cell retains its store.
+  "drive": [
+    { "kind": "flash", "t0_s": 0.0, "t1_s": 0.6 }
+  ],
+
   "objective": {
     "text": "Run the attract-rotate-flash-scrape cycle; account the impulse per cycle.",
+    "duration_s": 0.7,
     "accept": [
       { "metric": "impulse_per_cycle", "op": "~=", "value": 1.0, "tol": 0.01 },
+      { "metric": "total_energy_j",    "op": "~=", "value": 0.0, "tol": 1000.0, "tol_absolute": true },
       { "metric": "boil_event_count",  "op": "==", "value": 0 }
     ]
   }

@@ -90,6 +90,19 @@ uint32_t tool_bit_of(const std::string& s) {
     if (s == "charge_beam")   return static_cast<uint32_t>(ToolBit::ChargeBeam);
     return 0;
 }
+StimulusKind stimkind_of(const std::string& s, bool& ok) {   // ADR-032
+    ok = true;
+    if (s == "heat")       return StimulusKind::Heat;
+    if (s == "chill")      return StimulusKind::Chill;
+    if (s == "inject_co2") return StimulusKind::InjectCO2;
+    if (s == "inject_n2")  return StimulusKind::InjectN2;
+    if (s == "set_light")  return StimulusKind::SetLight;
+    if (s == "set_n2")     return StimulusKind::SetN2;
+    if (s == "seed_cells") return StimulusKind::SeedCells;
+    if (s == "flash")      return StimulusKind::Flash;
+    ok = false;
+    return StimulusKind::Heat;
+}
 CompareOp op_of(const std::string& s) {
     if (s == "!=") return CompareOp::Ne;
     if (s == "<")  return CompareOp::Lt;
@@ -151,6 +164,7 @@ Error scenario_parse(const std::string& text, Scenario& out) {
     out.thermal_bc = BoundaryCondition::Robin;
     out.density_model = DensityModel::CanonMass;
     out.store_disposition = StoreDisposition::Void;
+    out.thermal_active = 1;   // zero-filled Scenario would otherwise disable it
     if (const json::Value* md = root.find("medium")) {
         out.temp_init = md->num("temp_init", canon::AMBIENT_TEMP_DEFAULT);
         out.co2_init = md->num("co2_init", 0.0);
@@ -160,6 +174,7 @@ Error scenario_parse(const std::string& text, Scenario& out) {
         out.density_model = density_of(md->text("density_model", "canon-mass"));
         out.store_disposition = disposition_of(md->text("store_disposition", "void"));
         out.gravity_axis = md->text("gravity_axis", "y") == "z" ? 1 : 0;
+        out.thermal_active = md->flag("thermal_active", true) ? 1 : 0;
     }
 
     if (const json::Value* lt = root.find("light")) {
@@ -203,6 +218,10 @@ Error scenario_parse(const std::string& text, Scenario& out) {
         out.population_count = n;
     }
 
+    // Store turnover (ADR-028), off by default so a plain run is bit-preserved.
+    out.compaction = root.flag("compaction", false) ? 1 : 0;
+    out.tau_compaction = root.flag("tau_compaction", false) ? 1 : 0;
+
     out.clock = ClockPreset::Realtime;
     out.physics_rate = 1.0;
     out.biology_rate = 1.0;
@@ -235,6 +254,31 @@ Error scenario_parse(const std::string& text, Scenario& out) {
             if (t.is_string()) out.tools |= tool_bit_of(t.str);
     }
 
+    // The driving script (v2, ADR-032). Strict on an unknown kind, like the accept
+    // metric below -- a silently-dropped stimulus is as bad as a dropped objective.
+    // t1_s <= t0_s means an open-ended window (active from t0_s to the end of the run).
+    if (const json::Value* dr = root.find("drive")) {
+        int n = 0;
+        for (const auto& e : dr->arr) {
+            if (n >= MAX_STIMULI) break;
+            bool ok = false;
+            const StimulusKind k = stimkind_of(e.text("kind", ""), ok);
+            if (!ok) return fail(Status::InvalidArgument, "scenario: unknown drive stimulus kind");
+            Stimulus& st = out.drive[n];
+            st = Stimulus{};
+            st.kind = k;
+            st.t0_s = e.num("t0_s", 0.0);
+            st.t1_s = e.num("t1_s", 0.0);
+            st.x = e.num("x", 0.0);
+            st.y = e.num("y", 0.0);
+            st.radius = e.num("radius", 0.0);
+            st.v0 = e.num("v0", e.num("value", 0.0));
+            st.v1 = e.num("v1", e.num("value", st.v0));
+            ++n;
+        }
+        out.drive_count = n;
+    }
+
     // Overrides parsed, not applied (a runtime-param system is M11c).
     if (const json::Value* po = root.find("param_overrides")) {
         int n = 0;
@@ -249,6 +293,7 @@ Error scenario_parse(const std::string& text, Scenario& out) {
 
     if (const json::Value* ob = root.find("objective")) {
         set_str(out.objective_text, sizeof(out.objective_text), ob->text("text", ""));
+        out.run_duration_s = ob->num("duration_s", 0.0);
         if (const json::Value* ac = ob->find("accept")) {
             int n = 0;
             for (const auto& c : ac->arr) {
@@ -303,6 +348,9 @@ Error scenario_instantiate(const Scenario& s, World& w) {
     d.motion.gravity_axis = static_cast<GravityAxis>(s.gravity_axis);
     d.motion.ambient_temp = s.ambient_temp;
     d.motion.store_disposition = s.store_disposition;
+    d.motion.thermal_enabled = s.thermal_active != 0;
+    d.motion.compaction_enabled = s.compaction != 0;
+    d.motion.tau_compaction_enabled = s.tau_compaction != 0;
     ASTRO_TRY(world_create(w, d));
 
     // Everything past world_create; destroy the World on any failure so the caller
@@ -343,6 +391,77 @@ Error scenario_instantiate(const Scenario& s, World& w) {
     if (s.lights[0].enabled) w.light = s.lights[0];   // one source at M11a (MAX is 8)
     world_set_clock(w, s.clock, s.physics_rate, s.biology_rate);
     return ok();
+}
+
+void scenario_apply_drive(World& w, const Scenario& s) {
+    const double t  = w.sim_time_s;
+    const double dt = canon::DT_PHYSICS * w.physics_rate;   // this tick's simulated span
+    w.flash_active = false;                                 // re-armed per tick below
+    for (int i = 0; i < s.drive_count; ++i) {
+        const Stimulus& st = s.drive[i];
+        const bool open_ended = st.t1_s <= st.t0_s;         // no end -> active to run end
+        if (t < st.t0_s) continue;
+        if (!open_ended && t >= st.t1_s) continue;
+        double frac = 0.0;
+        if (!open_ended && st.t1_s > st.t0_s) frac = (t - st.t0_s) / (st.t1_s - st.t0_s);
+        const double strength = st.v0 + (st.v1 - st.v0) * frac;
+        // radius<=0 means chamber-global. grid_brush has a (1-t^2)^2 radial falloff, so a
+        // radius merely covering the chamber still peaks at the centre and heats the edges
+        // less -- a gradient that wakes centre cells first. A radius many times the chamber
+        // keeps the whole field in the flat top of that falloff: a near-uniform fill.
+        const double radius = st.radius > 0.0 ? st.radius : 10.0 * (w.chamber.w + w.chamber.h);
+        switch (st.kind) {
+            // Brush strengths are RATES (per second): multiply by dt so the total
+            // dose over a window is invariant to physics_rate.
+            case StimulusKind::Heat:
+                (void)world_apply_brush(w, BrushKind::Heat, st.x, st.y, radius, strength * dt);
+                break;
+            case StimulusKind::Chill:
+                (void)world_apply_brush(w, BrushKind::Chill, st.x, st.y, radius, strength * dt);
+                break;
+            case StimulusKind::InjectCO2:
+                (void)world_apply_brush(w, BrushKind::InjectCO2, st.x, st.y, radius, strength * dt);
+                break;
+            case StimulusKind::InjectN2:
+                (void)world_apply_brush(w, BrushKind::InjectN2, st.x, st.y, radius, strength * dt);
+                break;
+            case StimulusKind::SetLight:                    // absolute level, not a rate
+                w.light.irradiance = static_cast<float>(strength);
+                w.light.enabled = strength > 0.0 ? 1 : 0;
+                break;
+            case StimulusKind::SetN2:                        // absolute uniform fill (ADR-030)
+                (void)fields::grid_fill(w.fields.n2, static_cast<float>(strength));
+                break;
+            case StimulusKind::SeedCells: {
+                // Maintain astrophage prey at `strength` -- the predator's food supply for
+                // the breeding arc (test_evolution's top_up_prey). `compaction` keeps
+                // count == live, so the deficit is exactly what was eaten; the tick-varying
+                // seed keeps the top-up deterministic. Mirrors scenario_instantiate's spawn.
+                const int32_t target  = static_cast<int32_t>(strength);
+                const int32_t deficit = target - w.cells.count;
+                for (int p = 0; deficit > 0 && p < s.population_count; ++p) {
+                    const PopulationSpec& ps = s.populations[p];
+                    if (ps.kind != OrganismKind::Astrophage) continue;
+                    SpawnParams sp;
+                    sp.count = deficit;
+                    sp.placement = static_cast<Placement>(static_cast<uint8_t>(ps.placement));
+                    sp.place_x = ps.place_x;
+                    sp.place_y = ps.place_y;
+                    sp.place_radius = ps.place_radius;
+                    sp.charge_dist = static_cast<Distribution>(static_cast<uint8_t>(ps.charge_dist));
+                    sp.charge_a = ps.charge_a;
+                    sp.charge_b = ps.charge_b;
+                    sp.awake = ps.awake != 0;
+                    (void)cell_store_spawn(w.cells, sp, w.chamber, w.seed + w.tick);
+                    break;
+                }
+                break;
+            }
+            case StimulusKind::Flash:                       // canon PETROVA_FLASH_* (ADR-033)
+                w.flash_active = true;
+                break;
+        }
+    }
 }
 
 } // namespace astro::sim

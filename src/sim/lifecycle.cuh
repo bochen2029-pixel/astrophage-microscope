@@ -10,7 +10,7 @@
 #include <cstdint>
 
 #include "contracts/cell_store_v1.h"
-#include "contracts/scenario_v1.h"
+#include "contracts/scenario_v2.h"
 #include "core/canon_generated.h"
 #include "core/rng.cuh"
 #include "core/units.h"

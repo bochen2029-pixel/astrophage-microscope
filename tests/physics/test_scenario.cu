@@ -11,7 +11,7 @@
 
 #include <cuda_runtime.h>
 
-#include "contracts/scenario_v1.h"
+#include "contracts/scenario_v2.h"
 #include "contracts/snapshot_v1.h"
 #include "sim/json.h"
 #include "sim/scenario.h"

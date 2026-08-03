@@ -64,6 +64,11 @@ BASE = [
      "Canon gives capacity but never a discharge rate. See ADR-005.", None, (1e-6, 1e2, True)),
     ("PETROVA_SLEW_RATE", 1.0, "rad/s", INVENTED,
      "How fast a cell can re-aim its emission axis.", None, (0.01, 100.0, True)),
+    ("PETROVA_FLASH_POWER", 3.0e6, "W", INVENTED,
+     "Spin-drive flash: the forced full-rate discharge rate while an external Petrova-band "
+     "pulse plays on the face (PHYSICS.md Sec 6, ADR-033). Canon gives no discharge rate, "
+     "so this is chosen large enough to empty a full cell in ~0.5 s. impulse_per_cycle is a "
+     "photon-momentum identity (F = P/c) independent of its value.", None, (1e3, 1e9, True)),
 
     # --- CO2 navigation and reproduction ------------------------------------
     ("CO2_LINE_A", 4.26e-6, "m", CANON,

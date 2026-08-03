@@ -31,8 +31,12 @@
   "tools": ["illuminate", "inject_co2", "seed_cells"],
   "param_overrides": {},
 
+  // ~5 s of culture-clock time is several doublings at the generational rate (doubling is
+  // LIFE_DOUBLING_TIME/biology_rate = 0.69 s of sim time), growing 10 -> ~1000 cells while
+  // CO2 (1.5 kg/m^3, ~68k divisions' worth) stays non-limiting and below the store cap.
   "objective": {
     "text": "Grow the culture; confirm the doubling time while CO2 is non-limiting.",
+    "duration_s": 5.0,
     "accept": [
       { "metric": "population_live", "op": ">",  "value": 10 },
       { "metric": "doubling_time_s", "op": "~=", "value": 6.912e5, "tol": 0.05 }

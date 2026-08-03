@@ -11,10 +11,13 @@
 
   "medium": { "kind": "water", "temp_init": 293.15, "co2_init": 0.0, "n2_init": 0.0,
               "thermal_bc": "robin", "ambient_temp": 293.15,
-              "density_model": "canon-mass" },
+              "density_model": "canon-mass", "thermal_active": false },
 
+  // 1.27324e13 W/m^2 = exactly 1 kW / CELL_CROSS_SECTION (pi r^2, 7.854e-11 m^2): the
+  // "1 kW focused to a 10 um spot" the novel skips (docs/SCENARIOS.md). At 1 kW absorbed
+  // the cell reaches CELL_ENERGY_MAX (1.5 MJ) in 1500 s and clamps there.
   "light": { "sources": [
-      { "dir_x": 0.0, "dir_y": -1.0, "irradiance": 1.27e13, "wavelength": 2.5984e-5 }
+      { "dir_x": 0.0, "dir_y": -1.0, "irradiance": 1.27324e13, "wavelength": 2.5984e-5 }
     ], "ambient": 0.0 },
 
   "populations": [
@@ -22,7 +25,10 @@
       "charge": { "dist": "constant", "value": 0.0 }, "awake": false }
   ],
 
-  "clock": { "preset": "metabolic" },
+  // A single dormant cell absorbing a beam has no motion worth resolving and no thermal
+  // field to evolve, so physics_rate 100 makes 1560 s of culture time 15,600 ticks, not
+  // 1.56 M. Charging is energy += P*dt, exact at any dt.
+  "clock": { "preset": "custom", "physics_rate": 100.0, "biology_rate": 1.0 },
 
   "scope": { "mode": "petrovascope", "objective": "DETAIL",
              "focal_plane": 0.0, "center": [0.0, 0.0] },
@@ -32,6 +38,7 @@
 
   "objective": {
     "text": "Absorb 1 kW for 25 minutes and reach full enrichment.",
+    "duration_s": 1560,
     "accept": [
       { "metric": "total_energy_j", "op": "~=", "value": 1.5e6, "tol": 0.001, "after_s": 1500 }
     ]
