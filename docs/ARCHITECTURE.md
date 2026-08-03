@@ -178,7 +178,7 @@ Must match the directory listing exactly — `audit.ps1` checks this.
 src/core     canon_generated.h, params.h, units.h, rng.cuh, vec.cuh, fixed_atomic.cuh, result.h
 src/fields   grid.cuh, diffuse.cu, irradiance.cu
 src/sim      cell_store.cu, integrator.cu, thermal.cu, emission.cu, flash.cu, taxis.cu,
-             contact.cu, lifecycle.cu, predation.cu, hash.cu, snapshot.cpp, stats.cu, step.cu,
+             contact.cu, lifecycle.cu, predation.cu, hash.cu, snapshot.cu, stats.cu, step.cu,
              json.h, scenario.cpp, accept.cpp
 src/render   gl_context.cpp, interop.cu, cells_pass.cpp, field_pass.cpp,
              optics.cpp, morphology.h, post_pass.cpp, bloom.cpp, luts.cpp, camera.cpp

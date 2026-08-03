@@ -25,7 +25,7 @@ The simulation itself: the cell and Taumoeba stores, the integrator, and every p
 | `flash.cu` | ✅ the spin-drive flash: stimulated full-rate discharge, fixed-point momentum/energy audit (PHYSICS.md §6, ADR-033) | M11b |
 | `step.cu` | ✅ tick sequence, the multi-rate clock and its presets (ADR-011, ADR-027) | M1/M9c |
 | `predation.{cuh,cu}` | ✅ TaumoebaStore, crawl, deterministic engulfment, digestion (M10a); N₂ lethality, heritable tolerance, division + stable compaction, the Taumoeba-82.5 arc (M10b) | M10b |
-| `snapshot.cpp` | serialise/restore, FNV-1a state hash | M12 |
+| `snapshot.cu` | ✅ full-state ASPH serialise/restore + the full-state FNV-1a oracle (M12a, ADR-036). A `.cu`, not `.cpp`: it cudaMemcpy's every SoA array directly | M12a |
 
 ## Contracts
 

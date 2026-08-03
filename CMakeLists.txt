@@ -103,7 +103,8 @@ add_library(astro_sim STATIC
     src/sim/step.cu
     src/sim/scenario.cpp
     src/sim/accept.cpp
-    src/sim/flash.cu)
+    src/sim/flash.cu
+    src/sim/snapshot.cu)
 target_link_libraries(astro_sim PUBLIC astro_core astro_fields)
 astro_strict(astro_sim)
 
@@ -155,6 +156,8 @@ astro_test(test_param_locks tests/physics/test_param_locks.cpp)
 # M11f: the sim reads the curated live-tunable overrides, and an untouched override is
 # bit-identical to canon (ADR-035). Needs a CUDA device -- it steps real worlds.
 astro_test(test_param_override tests/physics/test_param_override.cu)
+# M12a: full-state snapshot round trip and replay across the save/restore boundary (T21).
+astro_test(test_snapshot     tests/physics/test_snapshot.cu)
 
 # ---------------------------------------------------------------------------
 # tools -- headless runner. The determinism oracle (INV-8) and the scenario

@@ -284,11 +284,24 @@ if (($n -gt 11) -or ($n -eq 11 -and $suffix -ge 'f')) {
     }
 }
 
-# ----------------------------------------------------------------- M12: ship
-if ($n -ge 12) {
-    Gate 'M12.1' 'snapshot round trip (T21, T23)' { return (Run-Test 'test_snapshot') }
-    Gate 'M12.2' 'performance budget (T27-T29)'   { return (Run-Test 'test_perf') }
-    Gate 'M12.3' 'clean-environment package'      {
+# ---------------------------- M12a: snapshot save/load and replay determinism
+if (($n -gt 12) -or ($n -eq 12 -and $suffix -ge 'a')) {
+    # A world stepped -> saved -> restored reproduces the full-state hash, and stepping the
+    # original and the restored world past the boundary stays bit-identical (T21). A corrupt
+    # file is rejected. This is the INV-8 oracle at full resolution (ADR-036).
+    Gate 'M12a.1' 'snapshot round trip + replay across the boundary (T21)' {
+        return (Run-Test 'test_snapshot')
+    }
+}
+
+# ---------------------------- M12b: performance, Taumoeba rendering, render remainder
+if (($n -gt 12) -or ($n -eq 12 -and $suffix -ge 'b')) {
+    Gate 'M12b.1' 'performance budget (T27-T29)' { return (Run-Test 'test_perf') }
+}
+
+# ---------------------------- M12c: package and v1.0
+if (($n -gt 12) -or ($n -eq 12 -and $suffix -ge 'c')) {
+    Gate 'M12c.1' 'clean-environment package' {
         & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'scripts\package.ps1') -Verify *>&1 | Out-Null
         return ($LASTEXITCODE -eq 0)
     }

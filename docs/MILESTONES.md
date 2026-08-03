@@ -329,8 +329,40 @@ becomes real (labelled pending in M11d, ADR-034).
 
 ---
 
-## M12 — Ship
+## M12 — Ship  (split into M12a/M12b/M12c, Iron Rule 9)
 
-**Scope.** Snapshot save/load and the time scrubber, replay determinism across a save/restore boundary, a performance pass to budget (`RENDERING.md` §7), colourblind LUT toggle, packaging (static runtimes, clean-machine `.zip`), `README.md` and a user guide.
+M12's original scope — snapshot/replay, the time scrubber, the perf pass, the colourblind LUT,
+Taumoeba rendering, the M7b render remainder, packaging, and `v1.0` — is three sessions. Its gate
+also names tests (`test_snapshot`, `test_perf`) and `package.ps1` that do not exist yet, and
+`src/sim/snapshot.cpp` is in the inventory but is unbuilt. Split before starting.
 
-**Gate.** M11 gate + T21, T23, T27, T28, T29 green; the packaged `.zip` runs on a scrubbed-PATH clean environment. Tag `v1.0`.
+### M12a — Snapshot save/load and replay determinism
+
+**Scope.** `src/sim/snapshot.{h,cpp}`: the ASPH full-state dump (`contracts/snapshot_v1.h`) —
+header, the ADR-035 overrides carried on the `ParamOverride` array, the CellStore and TaumoebaStore
+SoA in declaration order, and the T/CO₂/N₂ field values (irradiance is rebuilt, never stored). Save
+and load are bit-identical within a build. The full-state FNV-1a (`state_hash`) becomes the INV-8
+oracle over the *whole* state, not the position/velocity/energy subset `headless` hashes today.
+
+**Gate.** M11f gate + `test_snapshot` (T21): a world stepped → saved → restored reproduces the
+`state_hash`; stepping the original and the restored world in lockstep past the boundary stays
+bit-identical (replay across save/restore); a corrupted magic or version is rejected; and the round
+trip survives a run that has divided, died, spawned predators, and broken a canon lock.
+
+### M12b — Performance, Taumoeba rendering, the render remainder, the scrubber
+
+**Scope.** The perf pass to budget (`RENDERING.md §7`, `test_perf` = T27–T29), **Taumoeba rendering**
+(the app draws only Astrophage today — the predators run but are invisible), the M7b render remainder
+(bloom over Petrova, the cross-fade slider, the real T-field false-colour behind Thermal IR;
+pre-ignition warm-up needs `temp_cell` in the render instance → a `render_view_v3` bump), the
+colourblind LUT toggle, and the time scrubber over M12a's snapshots.
+
+**Gate.** M12a gate + `test_perf` (T27–T29) + a screenshot showing Taumoeba rendered and the new
+view affordances working.
+
+### M12c — Package and v1.0
+
+**Scope.** `scripts/package.ps1`: a static-runtime `.zip` that runs on a scrubbed-PATH clean machine,
+the user guide, `README.md` finalisation, and CSV `git_describe` injection.
+
+**Gate.** M12b gate + the packaged `.zip` runs on a scrubbed-PATH clean environment. Tag `v1.0`.

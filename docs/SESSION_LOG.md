@@ -6,6 +6,20 @@ Format: milestone · what landed · what is pending · open questions · gotchas
 
 ---
 
+## 2026-08-03 — M12a (Ship: snapshot save/load + replay determinism) — GREEN · **a run saves and resumes bit-identically**
+
+**Landed.** `src/sim/snapshot.cu` — the ASPH full-state dump (`contracts/snapshot_v1.h`): header, the ADR-035 overrides on the `ParamOverride` array, the CellStore + TaumoebaStore SoA in declaration order, and the T/CO2/N2 fields (irradiance is rebuilt, never stored). `snapshot_save` / `snapshot_load` / `snapshot_state_hash`. The array list is written once per store (`collect_*_spans`) and reused for both directions, so save and load can't disagree about layout. New ADR-036; no contract change. M12 was split M12a/b/c first (Iron Rule 9).
+
+**A `.cu`, not the inventory's `.cpp`.** The `.cpp` files in `astro_sim` reach the device only through `_download_*` helpers (no `cuda_runtime.h`); snapshot copies *every* array, so it `cudaMemcpy`s them directly as a `.cu`. Inventory + `sim/MODULE.md` reconciled in the commit.
+
+**The full-state hash is the INV-8 oracle at full resolution** (headless hashes only pos/vel/energy). `test_snapshot` (T21): round-trip fidelity on a rich world (3000 -> 5933 cells via division, 40 predators, a tuned override + broken lock -- hash and every scalar survive); replay across the boundary (step original + restored 30 ticks past save -> identical hash `54ef714f...`); a corrupt magic rejected.
+
+**Two snapshot_v1 gaps, handled + flagged (ADR-036).** Motion config is NOT serialised -- it's *how a run was set up*, not its state, so the caller restores it (the test mirrors it). Taumoeba `next_id` has no header slot -> reconstructed `max(id)+1` (exact unless the top-id predator was culled), so T21's replay arm is cells-only; a `snapshot_v2` field closes it.
+
+**Pending / next.** M12b: the perf pass (T27-T29, `test_perf`), **Taumoeba rendering** (still invisible), the M7b render remainder (`render_view_v3` for pre-ignition `temp_cell`), the colourblind LUT, the time scrubber over these snapshots. Then M12c: `package.ps1` + `v1.0`.
+
+---
+
 ## 2026-08-03 — M11f (Content: cell inspector + live param overrides) — GREEN · **the inspector's sliders finally move physics**
 
 **Landed.** Two features that close M11's UI. (1) The **cell inspector** (`inspector_panel.cpp`): click a cell -> its state with the P1 buoyancy line prominent (SINKING/RISING, density, x water). Picking is app-side -- cursor -> chamber via the camera, nearest cell from a positions download, the slot latched with its id so a recycled slot drops the pick -- and one cell is read at HUD rate through a new `cell_store_sample`, converted to display units, handed to the panel as plain data (`ui` may not include `sim`). `--inspect N` pre-selects a slot for headless screenshots. (2) The **curated live overrides** (ADR-035): `PETROVA_MAX_POWER` / `PETROVA_FLASH_POWER` / `CO2_MASS_PER_DIVISION` each get a `World` field the app fills from the `ParamSet` every frame; the kernels read it (threaded via **defaulted** args, so every other caller is unchanged). The params panel now draws a real LIVE slider for exactly these three, read-only otherwise. New ADR-035; no contract change.

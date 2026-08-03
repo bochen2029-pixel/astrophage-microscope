@@ -132,6 +132,22 @@ Append-only. Every contradiction in the source material and every non-obvious en
 
 ---
 
+## ADR-036 — The snapshot: a full-state oracle, a `.cu`, and what snapshot_v1 does not carry
+
+**Status:** accepted, 2026-08-03 (M12a).
+
+**Context.** `contracts/snapshot_v1.h` has been the frozen shape of the ASPH dump since M0, but nothing wrote or read it — `src/sim/snapshot.cpp` was an inventory placeholder. M12a builds it, and four things had to be settled.
+
+**The state hash is over the WHOLE state, and it supersedes the subset `headless` hashes.** `tools/headless.cpp` hashes only position/velocity/energy for its fast replay gate — enough to catch an integrator regression, but blind to ids, flags, biomass, taxis memory, the RNG streams, the predators, and the fields. The snapshot `state_hash` is FNV-1a over every serialised byte (both SoA stores + the T/CO₂/N₂ fields, in the contract's file order), so `test_snapshot` (T21) is the INV-8 oracle at full resolution. The two hashes coexist: the cheap one guards every earlier gate, the full one guards the round trip.
+
+**It is a `.cu`, not the `.cpp` the inventory named.** The `.cpp` files in `astro_sim` (`accept.cpp`, `scenario.cpp`) reach the device only through the `_download_*` helpers — they never include `cuda_runtime.h`. Snapshot copies *every* SoA array (25 cell + 20 predator + 3 fields); adding a download/upload helper per array would be a hundred lines of boilerplate in the `.cu` files plus a hundred more of calls. Making snapshot itself a `.cu` lets it `cudaMemcpy` each array directly, and the array list is written once per store (`collect_*_spans`) and reused for both save and load, so the two directions can never disagree about layout. The inventory and `sim/MODULE.md` are updated to `snapshot.cu` in the same commit (Iron Rule 7).
+
+**The ADR-035 overrides ride the `ParamOverride` array; determinism-irrelevant scalars are not serialised.** A curated override that differs from canon is emitted as a `{key, value}` entry (zero-initialised, so the hashed padding is deterministic) and re-applied by key on load; the sticky `non_canon_run` rides the header. Motion configuration (boundaries, which stages are enabled, compaction) is deliberately NOT in the file — it is *how a run was set up*, not its state, and the caller (a scenario, the app) restores it exactly as it set it originally, the same way a game reloads its rules from the executable, not the save. The field values overwrite whatever ambient/CO₂ `world_create` seeded, so the create-time config does not leak in. The per-tick scratch (`t_local…`) IS serialised (the contract lists it, and it makes the round trip bit-identical) even though it is recomputed next tick; the irradiance FIELD is not (rebuilt from scratch every tick, per the contract).
+
+**One snapshot_v1 gap, handled and flagged.** The header carries `next_cell_id` but no `next_taumoeba_id`. IDs are monotonic and never reused, so load reconstructs it as `max(id)+1` — exact unless the highest-id predator was already culled, in which case a post-restore predator division could reuse a retired id's RNG stream and diverge from a never-saved run. `test_snapshot`'s replay-across-the-boundary arm is therefore cells-only (predators are exercised by the round-trip-fidelity arm, where next_id is not hashed). A `next_taumoeba_id` field in a future `snapshot_v2` closes it; it is not worth a contract bump for M12a.
+
+---
+
 ## ADR-035 — Curated live-tunable overrides, and the cell inspector
 
 **Status:** accepted, 2026-08-03 (M11f).
