@@ -226,9 +226,23 @@ if (($n -gt 10) -or ($n -eq 10 -and $suffix -ge 'b')) {
     Gate 'M10b.1' 'nitrogen lethality + Taumoeba-82.5 selection' { return (Run-Test 'test_evolution') }
 }
 
-# -------------------------------------------------------------- M11: content
-if ($n -ge 11) {
-    Gate 'M11.1' 'every scenario passes its accept block (T24)' {
+# -------------------------------------------- M11a: content, the scenario spine
+if (($n -gt 11) -or ($n -eq 11 -and $suffix -ge 'a')) {
+    Gate 'M11a.1' 'scenarios load + instantiate deterministically' { return (Run-Test 'test_scenario') }
+    Gate 'M11a.2' 'headless accept for the self-driving scenarios' {
+        $exe = Find-Exe 'headless'
+        if (-not $exe) { return $false }
+        foreach ($s in @('first-light', 'bloom', 'taumoeba')) {
+            & $exe --scenario $s --assert *>&1 | Out-Null
+            if ($LASTEXITCODE -ne 0) { Write-Host "        scenario failed: $s"; return $false }
+        }
+        return $true
+    }
+}
+
+# ----------------------------- M11b: derived metrics + every scenario (T24)
+if (($n -gt 11) -or ($n -eq 11 -and $suffix -ge 'b')) {
+    Gate 'M11b.1' 'every scenario passes its accept block (T24)' {
         $exe = Find-Exe 'headless'
         foreach ($s in Get-ChildItem (Join-Path $root 'scenarios') -Filter '*.json') {
             & $exe --scenario $s.BaseName --assert *>&1 | Out-Null
@@ -236,7 +250,11 @@ if ($n -ge 11) {
         }
         return $true
     }
-    Gate 'M11.2' 'canon locks default-on' { return (Run-Test 'test_param_locks') }
+}
+
+# -------------------------------------- M11c: inspector + telemetry UI
+if (($n -gt 11) -or ($n -eq 11 -and $suffix -ge 'c')) {
+    Gate 'M11c.1' 'canon locks default-on, non-canon flag' { return (Run-Test 'test_param_locks') }
 }
 
 # ----------------------------------------------------------------- M12: ship

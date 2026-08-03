@@ -325,11 +325,17 @@ network access beyond dependency fetch, Windows settings, spending money.
 
 ---
 
-## 6. What is next — M11 (Content)
+## 6. What is next — M11a (Content: the scenario spine)
 
 Predation is **complete**: M10a (the store, crawl, engulfment) and **M10b (N₂
 lethality, heritable tolerance, and the Taumoeba-82.5 arc)** are both done and green.
-All physics milestones are behind us. M11 turns the engine into an instrument.
+All physics milestones are behind us. M11 turns the engine into an instrument — and it
+was **split into M11a / M11b / M11c** (Iron Rule 9): the scenario system is a stub
+today (`tools/headless.cpp` prints "arrives in M11"), and the full milestone bundled a
+greenfield JSON/scenario spine, a set of *derived* accept metrics plus the new
+spin-drive-flash physics, and a whole inspector/telemetry UI — three sessions. **M11a
+is the spine** (loader → `Scenario`, world instantiation, accept eval, headless
+runner); see `docs/MILESTONES.md`.
 
 **M10b shipped (ADR-030):** N₂ Poisson lethality, heritable tolerance, Taumoeba
 division on **dry biomass** (`TAU_MASS_DRY`, distinct from the drag-only water mass
@@ -339,28 +345,26 @@ division on **dry biomass** (`TAU_MASS_DRY`, distinct from the drag-only water m
 lethality rate is derived from a survival time; that time was *tuned* (120 s went
 extinct in 6 rounds → 2000 s rescued the population — meta-lesson 5).
 
-**M11 scope.** No new physics. `PHYSICS.md` is closed.
+**M11a scope.** No new physics. The JSON loader → `Scenario`, scenario → world
+instantiation, the accept-evaluation framework (`Metric`/`AcceptCheck`/`CompareOp`
+are already in `telemetry_v1.h`), and the `headless --scenario ID --assert` runner —
+for the scenarios that clear with existing `Stats` metrics (first-light, bloom,
+taumoeba, sandbox). Gate `M11a`: `test_scenario` + `--assert` green for those three.
 
-1. **Scenario loader + schema** against `contracts/scenario_v1.h`; all eight
-   scenarios from `docs/SCENARIOS.md` with their `accept` blocks. The acceptance
-   vocabulary (`Metric`, `AcceptCheck`, `CompareOp`) is already in `telemetry_v1.h`.
-   A JSON parser is a new dependency → an ADR (Iron Rule 8), unless hand-rolled.
-2. **The headless runner evaluates every `accept` block — that is the gate (T24).**
-   `gate.ps1` M11.1 already loops `scenarios/*.json`.
-3. **The parameter inspector** on the `PARAM_TABLE` provenance data: every `CANON`
-   parameter **locked by default**, unlocking sets the `NON-CANON RUN` flag
-   (`Stats.non_canon_run`) in the HUD and telemetry header. `test_param_locks` is
-   M11.2.
-4. **The cell inspector** (with the P1 buoyancy readout), instrument panels, **CSV
-   telemetry export**.
+**Two ADR-worthy decisions M11a must make first:** (1) **how a headless run drives an
+interactive scenario** — first-light needs the heat brush applied, but the schema has
+`tools` (availability), not scripted *events*; add a minimal scripted-stimulus (a
+`scenario_v2` bump) or restrict headless accept to self-driving scenarios. (2)
+**hand-roll the JSON parser** (no dependency, ~200 LOC — likely right) **or take one**
+(ADR). **M11b** then adds the derived metrics (velocities, correlations, doubling-time,
+impulse) + the **spin-drive flash** (new physics, own ADR) + the remaining four
+scenarios (full T24). **M11c** is the inspector + canon-lock + cell-inspector + CSV
+UI (`test_param_locks`).
 
-**Gate.** M10b gate + T24 (every scenario passes its accept block) + canon locks
-default-on with the non-canon flag.
-
-**Watch for:** the accept thresholds must trace to a physical value or a canon
-constant, not a magic number (meta-lesson 2); assert the metric the scenario is
-*about*, not a proxy that passes while it is broken (meta-lesson 4); and loading
-scenarios must add no per-tick host traffic (the 200k benchmark is the guard).
+**Watch for:** accept thresholds must trace to a physical value or a canon constant,
+not a magic number (meta-lesson 2); assert the metric the scenario is *about*, not a
+proxy that passes while broken (meta-lesson 4); and loading scenarios must add no
+per-tick host traffic (the 200k benchmark is the guard).
 
 ### Then M12
 

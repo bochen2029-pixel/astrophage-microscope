@@ -20,9 +20,11 @@ Every gate re-runs all earlier gates. Gates never weaken.
 | M9b | Life: death | overheat death, corpses, store disposition, stage-11 stats reduction | M9b | ✅ `m9b-green` |
 | M9c | Life: clock | multi-rate presets, Q19 decision, compaction, charts | M9c | ✅ `m9c-green` |
 | M7b | View modes | Petrovascope, Thermal IR, Darkfield (deferred render; bloom still pending) | M7b | ✅ `m7b-green` |
-| M10a | Predation | Taumoeba store, crawl, engulfment, digestion | M10a | ☐ |
-| M10b | Evolution | N₂ field lethality, heritable tolerance, Taumoeba-82.5 arc | M10b | ☐ |
-| M11 | Content | scenario system, all 8 scenarios, UI panels, charts, telemetry | M11 | ☐ |
+| M10a | Predation | Taumoeba store, crawl, engulfment, digestion | M10a | ✅ `m10a-green` |
+| M10b | Evolution | N₂ field lethality, heritable tolerance, Taumoeba-82.5 arc | M10b | ✅ `m10b-green` |
+| M11a | Content: scenario spine | JSON loader, schema, world instantiation, accept eval, headless runner | M11a | ☐ |
+| M11b | Content: metrics + scenarios | derived accept metrics, spin-drive flash, all 8 scenarios pass T24 | M11b | ☐ |
+| M11c | Content: inspector UI | parameter inspector + canon locks, cell inspector, objective panel, CSV export | M11c | ☐ |
 | M12 | Ship | snapshot/replay, perf pass, packaging | `v1.0` | ☐ |
 
 **M7 is the "it feels real" line** — all five signature phenomena are live. M8–M12 add depth and content.
@@ -246,9 +248,27 @@ Three findings, all in ADR-018:
 
 ## M11 — Content
 
-**Scope.** Scenario JSON loader + schema (`contracts/scenario_v1.h`), all eight scenarios from `SCENARIOS.md` with their acceptance blocks, the objective/acceptance UI, the parameter inspector with provenance badges and the canon lock, the cell inspector (including the buoyancy readout that teaches P1), instrument panels, CSV telemetry export.
+**Split into M11a / M11b / M11c before starting, per Iron Rule 9.** The original M11 bundled an entire greenfield scenario/JSON system, a set of *derived* acceptance metrics (velocities, correlations, doubling-time, impulse) plus one piece of genuinely new physics (the spin-drive flash), and a whole inspector/telemetry UI layer. Those are three sessions and three gates. The scenario system is a stub today (`tools/headless.cpp` prints "arrives in M11"); nothing is loaded, instantiated, or evaluated yet.
 
-**Gate.** M10 gate + T24: the headless runner executes every scenario's `accept` block and all pass. Every `CANON` parameter is locked by default and unlocking sets the `NON-CANON RUN` flag in both the HUD and the telemetry header.
+### M11a — Content: the scenario spine (headless)
+
+**Scope.** A dependency-free JSON loader (hand-rolled, so no ADR — or a dependency *with* one), parsing `scenarios/*.json` into `contracts/scenario_v1.h`'s `Scenario`; **scenario → world instantiation** (populations, fields, lights, clock, boundaries, param overrides); the **accept-evaluation framework** (`AcceptCheck` + `Stats` → pass/fail) for the metrics that already exist in `Stats`; and the `headless --scenario ID --assert` runner. Only the scenarios whose accept blocks use existing `Stats` metrics and whose beat is self-driving or minimally scripted: **first-light**, **taumoeba** (its accept is `test_evolution`'s, now proven), **bloom**, **sandbox** (no accept).
+
+**Design questions this milestone must resolve (each an ADR):** (1) **How a headless run drives an interactive scenario** — first-light needs the heat brush applied; the schema has `tools` (availability) but no scripted *events*. Either add a minimal scripted-stimulus list to the scenario, or evaluate only self-driving accept. (2) **JSON dependency or hand-roll.**
+
+**Gate.** M10b gate + `test_scenario` (every scenario JSON loads and instantiates deterministically) + `headless --scenario <id> --assert` passes for first-light, bloom, taumoeba.
+
+### M11b — Content: derived metrics and the physics scenarios
+
+**Scope.** The derived acceptance metrics the runner computes from full state, not just `Stats`: `RiseVelocityEmpty`/`FallVelocityFull` (three-percent-line), `ChargeDepthCorrelation` (shadow-garden), `ChargeHeightCorrelation`, `DoublingTimeS` (bloom's tighter form), `ImpulsePerCycle` (spin-drive-face). The **spin-drive flash** — an external high-intensity `PETROVA_WAVELENGTH` pulse forcing full-rate discharge (PHYSICS.md §6) — is new physics and gets its own ADR. Then the remaining scenarios: **three-percent-line**, **shadow-garden**, **komorov**, **spin-drive-face**.
+
+**Gate.** M11a gate + **T24: the headless runner executes *every* scenario's `accept` block and all eight pass.**
+
+### M11c — Content: the inspector and telemetry UI
+
+**Scope.** The parameter inspector with provenance badges from `PARAM_TABLE`, **every `CANON` parameter locked by default; unlocking sets the persistent `NON-CANON RUN` flag** (`Stats.non_canon_run`) in the HUD and the telemetry header. The cell inspector (click a cell → its state, including the buoyancy readout that teaches P1), the objective/acceptance panel (the accept checkmarks), instrument panels, and **CSV telemetry export** (the columns in `SCENARIOS.md`).
+
+**Gate.** M11b gate + `test_param_locks`: a `CANON` parameter is locked by default and unlocking sets `non_canon_run` in both the HUD state and the telemetry header.
 
 ---
 
