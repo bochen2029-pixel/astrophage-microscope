@@ -308,14 +308,20 @@ if (($n -gt 12) -or ($n -eq 12 -and $suffix -ge 'b')) {
     }
 }
 
-# ---------------------------- M12c: performance, the render remainder, the scrubber
+# ---------------------------- M12c: the performance pass
 if (($n -gt 12) -or ($n -eq 12 -and $suffix -ge 'c')) {
-    Gate 'M12c.1' 'performance budget (T27-T29)' { return (Run-Test 'test_perf') }
+    # T29: zero device allocation in the steady-state tick loop (all scratch preallocated at
+    # world_create) -- free memory stays flat across a dividing+compacting run. T28: sim tick
+    # throughput at the 200k reference. The render frame budget (T27) is M1.5's --benchmark.
+    Gate 'M12c.1' 'no steady-state allocation + sim throughput (T28/T29)' { return (Run-Test 'test_perf') }
 }
 
-# ---------------------------- M12d: package and v1.0
-if (($n -gt 12) -or ($n -eq 12 -and $suffix -ge 'd')) {
-    Gate 'M12d.1' 'clean-environment package' {
+# ---------------------------- M12d: the render remainder and the scrubber
+# (its gate lands when the render_view_v3 bump + affordances are built)
+
+# ---------------------------- M12e: package and v1.0
+if (($n -gt 12) -or ($n -eq 12 -and $suffix -ge 'e')) {
+    Gate 'M12e.1' 'clean-environment package' {
         & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'scripts\package.ps1') -Verify *>&1 | Out-Null
         return ($LASTEXITCODE -eq 0)
     }

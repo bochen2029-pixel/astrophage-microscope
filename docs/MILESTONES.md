@@ -362,19 +362,31 @@ golden) is byte-identical.
 **Gate.** M12a gate + the app renders the `taumoeba` scenario headless with zero GL errors and the
 goldens still match; a screenshot shows the predators visible and distinct among the cells.
 
-### M12c — Performance, the render remainder, the scrubber
+### M12c — The performance pass
 
-**Scope.** The perf pass to budget (`RENDERING.md §7`, `test_perf` = T27–T29, notably T29's
-zero-steady-state-allocation), the M7b render remainder (bloom over Petrova, the cross-fade slider,
-the real T-field false-colour behind Thermal IR; pre-ignition warm-up needs `temp_cell` in the render
-instance → a `render_view_v3` bump), the colourblind LUT toggle, and the time scrubber over M12a's
-snapshots.
+**Scope.** `test_perf` (T27–T29, `RENDERING.md §7`). The headline is **T29 — zero device allocation
+in the steady-state tick loop**: all scratch is preallocated at `world_create`, so a `cudaMemGetInfo`
+delta over warmed-up steps of a dividing+compacting world (the paths most likely to sneak a per-tick
+`cudaMalloc`) must stay flat. **T28** is sim-tick throughput at the 200k reference (the sim budget is
+2.7 ms/tick), and **T27**, the render frame budget, is already gated by M1.5's `--benchmark`.
 
-**Gate.** M12b gate + `test_perf` (T27–T29) + a screenshot of the new view affordances.
+**Gate.** M12b gate + `test_perf` (T28/T29).
 
-### M12d — Package and v1.0
+### M12d — The render remainder and the scrubber
+
+**Scope.** The M7b render remainder (bloom over Petrova, the cross-fade slider —
+`ScopeState::mode_blend` is already carried, the real T-field false-colour behind Thermal IR; the
+pre-ignition warm-up of a heated dormant cell needs `temp_cell` in the render instance → a
+**`render_view_v3`** bump: `CellInstance` grows, the vertex bindings in `cells_pass.cpp` and the
+interop fill change in the same commit), the colourblind LUT toggle (`ScopeState::colorblind_safe`),
+and the time scrubber over M12a's snapshots.
+
+**Gate.** M12c gate + a screenshot of each new view affordance + the goldens still match (the
+`render_view_v3` bump must not move a measurement golden).
+
+### M12e — Package and v1.0
 
 **Scope.** `scripts/package.ps1`: a static-runtime `.zip` that runs on a scrubbed-PATH clean machine,
 the user guide, `README.md` finalisation, and CSV `git_describe` injection.
 
-**Gate.** M12c gate + the packaged `.zip` runs on a scrubbed-PATH clean environment. Tag `v1.0`.
+**Gate.** M12d gate + the packaged `.zip` runs on a scrubbed-PATH clean environment. Tag `v1.0`.

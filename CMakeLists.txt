@@ -158,6 +158,8 @@ astro_test(test_param_locks tests/physics/test_param_locks.cpp)
 astro_test(test_param_override tests/physics/test_param_override.cu)
 # M12a: full-state snapshot round trip and replay across the save/restore boundary (T21).
 astro_test(test_snapshot     tests/physics/test_snapshot.cu)
+# M12c: zero steady-state device allocation (T29) + sim tick throughput (T28).
+astro_test(test_perf         tests/physics/test_perf.cu)
 
 # ---------------------------------------------------------------------------
 # tools -- headless runner. The determinism oracle (INV-8) and the scenario

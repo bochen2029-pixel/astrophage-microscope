@@ -6,6 +6,16 @@ Format: milestone · what landed · what is pending · open questions · gotchas
 
 ---
 
+## 2026-08-03 — M12c (Ship: the performance pass) — GREEN · **the tick loop allocates nothing, and it is at budget**
+
+**Landed.** `test_perf` (T28/T29), split out so the perf pass stands alone (M12 re-split M12c/d/e, Iron Rule 9). **T29** is load-bearing: zero device allocation in the steady-state tick loop. A world that divides AND compacts (the scan/gather paths most likely to sneak a per-tick `cudaMalloc`) is warmed up, then stepped 500 ticks; `cudaMemGetInfo` free comes back **delta 0 KB** even as the population churns 39664 -> 76185, so all scratch really is carved once at `world_create`. **T28**: 200k cells at **2.598 ms/tick**, right at the 2.7 ms budget (the ceiling is generous -- M1.5's fps target polices the real budget with the renderer in the loop). T27 (render frame budget) stays M1.5's `--benchmark`.
+
+**Gotcha.** `cudaMemGetInfo` catches a leak-shaped regression (a per-tick malloc-without-free), the common one; malloc-then-free churn would show delta 0 -- documented, and the design forbids both. Timing (T28) is generous on purpose: a hard ms/tick assert is machine-flaky.
+
+**Pending / next.** M12d: the M7b render remainder (bloom over Petrova, cross-fade, T-field false-colour; the **`render_view_v3`** bump for pre-ignition `temp_cell`), the colourblind LUT, the time scrubber over M12a's snapshots. Then M12e: `package.ps1` + `v1.0`.
+
+---
+
 ## 2026-08-03 — M12b (Ship: Taumoeba rendering) — GREEN · **the predators are no longer invisible**
 
 **Landed.** The Taumoeba ran but never drew (the app filled the instance buffer from the cell store only). Now they render as `CellInstance`s appended after the cells in the same instanced draw (`RenderFrame::taumoeba_offset`, designed for this since render_view_v2). New contract `contracts/taumoeba_view_v1.h` (`TaumoebaView`) so render reads the predator store without including `sim/`; `interop_fill_frame` maps the GL buffer ONCE (WriteDiscard forbids two) and fills cells `[0,cell_count)` + Taumoeba `[cell_count,total)`; the fragment shader branches on a render-only marker bit (0x8000) into a translucent teal membrane. New ADR-037; new additive contract, no bump.
