@@ -2,9 +2,10 @@
 
 **Rewritten at the end of every session.** If this file disagrees with `git tag --list`, believe the tags.
 
-> **For the full bootstrap, read [`CONTINUATION_PROMPT.md`](CONTINUATION_PROMPT.md).** It is the
-> comprehensive, self-contained handoff (ritual + state + roadmap + meta-lessons + gotchas). This
-> file is the one-screen "you are here".
+> **New session? Read [`ONBOARDING.md`](ONBOARDING.md) FIRST — in full.** It is the deep,
+> self-contained immersion brief (the gist, the intent, the hard-won wisdom, the state, the traps):
+> read it to arrive *warm* before touching anything. Then [`CONTINUATION_PROMPT.md`](CONTINUATION_PROMPT.md)
+> for the bootstrap ritual + full meta-lessons. This file is the one-screen "you are here".
 
 ## Where the build stands
 
