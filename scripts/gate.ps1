@@ -243,9 +243,22 @@ if (($n -gt 11) -or ($n -eq 11 -and $suffix -ge 'b')) {
     }
 }
 
-# -------------------------------------- M11c: inspector + telemetry UI
+# ---------------------- M11c: runtime-param overlay, canon locks, telemetry
 if (($n -gt 11) -or ($n -eq 11 -and $suffix -ge 'c')) {
     Gate 'M11c.1' 'canon locks default-on, non-canon flag' { return (Run-Test 'test_param_locks') }
+}
+
+# ------------------------------ M11d: app auto-play + the parameter inspector
+if (($n -gt 11) -or ($n -eq 11 -and $suffix -ge 'd')) {
+    Gate 'M11d.1' 'app auto-plays every scenario headless (no GL errors, contained)' {
+        $exe = Find-Exe 'astrophage'
+        if (-not $exe) { return $false }
+        foreach ($s in Get-ChildItem (Join-Path $root 'scenarios') -Filter '*.json') {
+            & $exe --scenario $s.BaseName --headless --gl-debug --frames 20 --ticks-per-frame 20 *>&1 | Out-Null
+            if ($LASTEXITCODE -ne 0) { Write-Host "        scenario failed in app: $($s.BaseName)"; return $false }
+        }
+        return $true
+    }
 }
 
 # ----------------------------------------------------------------- M12: ship

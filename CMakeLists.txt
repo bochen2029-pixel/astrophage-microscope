@@ -217,6 +217,7 @@ if(ASTRO_BUILD_APP)
     target_link_libraries(astrophage PRIVATE
         astro_core astro_sim astro_fields
         glfw glad_gl_core_46 imgui CUDA::cudart_static)
+    target_compile_definitions(astrophage PRIVATE ASTRO_SCENARIOS_DIR="${CMAKE_SOURCE_DIR}/scenarios")
     astro_strict(astrophage)
     # Note: the executable stays in the build tree. Packaging into dist/ is M12;
     # redirecting it early would put it where scripts/gate.ps1 does not look.

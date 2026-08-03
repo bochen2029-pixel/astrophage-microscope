@@ -10,13 +10,13 @@ Dear ImGui panels: the HUD, instrument controls, the cell inspector, the paramet
 
 | File | Owns | Milestone |
 |---|---|---|
-| `hud.cpp` | ✅ clock, counts, fps, scope controls, population; **energy ledger and non-canon badge at M6/M11** | M1 |
+| `hud.cpp` | ✅ clock, counts, fps, scope controls, population, energy ledger, and the **NON-CANON RUN badge** (M11d) | M1 |
 | `scale_bar.h` | ✅ pure length-snapping function — header-only so `test_scope` can check it with no GL | M1 |
 | `instrument_panel.cpp` | overlays, clock presets, the tool brushes | M5 |
-| `inspector_panel.cpp` | clicked-cell readout including the buoyancy line | M11d (not built) |
-| `params_panel.cpp` | provenance badges + lock toggles driving the `core/params.h` `ParamSet` (M11c) | M11d (not built) |
+| `params_panel.cpp` | ✅ provenance badges over `core/params.h`'s `ParamSet` + the canon lock toggles (M11d, ADR-034). Value editing pending the runtime read path (M11e) | M11d |
 | `chart_panel.cpp` | population, energy, temperature, tolerance time series | M9 |
-| `scenario_panel.cpp` | scenario picker, objective text, acceptance checkmarks (view onto `sim/accept.cpp`) | M11d (not built) |
+| `inspector_panel.cpp` | clicked-cell readout including the buoyancy line | M11e (not built) |
+| `scenario_panel.cpp` | scenario picker, objective text, acceptance checkmarks (view onto `sim/accept.cpp`) | M11e (not built) |
 
 ## Contracts
 

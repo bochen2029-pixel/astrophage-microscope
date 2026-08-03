@@ -36,6 +36,7 @@ struct Options {
     bool     vsync      = false;     // off by default so --benchmark is honest
 
     const char* screenshot = nullptr; // write a PPM of the final frame and exit
+    const char* scenario   = nullptr; // load a scenario and auto-play its drive script (M11d)
     // Suppress all ImGui drawing. Golden images must test the RENDERER, not the
     // panel layout -- otherwise every HUD tweak invalidates every golden.
     bool     no_ui      = false;

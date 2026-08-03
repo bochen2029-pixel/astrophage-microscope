@@ -11,8 +11,8 @@ Window, main loop, CLI, and the wiring that connects `sim`, `fields`, `render`, 
 | File | Owns | Milestone |
 |---|---|---|
 | `main.cpp` | ✅ entry point, CUDA device check, composition | M1 |
-| `application.cpp` | ✅ window, fixed-tick accumulator, pan/zoom input, screenshot; tool brushes at M5 | M1 |
-| `cli.cpp` | ✅ `--cells --seed --charge --frames --headless --gl-debug --benchmark --vsync --screenshot`; `--scenario` and `--snapshot` at M11/M12 | M1 |
+| `application.cpp` | ✅ window, fixed-tick accumulator, pan/zoom input, screenshot; **scenario load + auto-play (`scenario_apply_drive`) and the `ParamSet` non-canon mirror (M11d)** | M1 |
+| `cli.cpp` | ✅ `--cells --seed --charge --frames --headless --gl-debug --benchmark --vsync --screenshot --scenario`; `--snapshot` at M12 | M1 |
 
 ## The main loop
 
@@ -37,8 +37,12 @@ Render frame rate floats; `DT_PHYSICS` never does. Max 8 substeps per frame.
 
 ## Status
 
-**M1 complete.** Window, main loop, pan/zoom, respawn, PPM screenshot, and the
-benchmark path the gate drives.
+**M11d.** Window, main loop, pan/zoom, respawn, PPM screenshot, the benchmark path (M1), and
+now **scenario auto-play**: `--scenario ID` loads + instantiates a scenario, takes its clock +
+scope, and calls `sim::scenario_apply_drive` before every `world_step`, so the eight scenarios
+play unattended in the app (verified by an offscreen screenshot — first-light ignites, the
+spin-drive flash empties the store). The app owns the `core/params.h` `ParamSet` the inspector
+edits and mirrors its `non_canon_run` into the World each frame (M11d, ADR-034).
 
 Notes for whoever extends this:
 

@@ -97,6 +97,10 @@ void hud_draw(HudState& hud, const Stats& stats, render::Camera& cam,
         ImGui::TextColored(hot ? ImVec4(1.0f, 0.6f, 0.3f, 1.0f) : ImVec4(0.70f, 0.75f, 0.82f, 1.0f),
                            "energy: %.3g GJ  (%.3g kt TNT)%s", gj, kt_tnt, hot ? "  [!]" : "");
     }
+    // The worst failure this UI can have is a run that quietly changed a canon number and
+    // still looks canon (src/ui/MODULE.md). Once a lock is broken it says so, permanently.
+    if (stats.non_canon_run)
+        ImGui::TextColored(ImVec4(1.0f, 0.35f, 0.30f, 1.0f), "NON-CANON RUN  [!]");
 
     ImGui::SeparatorText("Objective");
     const auto& obj = canon::OBJECTIVES[cam.objective];

@@ -283,20 +283,35 @@ failure the inspector can have* — and it is the architectural crux (canon is `
 **Gate.** M11b gate + `test_param_locks`: a `CANON` parameter is locked by default and breaking
 that lock sets `non_canon_run` (sticky); the overlay's values match `PARAM_TABLE`.
 
-### M11d — Content: the inspector and objective UI
+### M11d — Content: app auto-play and the parameter inspector
 
-**Scope.** The ImGui layer over M11c's backend: the **parameter inspector** (`params_panel.cpp`)
-with provenance badges and lock toggles driving the `ParamSet`; the **cell inspector**
-(`inspector_panel.cpp`, click a cell → its state, including the buoyancy line that teaches P1);
-the **objective/acceptance panel** (`scenario_panel.cpp`, the accept checkmarks — a view onto
-`sim/accept.cpp`); the HUD non-canon badge + energy ledger; and wiring the app to **auto-play** a
-loaded scenario's drive script (`scenario_apply_drive` in the tick loop) so the eight scenarios
-can be watched, not just asserted. Where the sim reads *overridden* param values (not just the
-flag) also lands here.
+**Split from the original M11d (Iron Rule 9).** Two of the four panels (params inspector, the HUD
+badge) plus auto-play are self-contained and verifiable by an offscreen screenshot; the other two
+(cell inspector, objective panel) need cell picking and a live `RunAggregates`, and the objective
+panel bumps the `ui`-never-includes-`sim` boundary (`accept_eval` lives in `sim`). Those go to M11e.
 
-**Gate.** M11c gate + goldens/build: the panels render (a golden capture per panel where an oracle
-is possible), the app auto-plays each scenario without escaping containment, and the objective
-panel agrees with `headless --assert`.
+**Scope.** Wiring the app to **auto-play** a loaded scenario's drive script (`--scenario`;
+`scenario_apply_drive` in the tick loop, the scenario's own clock + scope) so the eight scenarios
+can be **watched**, not just asserted. The **parameter inspector** (`params_panel.cpp`): every
+`PARAM_TABLE` entry with its provenance badge, over the `core/params.h` `ParamSet`, with the canon
+locks — unlocking a `CANON` parameter flips the persistent **NON-CANON RUN** badge (HUD + panel).
+Live *value* editing is labelled pending (it needs the runtime read path, M11e); the inspector is a
+provenance view plus the lock guard, never an editor that does nothing.
+
+**Gate.** M11c gate + `astrophage --scenario <id> --headless --gl-debug` auto-plays every scenario
+cleanly (exit 0, no GL errors, containment held).
+
+### M11e — Content: the objective panel, the cell inspector, and live overrides
+
+**Scope.** The **objective/acceptance panel** (`scenario_panel.cpp`) — the accept checkmarks, live,
+against a `RunAggregates` sampled in the app loop; the results are computed app-side (which links
+`sim`) and passed to the panel, since `ui` may not include `sim`. The **cell inspector**
+(`inspector_panel.cpp`, click a cell → its state + the P1 buoyancy line; the HUD Charge section
+already teaches P1, so this is the per-cell view). And **the sim reading overridden param values**
+for a curated tunable set (via `World` fields), so the inspector's sliders finally affect physics.
+
+**Gate.** M11d gate + a live-override check (override a param, run, confirm the physics changed) and
+the objective panel agreeing with `headless --assert`.
 
 ---
 

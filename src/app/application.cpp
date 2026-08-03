@@ -3,6 +3,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <string>
 #include <vector>
 
 #include <glad/gl.h>
@@ -11,6 +12,12 @@
 #include "imgui.h"
 
 #include "core/canon_generated.h"
+#include "sim/scenario.h"
+#include "ui/params_panel.h"
+
+#ifndef ASTRO_SCENARIOS_DIR
+#define ASTRO_SCENARIOS_DIR "scenarios"
+#endif
 
 namespace astro::app {
 
@@ -91,15 +98,37 @@ void handle_input(Application& a) {
 
 Error app_init(Application& a, const Options& o) {
     a.options = o;
+    astro::param_set_init(a.params);   // the inspector's overlay, initialised from canon
 
-    const int32_t count = o.cells > 0 ? o.cells : canon::DEFAULT_CELLS;
-    if (count > canon::MAX_CELLS) return fail(Status::InvalidArgument, "--cells exceeds MAX_CELLS");
-
-    sim::WorldDesc wd;
-    wd.chamber = sim::Chamber{canon::CHAMBER_W, canon::CHAMBER_H, canon::CHAMBER_D};
-    wd.capacity = count;
-    wd.seed = o.seed;
-    ASTRO_TRY(sim::world_create(a.world, wd));
+    // Build the World two ways: from a scenario (loaded + instantiated, which sizes its own
+    // capacity, medium, populations, and clock) or a plain uniform population from the flags.
+    int32_t capacity = 0;
+    if (o.scenario) {
+        const std::string id = o.scenario;
+        const bool is_path = id.size() > 5 && id.compare(id.size() - 5, 5, ".json") == 0;
+        const std::string path = is_path ? id
+                                         : (std::string(ASTRO_SCENARIOS_DIR) + "/" + id + ".json");
+        if (Error e = sim::scenario_load(path, a.scenario)) {
+            std::printf("[app] scenario load failed (%s): %s\n", path.c_str(), status_str(e.status));
+            return e;
+        }
+        if (Error e = sim::scenario_instantiate(a.scenario, a.world)) {
+            std::printf("[app] scenario '%s' instantiate failed: %s\n", a.scenario.id,
+                        status_str(e.status));
+            return e;
+        }
+        a.has_scenario = true;
+        capacity = a.world.cells.capacity;
+    } else {
+        const int32_t count = o.cells > 0 ? o.cells : canon::DEFAULT_CELLS;
+        if (count > canon::MAX_CELLS) return fail(Status::InvalidArgument, "--cells exceeds MAX_CELLS");
+        sim::WorldDesc wd;
+        wd.chamber = sim::Chamber{canon::CHAMBER_W, canon::CHAMBER_H, canon::CHAMBER_D};
+        wd.capacity = count;
+        wd.seed = o.seed;
+        ASTRO_TRY(sim::world_create(a.world, wd));
+        capacity = count;
+    }
 
     render::GlContextDesc gd;
     gd.width = o.width;
@@ -111,16 +140,23 @@ Error app_init(Application& a, const Options& o) {
     glfwSetScrollCallback(a.gl.window, scroll_callback);
 
     // Registered with CUDA, so it must be created after the GL context.
-    ASTRO_TRY(render::cells_pass_create(a.cells_pass, count));
+    ASTRO_TRY(render::cells_pass_create(a.cells_pass, capacity));
     ASTRO_TRY(render::post_pass_create(a.post_pass));
-    ASTRO_TRY(spawn_population(a.world, count, o.charge, o.seed, o.awake));
-    a.hud.mode = o.view_mode;
 
-    // Apply the requested clock (ADR-011/ADR-027) and mirror the resolved rates
-    // into the HUD so the panel opens showing the clock the run actually started on.
-    sim::world_set_clock(a.world, static_cast<contract::ClockPreset>(o.clock_preset),
-                         o.physics_rate, o.biology_rate);
-    a.hud.clock_preset = o.clock_preset;
+    // A scenario already spawned its populations and set its own clock + scope; a plain run
+    // spawns a uniform population and takes the clock/mode from the flags.
+    if (a.has_scenario) {
+        a.hud.mode = a.scenario.scope.mode;
+        a.hud.clock_preset = static_cast<int>(a.scenario.clock);
+    } else {
+        ASTRO_TRY(spawn_population(a.world, capacity, o.charge, o.seed, o.awake));
+        a.hud.mode = o.view_mode;
+        // Apply the requested clock (ADR-011/ADR-027) and mirror the resolved rates into the
+        // HUD so the panel opens showing the clock the run actually started on.
+        sim::world_set_clock(a.world, static_cast<contract::ClockPreset>(o.clock_preset),
+                             o.physics_rate, o.biology_rate);
+        a.hud.clock_preset = o.clock_preset;
+    }
     a.hud.clock_physics = static_cast<float>(a.world.physics_rate);
     a.hud.clock_biology = static_cast<float>(a.world.biology_rate);
 
@@ -128,12 +164,13 @@ Error app_init(Application& a, const Options& o) {
     if (o.zoom > 0.0f) a.camera.zoom = o.zoom;
     a.camera.focal_plane = o.focus_um * 1e-6;
 
-    a.hud.respawn_count = count;
+    a.hud.respawn_count = a.world.cells.count;
     a.hud.respawn_charge = o.charge;
     a.hud.live_charge = o.charge;
-    std::printf("[app] chamber %.2f x %.2f mm, %.0f um deep | %d cells | seed %llu\n",
-                a.world.chamber.w * 1e3, a.world.chamber.h * 1e3, a.world.chamber.d * 1e6,
-                a.world.cells.count, static_cast<unsigned long long>(o.seed));
+    std::printf("[app] %s | chamber %.2f x %.2f mm | %d cells | seed %llu\n",
+                a.has_scenario ? a.scenario.id : "(uniform)",
+                a.world.chamber.w * 1e3, a.world.chamber.h * 1e3,
+                a.world.cells.count, static_cast<unsigned long long>(a.world.seed));
     return ok();
 }
 
@@ -164,7 +201,10 @@ int app_run(Application& a) {
         } else if (a.options.ticks_per_frame > 0) {
             // Wall clock ignored entirely: the same command yields the same
             // simulated time on any machine. Required for golden captures.
-            for (int i = 0; i < a.options.ticks_per_frame; ++i) sim::world_step(a.world);
+            for (int i = 0; i < a.options.ticks_per_frame; ++i) {
+                if (a.has_scenario) sim::scenario_apply_drive(a.world, a.scenario);
+                sim::world_step(a.world);
+            }
         } else {
             // Wall-time accumulator. physics_rate now lives INSIDE world_step (each
             // tick advances DT_PHYSICS * physics_rate of simulated time, ADR-027), so
@@ -175,6 +215,7 @@ int app_run(Application& a) {
             a.accumulator += dt_real;
             int substeps = 0;
             while (a.accumulator >= canon::DT_PHYSICS && substeps < 8) {
+                if (a.has_scenario) sim::scenario_apply_drive(a.world, a.scenario);
                 sim::world_step(a.world);
                 a.accumulator -= canon::DT_PHYSICS;
                 ++substeps;
@@ -238,6 +279,10 @@ int app_run(Application& a) {
             render::post_pass_draw(a.post_pass, a.gl.fb_width, a.gl.fb_height, 0.22f, 0.6f,
                                    a.options.aperture);
 
+        // The inspector's lock state is the run's canon status; mirror it into the World
+        // so world_stats carries it into Stats, the HUD, and every export (ADR-034).
+        a.world.non_canon_run = a.params.non_canon_run;
+
         if (!a.options.no_ui) {
             // HUD RATE, NOT FRAME RATE. world_stats runs the stage-11 reduction and
             // ends in a synchronous D2H, which stalls the pipeline; calling it every
@@ -248,6 +293,7 @@ int app_run(Application& a) {
             const contract::Stats stats = a.stats_cache;
             ui::hud_draw(a.hud, stats, a.camera, a.cells_pass.capacity,
                          a.world.chamber.w, a.world.chamber.h, a.world.chamber.d);
+            ui::params_panel_draw(a.params);
             ui::chart_panel_draw(a.charts, stats);
             ui::draw_scale_bar(a.camera, a.gl.fb_width, a.gl.fb_height);
         }
@@ -280,6 +326,16 @@ int app_run(Application& a) {
 
         ++a.frames_done;
         if (a.options.frames > 0 && a.frames_done >= a.options.frames) break;
+    }
+
+    // A bounded scenario run reports where it ended up, so a headless auto-play can be
+    // checked (the gate) and the driving confirmed without eyeballing the HUD.
+    if (a.has_scenario && a.options.frames > 0) {
+        const contract::Stats s = sim::world_stats(a.world);
+        std::printf("[app] %s @ %.2f s: live %d awake %d medium %.2f K mean_charge %.4f "
+                    "non_canon %d\n",
+                    a.scenario.id, s.sim_time_s, s.n_live, s.n_awake, s.mean_temp_medium_k,
+                    s.mean_charge, s.non_canon_run);
     }
 
     if (a.gl.gl_error_count > 0) {

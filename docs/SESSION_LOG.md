@@ -6,6 +6,18 @@ Format: milestone · what landed · what is pending · open questions · gotchas
 
 ---
 
+## 2026-08-03 — M11d (Content: app auto-play + the parameter inspector) — GREEN · **the scenarios can be watched**
+
+**Landed.** The app plays scenarios. `--scenario ID` loads + instantiates one (its own clock + scope + capacity) and `scenario_apply_drive` runs before every `world_step`, so first-light ignites, the spin-drive flash empties the store, etc. New `params_panel.cpp`: every `PARAM_TABLE` entry with a provenance badge (CANON gold, INVENTED orange, DERIVED blue, REAL grey) over the `core/params.h` `ParamSet`, with the canon lock toggles; unlocking a CANON param flips the **NON-CANON RUN** badge (HUD + panel, from `Stats.non_canon_run`). Split from the original M11d (Iron Rule 9): the cell inspector + objective panel are M11e. No new ADR (uses ADR-034 + the M11b driver).
+
+**Verified without a display.** `--headless` is a hidden window with a real GL context, so `--screenshot` captures the full frame (ImGui included). Converted PPM→PNG and looked: first-light's medium chart plateaus at 96.35 °C (ignition + thermostat), the params panel shows the gold CANON locks, the field renders the cells. The gate (`M11d.1`) loops every scenario through `astrophage --scenario <id> --headless --gl-debug` and requires exit 0 — auto-play works for all eight, default path intact.
+
+**The honesty call (ui/MODULE.md).** The inspector shows values read-only + working lock toggles; live *value* editing is labelled pending, not a slider that does nothing — a control that silently does nothing is worse than one labelled pending. The objective panel is deferred because `accept_eval` lives in `sim` and `ui` may not include it, so the app must compute the checks and hand them to the panel (M11e).
+
+**Pending / next.** M11e: the objective/acceptance panel (checkmarks, results computed app-side against a live `RunAggregates`), the cell inspector (click → state + the P1 buoyancy line), and the sim reading overridden param values for a curated set (so the inspector's sliders affect physics). Then M12 Ship.
+
+---
+
 ## 2026-08-03 — M11c (Content: runtime-param overlay, canon locks, telemetry) — GREEN · **a run cannot quietly go non-canon**
 
 **Landed.** The provenance/telemetry backbone of the inspector, split from the original M11c (Iron Rule 9 — the ImGui panels are now M11d). `src/core/params.h`: a `ParamSet` runtime OVERLAY of `PARAM_TABLE`'s 109 params (ADR-034) — values from canon, every CANON param locked by default, and a **sticky `non_canon_run`** flag set the moment a canon lock is broken. `World.non_canon_run` → `world_stats` → `Stats.non_canon_run`. CSV telemetry export (`headless --csv`): the SCENARIOS.md columns, header recording seed / scenario / non-canon status. **`test_param_locks` green** (the M11c gate). New ADR-034; no contract change (`Stats.non_canon_run` pre-declared).

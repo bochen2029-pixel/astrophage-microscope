@@ -2,6 +2,7 @@
 #pragma once
 
 #include "app/cli.h"
+#include "core/params.h"
 #include "core/result.h"
 #include "render/camera.h"
 #include "render/cells_pass.h"
@@ -21,6 +22,15 @@ struct Application {
     sim::World         world;
     ui::HudState       hud;
     ui::ChartState     charts;   // scrolling population / energy / temperature history
+
+    // A loaded scenario auto-plays its drive script in the tick loop (M11d). Zero-sized
+    // accept/drive when none was requested, so has_scenario gates the extra work.
+    contract::Scenario scenario{};
+    bool               has_scenario = false;
+
+    // The runtime-parameter overlay the inspector edits (ADR-034). Initialised from canon
+    // in app_init; its non_canon_run flag is mirrored into the World each frame.
+    astro::ParamSet    params{};
 
     double accumulator = 0.0;   // fixed-tick residue, seconds
     int    frames_done = 0;
