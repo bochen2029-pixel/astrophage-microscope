@@ -2,21 +2,21 @@
 
 **Rewritten at the end of every session.** If this file disagrees with `git tag --list`, believe the tags.
 
-> **Predation is complete (M10a + M10b).** The next milestone is **M11a — Content: the
-> scenario spine** (the JSON loader, world instantiation, accept evaluation, headless
-> runner). M11 was **split into M11a/M11b/M11c** (Iron Rule 9) because it bundled a whole
-> greenfield scenario/JSON system, a set of *derived* accept metrics plus one bit of new
-> physics (the spin-drive flash), and an entire inspector/telemetry UI — three sessions.
-> See the M11 section of `docs/MILESTONES.md`. [`CONTINUATION_PROMPT.md`](CONTINUATION_PROMPT.md)
-> is the standing handoff (its §4 has the eleven meta-lessons — read them).
+> **Predation is complete (M10a + M10b); the scenario spine is in (M11a).** The next
+> milestone is **M11b — Content: acceptance, driving, and the physics scenarios**. M11 was
+> split into M11a/M11b/M11c (Iron Rule 9). M11a built the spine: scenarios load, instantiate,
+> and run. M11b makes them *pass their objectives*. See the M11 section of
+> `docs/MILESTONES.md` and **ADR-031** (the scenario-loader decisions).
+> [`CONTINUATION_PROMPT.md`](CONTINUATION_PROMPT.md) is the standing handoff (its §4 has the
+> eleven meta-lessons — read them).
 
 ---
 
 ## Where the build stands
 
-**Last green: `m10b-green`. Next milestone: M11a — Content: the scenario spine.**
+**Last green: `m11a-green`. Next milestone: M11b — Content: acceptance + driving + physics scenarios.**
 
-**All five phenomena live. Cells behave, divide, die, run on a multi-rate clock; all five view modes draw distinctly; the Taumoeba predator crawls, engulfs, and now EVOLVES.** 23 tests green, 12 goldens, 10 audit checks, 30 ADRs.
+**All five phenomena live. Cells behave, divide, die, run on a multi-rate clock; all five view modes draw distinctly; the Taumoeba predator crawls, engulfs, and evolves; and scenarios load, instantiate, and run.** 24 tests green, 12 goldens, 10 audit checks, 31 ADRs.
 
 | | measured |
 |---|---|
@@ -31,31 +31,32 @@
 | **M7b** | Thermal vs Petrovascope mean 34.1 / max 252 — live idle cell dark in IR, invisible in Petrovascope |
 | **M10a** | T30 bit-reproducible (`5301212a`); 150 predators thin 6,000 → 5,898, all contained |
 | **M10b** | T31 evolution run bit-reproducible; **Taumoeba-82.5 at lineage generation 36** (budget 40) by directional selection; constant-N₂ control plateaus at max tol **0.17** |
+| **M11a** | all 8 scenarios load + instantiate + run bit-reproducibly (`test_scenario`); `headless --scenario ID` runs; populations match the spec exactly |
 
 ## Start here
 
 ```bash
 git -C C:\Astrophage tag --list
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/gate.ps1 -Milestone M10b
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/gate.ps1 -Milestone M11a
 ```
 
-Read: `CLAUDE.md` → `docs/ARCHITECTURE.md` → **the M11 section only** of `docs/MILESTONES.md` (M11a/M11b/M11c) → **`docs/SCENARIOS.md`** (the eight scenarios and their accept blocks) → `contracts/scenario_v1.h` + `contracts/telemetry_v1.h` → `tools/headless.cpp` (the runner, currently a `--scenario` stub) → `src/app/cli.cpp` and `src/app/MODULE.md`.
+Read: `CLAUDE.md` → `docs/ARCHITECTURE.md` → **the M11 section only** of `docs/MILESTONES.md` (M11b) → **`docs/SCENARIOS.md`** (the eight scenarios and their accept blocks — this is the spec you make pass) → **ADR-031** (the M11a decisions) → `src/sim/scenario.{h,cpp}` + `src/sim/json.h` (the spine you extend) → `contracts/telemetry_v1.h` (`Metric`, `AcceptCheck`) → `tools/headless.cpp` (the `--scenario` runner).
 
-## What M11a is — the scenario spine (headless), and the two decisions it must make
+## What M11b is — acceptance, driving, and the physics scenarios
 
-**The whole scenario system is a stub today** — `tools/headless.cpp` prints "scenario running arrives in M11" and returns. `contracts/scenario_v1.h` (the `Scenario` struct) is frozen and ready; nothing loads, instantiates, or evaluates it.
+**M11a built the spine** (scenarios load, instantiate, run — `test_scenario` green). M11b makes each scenario **pass its `accept` block** (the full T24 gate). Three pieces, and two of them are ADRs to settle *before* coding:
 
-**M11a builds the spine:** a JSON loader → `Scenario`; **scenario → world instantiation** (populations, fields, lights, clock, boundaries, param overrides → a `WorldDesc` + spawns); the **accept-evaluation framework** (`AcceptCheck` + `Stats` → pass/fail, vocab already in `telemetry_v1.h`); and the `headless --scenario ID --assert` runner. Only the scenarios that clear with existing `Stats` metrics: **first-light**, **bloom**, **taumoeba** (its accept *is* `test_evolution`'s), **sandbox** (no accept).
+1. **The accept-evaluation framework + the `--assert` runner.** `AcceptCheck` + measured metrics → pass/fail; `headless --scenario ID --assert` exits nonzero on a missed metric. The vocabulary (`Metric`, `CompareOp`) is in `telemetry_v1.h`. The `Metric`-name→enum map already exists in `scenario.cpp`.
+2. **Scenario *driving* (an ADR).** first-light needs the heat brush applied; taumoeba needs the N₂ ramp. The schema has `tools` (availability) but no scripted *events*. Add a minimal scripted-stimulus list — almost certainly a **`scenario_v2` bump** (the current struct is frozen `v1`) — that the runner applies at the right ticks. This is the crux of M11b.
+3. **The derived metrics (from full state, not just `Stats`) + the spin-drive flash.** `RiseVelocityEmpty`/`FallVelocityFull` (three-percent-line), `ChargeDepthCorrelation` (shadow-garden), `ChargeHeightCorrelation`, `DoublingTimeS` (bloom), `ImpulsePerCycle` (spin-drive-face). The **spin-drive flash** — an external high-intensity `PETROVA_WAVELENGTH` pulse forcing full-rate discharge (PHYSICS.md §6) — is **new physics**, its own ADR. `test_evolution` already proves the taumoeba arc, so wiring its accept is mostly reuse.
 
-**Two design decisions, each an ADR (resolve these BEFORE coding — they shape everything):**
-1. **How does a headless run *drive* an interactive scenario?** first-light starts cold and dormant; its accept ("all awake within 5 s of crossing the setpoint") needs the heat brush applied. The schema has `tools` (what's *available*) but no scripted *events*. Either add a minimal scripted-stimulus list to the scenario schema (a `_v2` bump) or restrict headless accept to self-driving scenarios and drive the rest only in the UI. This is the crux of M11a.
-2. **Hand-roll the JSON parser (no dependency, no ADR) or take one (ADR, Iron Rule 8).** A hand-rolled recursive-descent parser for this fixed schema is ~200 LOC and avoids the dependency — likely the right call, but decide and record.
+**Gate (`gate.ps1 -Milestone M11b`, already wired):** M11a gate + **T24 — every `scenarios/*.json` passes `headless --scenario <id> --assert`.** Tune each scenario's parameters + accept thresholds until it lands (the M10b arc is the model for this empirical loop); the thresholds must trace to a physical value or a canon constant, not a magic number (meta-lesson 2).
 
-**Gate (`gate.ps1 -Milestone M11a`, already wired):** M10b gate + `test_scenario` (every scenario JSON loads + instantiates deterministically) + `headless --scenario <id> --assert` green for first-light, bloom, taumoeba.
+**M11c** is then the parameter inspector + canon locks (`test_param_locks`, `non_canon_run`), the cell inspector, the objective panel, and CSV export — and the runtime-param system that lets `param_overrides` actually apply.
 
-**M11b** then adds the derived metrics (velocities, correlations, doubling-time, impulse) + the **spin-drive flash** (new physics, own ADR) + the remaining four scenarios (the full T24). **M11c** is the inspector/canon-lock/cell-inspector/CSV-export UI.
+## What already exists that M11b builds on
 
-## What already exists that M11 builds on
+- **The spine (M11a):** `scenario_load`/`scenario_parse`/`scenario_instantiate` in `src/sim/scenario.{h,cpp}`, the jsonc reader in `src/sim/json.h`, all 8 `scenarios/*.json` (accept blocks already parsed into the struct), and `headless --scenario ID`. The scenarios load by `ASTRO_SCENARIOS_DIR` (a compile define).
 
 - **`contracts/scenario_v1.h`** defines the scenario struct; **`contracts/telemetry_v1.h`** defines `Stats`, the `Metric` enum, `AcceptCheck`, `CompareOp`, and `non_canon_run` — the acceptance vocabulary is frozen and shared by the UI and headless runner *by design* (a scenario cannot rot).
 - **`world_stats`** returns a `contract::Stats` at HUD rate (fixed-point reductions, INV-2). M11 reads it; it does not add device work.

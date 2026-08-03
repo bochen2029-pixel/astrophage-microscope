@@ -1,0 +1,33 @@
+{
+  "schema": 1,
+  "id": "sandbox",
+  "title": "Sandbox",
+  "blurb": "Everything unlocked, no objective. The scenario people spend the most time in.",
+  "teaches": [],
+  "seed": 20260802,
+
+  "chamber": { "w": 4.0e-3, "h": 4.0e-3, "d": 6.0e-5,
+               "boundary_x": "reflecting", "boundary_y": "reflecting" },
+
+  "medium": { "kind": "water", "temp_init": 293.15, "co2_init": 0.0, "n2_init": 0.0,
+              "thermal_bc": "robin", "ambient_temp": 293.15,
+              "density_model": "canon-mass" },
+
+  "light": { "sources": [], "ambient": 0.0 },
+
+  "populations": [
+    { "kind": "astrophage", "count": 5000, "placement": "uniform",
+      "charge": { "dist": "uniform", "a": 0.0, "b": 0.05 }, "awake": false }
+  ],
+
+  "clock": { "preset": "realtime" },
+
+  "scope": { "mode": "brightfield", "objective": "WORKING",
+             "focal_plane": 0.0, "center": [0.0, 0.0] },
+
+  "tools": ["heat", "chill", "illuminate", "inject_co2", "inject_n2",
+            "seed_cells", "seed_taumoeba", "kill", "charge_beam"],
+  "param_overrides": {},
+
+  "objective": { "text": "No objective. Explore.", "accept": [] }
+}

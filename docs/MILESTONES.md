@@ -252,15 +252,15 @@ Three findings, all in ADR-018:
 
 ### M11a — Content: the scenario spine (headless)
 
-**Scope.** A dependency-free JSON loader (hand-rolled, so no ADR — or a dependency *with* one), parsing `scenarios/*.json` into `contracts/scenario_v1.h`'s `Scenario`; **scenario → world instantiation** (populations, fields, lights, clock, boundaries, param overrides); the **accept-evaluation framework** (`AcceptCheck` + `Stats` → pass/fail) for the metrics that already exist in `Stats`; and the `headless --scenario ID --assert` runner. Only the scenarios whose accept blocks use existing `Stats` metrics and whose beat is self-driving or minimally scripted: **first-light**, **taumoeba** (its accept is `test_evolution`'s, now proven), **bloom**, **sandbox** (no accept).
+**Scope.** A dependency-free hand-rolled JSON (jsonc) loader parsing `scenarios/*.json` into `contracts/scenario_v1.h`'s `Scenario` (all fields, incl. the accept blocks — *parsed*, evaluated at M11b); **scenario → world instantiation** (`WorldDesc` + boundaries + medium fields + populations + lights + clock); the `headless --scenario ID [--ticks N]` runner (load, instantiate, run, print stats — no accept yet); and all eight `scenarios/*.json`.
 
-**Design questions this milestone must resolve (each an ADR):** (1) **How a headless run drives an interactive scenario** — first-light needs the heat brush applied; the schema has `tools` (availability) but no scripted *events*. Either add a minimal scripted-stimulus list to the scenario, or evaluate only self-driving accept. (2) **JSON dependency or hand-roll.**
+**Two decisions, settled:** (1) **JSON is hand-rolled** (~200 LOC over a fixed schema), so no dependency and no ADR (Iron Rule 8). (2) **Accept-evaluation and scenario *driving* move to M11b** — every accept block needs either driving (first-light's heat, taumoeba's N₂ ramp) or a derived metric, and those belong with M11b's metric machinery. `scope` (render-only) and `param_overrides` (need a runtime-param system, M11c) are parsed but not applied.
 
-**Gate.** M10b gate + `test_scenario` (every scenario JSON loads and instantiates deterministically) + `headless --scenario <id> --assert` passes for first-light, bloom, taumoeba.
+**Gate.** M10b gate + `test_scenario`: every scenario JSON loads and instantiates into a `World` deterministically (same scenario ⇒ same state hash; a different scenario differs), populations spawn, and fields set.
 
-### M11b — Content: derived metrics and the physics scenarios
+### M11b — Content: acceptance, derived metrics, and the physics scenarios
 
-**Scope.** The derived acceptance metrics the runner computes from full state, not just `Stats`: `RiseVelocityEmpty`/`FallVelocityFull` (three-percent-line), `ChargeDepthCorrelation` (shadow-garden), `ChargeHeightCorrelation`, `DoublingTimeS` (bloom's tighter form), `ImpulsePerCycle` (spin-drive-face). The **spin-drive flash** — an external high-intensity `PETROVA_WAVELENGTH` pulse forcing full-rate discharge (PHYSICS.md §6) — is new physics and gets its own ADR. Then the remaining scenarios: **three-percent-line**, **shadow-garden**, **komorov**, **spin-drive-face**.
+**Scope.** The **accept-evaluation framework** (`AcceptCheck` + measured metrics → pass/fail) and the `headless --scenario ID --assert` runner; the **scenario driving** mechanism (a headless run must apply first-light's heat and taumoeba's N₂ ramp — resolve via a scripted-stimulus list, likely a `scenario_v2` bump, its own ADR). The **derived** metrics computed from full state, not just `Stats`: `RiseVelocityEmpty`/`FallVelocityFull` (three-percent-line), `ChargeDepthCorrelation` (shadow-garden), `ChargeHeightCorrelation`, `DoublingTimeS` (bloom), `ImpulsePerCycle` (spin-drive-face). The **spin-drive flash** — an external high-intensity `PETROVA_WAVELENGTH` pulse forcing full-rate discharge (PHYSICS.md §6) — is new physics and gets its own ADR.
 
 **Gate.** M11a gate + **T24: the headless runner executes *every* scenario's `accept` block and all eight pass.**
 

@@ -1,0 +1,39 @@
+{
+  "schema": 1,
+  "id": "taumoeba",
+  "title": "Taumoeba and the 82.5 Problem",
+  "blurb": "A predator crashes the culture; a rising nitrogen ramp breeds it toward tolerance.",
+  "teaches": [],
+  "seed": 20260802,
+
+  "chamber": { "w": 4.0e-3, "h": 4.0e-3, "d": 6.0e-5,
+               "boundary_x": "reflecting", "boundary_y": "reflecting" },
+
+  "medium": { "kind": "water", "temp_init": 293.15, "co2_init": 0.0, "n2_init": 0.0,
+              "thermal_bc": "robin", "ambient_temp": 293.15,
+              "density_model": "canon-mass", "store_disposition": "void" },
+
+  "light": { "sources": [], "ambient": 0.0 },
+
+  "populations": [
+    { "kind": "astrophage", "count": 3000, "placement": "uniform",
+      "charge": { "dist": "constant", "value": 0.03 }, "awake": false },
+    { "kind": "taumoeba", "count": 20, "placement": "uniform" }
+  ],
+
+  "clock": { "preset": "generational" },
+
+  "scope": { "mode": "brightfield", "objective": "WORKING",
+             "focal_plane": 0.0, "center": [0.0, 0.0] },
+
+  "tools": ["inject_n2", "seed_taumoeba", "seed_cells"],
+  "param_overrides": {},
+
+  "objective": {
+    "text": "Introduce the predator, then raise nitrogen across generations to breed Taumoeba-82.5.",
+    "accept": [
+      { "metric": "mean_tau_tolerance", "op": ">",  "value": 0.1, "after_s": 0 },
+      { "metric": "max_tau_tolerance",  "op": ">=", "value": 0.825 }
+    ]
+  }
+}

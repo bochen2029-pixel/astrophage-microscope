@@ -20,7 +20,12 @@
 
 #include "contracts/snapshot_v1.h"
 #include "core/canon_generated.h"
+#include "sim/scenario.h"
 #include "sim/world.cuh"
+
+#ifndef ASTRO_SCENARIOS_DIR
+#define ASTRO_SCENARIOS_DIR "scenarios"
+#endif
 
 using namespace astro;
 
@@ -176,8 +181,36 @@ int main(int argc, char** argv) {
     }
 
     if (o.scenario) {
-        std::printf("headless: scenario running arrives in M11 (docs/MILESTONES.md)\n");
-        return 3;
+        // --scenario accepts a bare id (resolved against the scenarios dir) or a
+        // direct path to a .json. Accept-block evaluation (--assert) is M11b.
+        std::string id = o.scenario;
+        const bool is_path = id.size() > 5 && id.compare(id.size() - 5, 5, ".json") == 0;
+        const std::string path = is_path ? id : (std::string(ASTRO_SCENARIOS_DIR) + "/" + id + ".json");
+
+        contract::Scenario sc;
+        if (Error e = sim::scenario_load(path, sc)) {
+            std::printf("scenario load failed (%s): %s\n", path.c_str(), status_str(e.status));
+            return 3;
+        }
+        sim::World w;
+        if (Error e = sim::scenario_instantiate(sc, w)) {
+            std::printf("scenario '%s' instantiate failed: %s\n", sc.id, status_str(e.status));
+            return 3;
+        }
+        for (long long t = 0; t < o.ticks; ++t) sim::world_step(w);
+        if (cudaDeviceSynchronize() != cudaSuccess) {
+            std::printf("device error during scenario stepping\n");
+            sim::world_destroy(w);
+            return 1;
+        }
+        const contract::Stats st = sim::world_stats(w);
+        std::printf("scenario %s: ticks %lld  live %d  dead %d  tau %d  mean_charge %.4f  "
+                    "medium %.2f K (max %.2f K)  mean_tol %.4f  sim_time %.3f s\n",
+                    sc.id, o.ticks, st.n_live, st.n_dead, st.n_taumoeba, st.mean_charge,
+                    st.mean_temp_medium_k, st.max_temp_medium_k, st.mean_tau_tolerance,
+                    st.sim_time_s);
+        sim::world_destroy(w);
+        return 0;
     }
 
     uint64_t h1 = 0;

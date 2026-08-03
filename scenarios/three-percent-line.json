@@ -1,0 +1,39 @@
+{
+  "schema": 1,
+  "id": "three-percent-line",
+  "title": "The Three Percent Line",
+  "blurb": "Charge decides which way a cell falls. Watch the field sort itself.",
+  "teaches": ["P1"],
+  "seed": 20260802,
+
+  "chamber": { "w": 4.0e-3, "h": 4.0e-3, "d": 6.0e-5,
+               "boundary_x": "reflecting", "boundary_y": "reflecting" },
+
+  "medium": { "kind": "water", "temp_init": 293.15, "co2_init": 0.0, "n2_init": 0.0,
+              "thermal_bc": "robin", "ambient_temp": 293.15,
+              "density_model": "canon-mass", "gravity_axis": "y" },
+
+  "light": { "sources": [], "ambient": 0.0 },
+
+  "populations": [
+    { "kind": "astrophage", "count": 2000, "placement": "uniform",
+      "charge": { "dist": "uniform", "a": 0.0, "b": 0.10 }, "awake": true }
+  ],
+
+  "clock": { "preset": "motion" },
+
+  "scope": { "mode": "brightfield", "objective": "WORKING",
+             "focal_plane": 0.0, "center": [0.0, 0.0] },
+
+  "tools": ["illuminate", "seed_cells"],
+  "param_overrides": {},
+
+  "objective": {
+    "text": "Let the field sort by charge, then illuminate and watch cells cross the line.",
+    "accept": [
+      { "metric": "charge_height_correlation", "op": "<",  "value": -0.5, "after_s": 60 },
+      { "metric": "rise_velocity_empty",       "op": "~=", "value": -5.21e-5, "tol": 0.06 },
+      { "metric": "fall_velocity_full",        "op": "~=", "value": 1.681e-3, "tol": 0.05 }
+    ]
+  }
+}

@@ -24,8 +24,10 @@ dynamics, Fickian diffusion, conduction, photon momentum.
 phenomena are live; cells behave, divide, die, run on a multi-rate clock with slot
 compaction; all five view modes draw distinctly; the Taumoeba predator crawls,
 engulfs, and **evolves** — under a rising N₂ ramp the Taumoeba-82.5 strain breeds
-itself by directional selection (deterministically). **Next up: M11 — Content**
-(scenario loader, inspector/instrument panels, CSV telemetry). Physics is closed.
+itself by directional selection (deterministically). The **scenario spine is in**
+(M11a): all 8 scenarios load, instantiate, and run. **Next up: M11b** — make each
+scenario pass its `accept` block (acceptance + driving + derived metrics). Physics is
+closed but for the spin-drive flash (M11b).
 
 **This is a simulator and visualisation, not a game.** No win state, no story mode,
 no asset files — everything procedural or generated.
@@ -46,7 +48,7 @@ git -C C:\Astrophage tag --list
 **The last `m<N>-green` tag is ground truth.** Not a doc, not a log, not this file.
 If anything here disagrees with the tags, believe the tags and fix the doc.
 
-As of writing: `m0-green` … `m9c-green`, plus `m7b-green` and `m10a-green`, `m10b-green`.
+As of writing: `m0-green` … `m9c-green`, plus `m7b-green`, `m10a-green`, `m10b-green`, `m11a-green`.
 
 Then verify the baseline **before changing anything**:
 
@@ -81,7 +83,7 @@ on code. **Never load the whole repo.**
 2. **`docs/ARCHITECTURE.md`** — module map, invariants INV-1…INV-8, the mandatory
    glossary, the tick sequence, the anti-drift machinery. Always.
 3. **`docs/MILESTONES.md` — the active milestone section only.** Not the file.
-4. **`docs/DECISIONS.md`** — 26 ADRs. Skim the index; read any ADR a task touches.
+4. **`docs/DECISIONS.md`** — 31 ADRs. Skim the index; read any ADR a task touches.
    **Every contradiction in the source material has already been adjudicated here,
    with reasoning and an escape hatch.** Re-litigating costs a session.
 5. **`docs/PHYSICS.md`** — only if touching `src/sim/` or `src/fields/`, and only
@@ -101,7 +103,7 @@ fix the contract.
 
 ## 3. The state, in numbers
 
-**23 tests green, 12 golden images, 10 audit invariant checks, 30 ADRs.**
+**24 tests green, 12 golden images, 10 audit invariant checks, 31 ADRs.**
 
 ```
 test_canon ......... generated constants consistent; the right params carry the canon lock
@@ -129,6 +131,8 @@ test_clock ......... preset ratios exact, biology/physics compounding, rate-1 id
 test_predation ..... T30: Taumoeba crawl/engulf/digest bit-reproducible; culture thinned
 test_evolution ..... T31-T33: dividing/dying/compacting store bit-reproducible; the
                      Taumoeba-82.5 arc by directional selection; constant-N2 control
+test_scenario ...... all 8 scenarios load + instantiate + run bit-reproducibly; the
+                     jsonc parser and scenario_parse (M11a)
 determinism_replay . real World, seed- and population-sensitive (INV-8)
 ```
 
@@ -325,46 +329,40 @@ network access beyond dependency fetch, Windows settings, spending money.
 
 ---
 
-## 6. What is next — M11a (Content: the scenario spine)
+## 6. What is next — M11b (Content: acceptance, driving, physics scenarios)
 
-Predation is **complete**: M10a (the store, crawl, engulfment) and **M10b (N₂
-lethality, heritable tolerance, and the Taumoeba-82.5 arc)** are both done and green.
-All physics milestones are behind us. M11 turns the engine into an instrument — and it
-was **split into M11a / M11b / M11c** (Iron Rule 9): the scenario system is a stub
-today (`tools/headless.cpp` prints "arrives in M11"), and the full milestone bundled a
-greenfield JSON/scenario spine, a set of *derived* accept metrics plus the new
-spin-drive-flash physics, and a whole inspector/telemetry UI — three sessions. **M11a
-is the spine** (loader → `Scenario`, world instantiation, accept eval, headless
-runner); see `docs/MILESTONES.md`.
+Predation is **complete** (M10a + M10b), all physics milestones are behind us, and
+**M11a shipped the scenario spine** (ADR-031): a hand-rolled jsonc loader
+(`src/sim/json.h`), `scenario_load`/`scenario_instantiate` (`src/sim/scenario.{h,cpp}`),
+all 8 `scenarios/*.json`, `headless --scenario ID`, and `test_scenario`. Every scenario
+loads, instantiates, and runs bit-reproducibly. M11 was **split into M11a / M11b / M11c**
+(Iron Rule 9); M11b makes the scenarios **pass their objectives**.
 
-**M10b shipped (ADR-030):** N₂ Poisson lethality, heritable tolerance, Taumoeba
-division on **dry biomass** (`TAU_MASS_DRY`, distinct from the drag-only water mass
-`TAU_MASS`), a `generation` counter, and a stable opt-in `taumoeba_store_compact`.
-`test_evolution` proves the dividing/dying/compacting store bit-reproducible and the
-82.5 strain emergent (generation 36, budget 40) with a constant-N₂ control. The
-lethality rate is derived from a survival time; that time was *tuned* (120 s went
-extinct in 6 rounds → 2000 s rescued the population — meta-lesson 5).
+**M11b scope.** Three pieces, two of them ADRs to settle before coding:
+1. **The accept-evaluation framework + `--assert` runner.** `AcceptCheck` + measured
+   metrics → pass/fail; `headless --scenario ID --assert` exits nonzero on a miss. The
+   vocabulary is in `telemetry_v1.h`; the `Metric`-name→enum map is in `scenario.cpp`.
+2. **Scenario *driving* (ADR).** first-light needs the heat brush; taumoeba the N₂ ramp.
+   The schema (`scenario_v1.h`) has `tools` availability, not scripted *events* — add a
+   minimal scripted-stimulus list, almost certainly a **`scenario_v2` bump**, applied by
+   the runner at the right ticks. The crux.
+3. **Derived metrics (from full state, not `Stats`) + the spin-drive flash.**
+   rise/fall velocities (three-percent-line), charge-depth/height correlations
+   (shadow-garden), doubling-time (bloom), impulse-per-cycle (spin-drive-face). The
+   **spin-drive flash** — an external high-intensity `PETROVA_WAVELENGTH` pulse forcing
+   full-rate discharge (PHYSICS.md §6) — is **new physics, its own ADR**. taumoeba's
+   accept is `test_evolution`'s, so it is mostly reuse.
 
-**M11a scope.** No new physics. The JSON loader → `Scenario`, scenario → world
-instantiation, the accept-evaluation framework (`Metric`/`AcceptCheck`/`CompareOp`
-are already in `telemetry_v1.h`), and the `headless --scenario ID --assert` runner —
-for the scenarios that clear with existing `Stats` metrics (first-light, bloom,
-taumoeba, sandbox). Gate `M11a`: `test_scenario` + `--assert` green for those three.
+**Gate `M11b` (already wired):** M11a gate + **T24 — every `scenarios/*.json` passes
+`--assert`.** Tune each scenario's parameters + thresholds until it lands (the M10b arc
+is the model for that empirical loop).
 
-**Two ADR-worthy decisions M11a must make first:** (1) **how a headless run drives an
-interactive scenario** — first-light needs the heat brush applied, but the schema has
-`tools` (availability), not scripted *events*; add a minimal scripted-stimulus (a
-`scenario_v2` bump) or restrict headless accept to self-driving scenarios. (2)
-**hand-roll the JSON parser** (no dependency, ~200 LOC — likely right) **or take one**
-(ADR). **M11b** then adds the derived metrics (velocities, correlations, doubling-time,
-impulse) + the **spin-drive flash** (new physics, own ADR) + the remaining four
-scenarios (full T24). **M11c** is the inspector + canon-lock + cell-inspector + CSV
-UI (`test_param_locks`).
-
-**Watch for:** accept thresholds must trace to a physical value or a canon constant,
-not a magic number (meta-lesson 2); assert the metric the scenario is *about*, not a
-proxy that passes while broken (meta-lesson 4); and loading scenarios must add no
-per-tick host traffic (the 200k benchmark is the guard).
+**Watch for:** accept thresholds must trace to a physical value or a canon constant, not
+a magic number (meta-lesson 2); assert the metric the scenario is *about*, not a proxy
+that passes while broken (meta-lesson 4); loading/driving scenarios must add no per-tick
+host traffic (the 200k benchmark is the guard). **M11c** is then the inspector +
+canon-lock + cell-inspector + CSV UI (`test_param_locks`), and the runtime-param system
+that lets `param_overrides` apply.
 
 ### Then M12
 

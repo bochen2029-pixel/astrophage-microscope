@@ -6,6 +6,20 @@ Format: milestone · what landed · what is pending · open questions · gotchas
 
 ---
 
+## 2026-08-02 — M11a (Content: scenario spine) — GREEN · **scenarios load and run**
+
+**Landed.** The scenario system, which was a stub (`headless` printed "arrives in M11"). A hand-rolled dependency-free jsonc reader (`src/sim/json.h`), a loader + world instantiation (`src/sim/scenario.{h,cpp}`), all **eight** `scenarios/*.json`, the `headless --scenario ID` runner, and `test_scenario`. **24 tests green.** No contract change (`Scenario`/`ScopeState`/`ParamOverride`/`AcceptCheck` all pre-existed). New ADR-031. M11 was **split into M11a/M11b/M11c** first (Iron Rule 9) — this is M11a.
+
+**The gate is `test_scenario` (INV-8, again).** Every scenario loads, instantiates into a `World`, spawns exactly its spec'd populations, and runs **bit-reproducibly** (same scenario → same hash; a different scenario diverges). first-light 800 · three-percent-line 2000 · komorov 1 · shadow-garden 12000 · bloom 10 · taumoeba 3000+20 · spin-drive-face 1000 · sandbox 5000 — all `det`. Headless smoke: taumoeba thins 3000→2997 in 100 ticks; first-light sits cold (no driving yet, correct).
+
+**Four decisions, in ADR-031.** (1) JSON hand-rolled, no dependency. (2) Loader in `sim` — it builds a `World` (snapshot.cpp's precedent) and both `headless` and the app link sim; it is the first `.cpp` in `astro_sim`. (3) `scope` (render-only) and `param_overrides` (need a runtime-param system, which is `constexpr` canon's blocker → M11c) are **parsed but not applied**. (4) **Accept-evaluation + scenario driving → M11b**: every accept block needs driving (first-light's heat, taumoeba's N₂ ramp — the schema has no scripted events) or a derived metric.
+
+**Gotchas.** `Placement`/`Distribution` exist in BOTH `astro::sim` and `astro::contract`; inside `namespace astro::sim` the unqualified name is the sim one, so the loader's helpers are explicitly `contract::`-qualified. `Error`'s `operator bool` is explicit — `CHECK(!e)` works, `CHECK(e)` needs a `static_cast<bool>`. Scenarios load by absolute path (`ASTRO_SCENARIOS_DIR` compile define); relocatable paths are M12's.
+
+**Pending / next.** M11b: the accept framework + `--assert` runner, the scenario-driving mechanism (scripted stimulus, likely `scenario_v2`, own ADR), the derived metrics, the spin-drive flash (new physics, own ADR), and all 8 scenarios passing T24.
+
+---
+
 ## 2026-08-02 — M10b (Evolution) — GREEN · **Taumoeba-82.5 breeds itself**
 
 **Landed.** The evolution half of predation: N₂ Poisson lethality, heritable N₂ tolerance, Taumoeba division mirroring cell mitosis (prefix-sum slots, daughter stream, mutation from the daughter's draw), a per-Taumoeba `generation` counter, and a stable opt-in `taumoeba_store_compact` (ADR-028). `Stats.n_taumoeba` / `mean_tau_tolerance` filled in the stage-11 reduction; a mean-tolerance chart in the UI. **23 tests green** (added `test_evolution`). No contract change (both telemetry fields were already declared). New ADR-030.

@@ -1,0 +1,39 @@
+{
+  "schema": 1,
+  "id": "komorov",
+  "title": "The Komorov Experiment",
+  "blurb": "One cell on a microbalance under a 1 kW beam. Watch the mass climb.",
+  "teaches": [],
+  "seed": 20260802,
+
+  "chamber": { "w": 4.0e-3, "h": 4.0e-3, "d": 6.0e-5,
+               "boundary_x": "reflecting", "boundary_y": "reflecting" },
+
+  "medium": { "kind": "water", "temp_init": 293.15, "co2_init": 0.0, "n2_init": 0.0,
+              "thermal_bc": "robin", "ambient_temp": 293.15,
+              "density_model": "canon-mass" },
+
+  "light": { "sources": [
+      { "dir_x": 0.0, "dir_y": -1.0, "irradiance": 1.27e13, "wavelength": 2.5984e-5 }
+    ], "ambient": 0.0 },
+
+  "populations": [
+    { "kind": "astrophage", "count": 1, "placement": "uniform",
+      "charge": { "dist": "constant", "value": 0.0 }, "awake": false }
+  ],
+
+  "clock": { "preset": "metabolic" },
+
+  "scope": { "mode": "petrovascope", "objective": "DETAIL",
+             "focal_plane": 0.0, "center": [0.0, 0.0] },
+
+  "tools": ["charge_beam"],
+  "param_overrides": {},
+
+  "objective": {
+    "text": "Absorb 1 kW for 25 minutes and reach full enrichment.",
+    "accept": [
+      { "metric": "total_energy_j", "op": "~=", "value": 1.5e6, "tol": 0.001, "after_s": 1500 }
+    ]
+  }
+}

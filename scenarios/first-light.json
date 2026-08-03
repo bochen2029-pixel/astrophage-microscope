@@ -1,0 +1,39 @@
+{
+  "schema": 1,
+  "id": "first-light",
+  "title": "First Light",
+  "blurb": "A cold chamber of inert black powder. Until you heat it.",
+  "teaches": ["P3", "P2"],
+  "seed": 20260802,
+
+  "chamber": { "w": 4.0e-3, "h": 4.0e-3, "d": 6.0e-5,
+               "boundary_x": "reflecting", "boundary_y": "reflecting" },
+
+  "medium": { "kind": "water", "temp_init": 293.15, "co2_init": 0.0, "n2_init": 0.0,
+              "thermal_bc": "robin", "ambient_temp": 293.15,
+              "density_model": "canon-mass", "store_disposition": "void" },
+
+  "light": { "sources": [], "ambient": 0.0 },
+
+  "populations": [
+    { "kind": "astrophage", "count": 800, "placement": "uniform",
+      "charge": { "dist": "constant", "value": 0.0 }, "awake": false }
+  ],
+
+  "clock": { "preset": "realtime" },
+
+  "scope": { "mode": "brightfield", "objective": "WORKING",
+             "focal_plane": 0.0, "center": [0.0, 0.0] },
+
+  "tools": ["heat", "chill", "illuminate", "seed_cells"],
+  "param_overrides": {},
+
+  "objective": {
+    "text": "Wake the culture. Then try to cool it back down.",
+    "accept": [
+      { "metric": "awake_fraction",   "op": ">=", "value": 1.0,     "after_s": 5 },
+      { "metric": "medium_temp_mean", "op": "~=", "value": 369.565, "tol": 0.5, "after_s": 120 },
+      { "metric": "boil_event_count", "op": "==", "value": 0 }
+    ]
+  }
+}

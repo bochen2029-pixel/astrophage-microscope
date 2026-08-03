@@ -1,0 +1,39 @@
+{
+  "schema": 1,
+  "id": "shadow-garden",
+  "title": "The Shadow Garden",
+  "blurb": "Albedo is exactly zero, so a lit monolayer starves everything behind it.",
+  "teaches": ["P5"],
+  "seed": 20260802,
+
+  "chamber": { "w": 4.0e-3, "h": 4.0e-3, "d": 6.0e-5,
+               "boundary_x": "reflecting", "boundary_y": "reflecting" },
+
+  "medium": { "kind": "water", "temp_init": 293.15, "co2_init": 0.0, "n2_init": 0.0,
+              "thermal_bc": "robin", "ambient_temp": 293.15,
+              "density_model": "canon-mass" },
+
+  "light": { "sources": [
+      { "dir_x": 1.0, "dir_y": 0.0, "irradiance": 500.0, "wavelength": 5.5e-7 }
+    ], "ambient": 0.0 },
+
+  "populations": [
+    { "kind": "astrophage", "count": 12000, "placement": "uniform",
+      "charge": { "dist": "constant", "value": 0.02 }, "awake": true }
+  ],
+
+  "clock": { "preset": "metabolic" },
+
+  "scope": { "mode": "analysis", "objective": "WORKING",
+             "focal_plane": 0.0, "center": [0.0, 0.0] },
+
+  "tools": ["illuminate", "seed_cells"],
+  "param_overrides": {},
+
+  "objective": {
+    "text": "Illuminate the culture and read the charge gradient down the light axis.",
+    "accept": [
+      { "metric": "charge_depth_correlation", "op": "<", "value": -0.8, "after_s": 120 }
+    ]
+  }
+}

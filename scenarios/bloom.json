@@ -1,0 +1,41 @@
+{
+  "schema": 1,
+  "id": "bloom",
+  "title": "Bloom",
+  "blurb": "Warm, fed, and lit: exponential growth until the CO2 runs out.",
+  "teaches": [],
+  "seed": 20260802,
+
+  "chamber": { "w": 4.0e-3, "h": 4.0e-3, "d": 6.0e-5,
+               "boundary_x": "reflecting", "boundary_y": "reflecting" },
+
+  "medium": { "kind": "water", "temp_init": 369.565, "co2_init": 1.5, "n2_init": 0.0,
+              "thermal_bc": "neumann", "ambient_temp": 369.565,
+              "density_model": "canon-mass" },
+
+  "light": { "sources": [
+      { "dir_x": 1.0, "dir_y": 0.0, "irradiance": 200.0, "wavelength": 5.5e-7 }
+    ], "ambient": 50.0 },
+
+  "populations": [
+    { "kind": "astrophage", "count": 10, "placement": "gaussian",
+      "place_x": 0.0, "place_y": 0.0, "place_radius": 2.0e-4,
+      "charge": { "dist": "constant", "value": 0.5 }, "awake": true }
+  ],
+
+  "clock": { "preset": "generational" },
+
+  "scope": { "mode": "brightfield", "objective": "SURVEY",
+             "focal_plane": 0.0, "center": [0.0, 0.0] },
+
+  "tools": ["illuminate", "inject_co2", "seed_cells"],
+  "param_overrides": {},
+
+  "objective": {
+    "text": "Grow the culture; confirm the doubling time while CO2 is non-limiting.",
+    "accept": [
+      { "metric": "population_live", "op": ">",  "value": 10 },
+      { "metric": "doubling_time_s", "op": "~=", "value": 6.912e5, "tol": 0.05 }
+    ]
+  }
+}

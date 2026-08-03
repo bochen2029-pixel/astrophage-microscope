@@ -1,0 +1,41 @@
+{
+  "schema": 1,
+  "id": "spin-drive-face",
+  "title": "Spin Drive Face",
+  "blurb": "One triangular face of a spin drive, at cell scale: attract, rotate, flash, scrape.",
+  "teaches": [],
+  "seed": 20260802,
+
+  "chamber": { "w": 4.0e-3, "h": 4.0e-3, "d": 6.0e-5,
+               "boundary_x": "reflecting", "boundary_y": "reflecting" },
+
+  "medium": { "kind": "water", "temp_init": 293.15, "co2_init": 0.0, "n2_init": 0.0,
+              "thermal_bc": "robin", "ambient_temp": 293.15,
+              "density_model": "canon-mass" },
+
+  "light": { "sources": [
+      { "dir_x": 0.0, "dir_y": -1.0, "irradiance": 10.0, "wavelength": 4.26e-6 }
+    ], "ambient": 0.0 },
+
+  "populations": [
+    { "kind": "astrophage", "count": 1000, "placement": "disc",
+      "place_x": 0.0, "place_y": 0.0, "place_radius": 5.0e-4,
+      "charge": { "dist": "constant", "value": 1.0 }, "awake": true }
+  ],
+
+  "clock": { "preset": "realtime" },
+
+  "scope": { "mode": "petrovascope", "objective": "WORKING",
+             "focal_plane": 0.0, "center": [0.0, 0.0] },
+
+  "tools": ["illuminate", "charge_beam"],
+  "param_overrides": {},
+
+  "objective": {
+    "text": "Run the attract-rotate-flash-scrape cycle; account the impulse per cycle.",
+    "accept": [
+      { "metric": "impulse_per_cycle", "op": "~=", "value": 1.0, "tol": 0.01 },
+      { "metric": "boil_event_count",  "op": "==", "value": 0 }
+    ]
+  }
+}

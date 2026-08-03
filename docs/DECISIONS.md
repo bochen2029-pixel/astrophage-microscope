@@ -132,6 +132,24 @@ Append-only. Every contradiction in the source material and every non-obvious en
 
 ---
 
+## ADR-031 — The scenario spine: hand-rolled JSON, loader in sim, and the M11 split
+
+**Status:** accepted, 2026-08-02 (M11a).
+
+**Context.** M11 (Content) was a stub: `contracts/scenario_v1.h` (the `Scenario` struct) was frozen but nothing loaded, instantiated, or evaluated it. M11a builds the spine and had to settle four things.
+
+1. **JSON is hand-rolled, not a dependency.** The scenario schema is fixed and small, so a ~200-line recursive-descent reader (`src/sim/json.h`, jsonc — it skips `//` and `/* */` comments) buys us out of a new dependency and its ADR (Iron Rule 8). It is permissive on input and strict at exactly one point: an unknown `accept` metric is rejected, because a silently-dropped objective is worse than a load failure.
+
+2. **The loader lives in `sim`, not `app`/`tools`.** `scenario_instantiate` builds a `World` — a sim object, exactly as `snapshot.cpp` restores one — and both the headless runner (`tools/`) and the app (`src/app/`) link `sim` but not each other. Putting it in `app` would have hidden it from `headless`, which the T24 gate drives. It is host C++ (a `.cpp`, the first in `astro_sim`), compiling under MSVC like `headless.cpp` does with the same sim headers.
+
+3. **`scope` and `param_overrides` are parsed but not applied (yet).** `scope` is render-only — headless has nothing to point. `param_overrides` cannot be applied at all until a **runtime-parameter system** exists: canon is `constexpr`, so overriding `PETROVA_MAX_POWER` at load time is not expressible today. That system is M11c's (it is the same machinery the parameter inspector and the canon lock need). Both fields are parsed into the struct so the app and a later milestone consume them without a re-parse.
+
+4. **M11 splits into M11a / M11b / M11c** (Iron Rule 9). Every scenario's `accept` block needs either **driving** (first-light's heat, taumoeba's N₂ ramp — the schema has `tools` availability but no scripted *events*) or a **derived metric** (velocities, correlations, doubling-time, impulse) computed from full state. Both belong with M11b, alongside the spin-drive-flash physics. So **M11a is load + instantiate + run**, gated on `test_scenario` (all eight load and instantiate into a `World` bit-reproducibly, populations matching the spec); **M11b** adds acceptance + driving + derived metrics + the flash and drives every scenario's `accept` to green (T24); **M11c** is the inspector/lock/CSV UI.
+
+**Consequences.** No contract change — `Scenario`, `ScopeState`, `ParamOverride`, `AcceptCheck`, `Metric` all pre-existed. The scenarios load by absolute path (`ASTRO_SCENARIOS_DIR`, a compile define) so ctest and headless find them without a working-directory assumption; a relocatable path is M12's packaging concern. `test_scenario` re-airs INV-8 for scenario-built worlds: same scenario ⇒ same hash, a different scenario diverges.
+
+---
+
 ## ADR-030 — Evolution: dry biomass, a derived hazard, and the Taumoeba-82.5 arc as pure selection
 
 **Status:** accepted, 2026-08-02 (M10b).

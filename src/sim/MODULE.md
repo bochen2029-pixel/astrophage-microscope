@@ -20,6 +20,7 @@ The simulation itself: the cell and Taumoeba stores, the integrator, and every p
 | `taxis.{cuh,cu}` | ✅ run-and-tumble FEED/BREED/IDLE controller, emission discharge (PHYSICS.md §8, ADR-022) | M8 |
 | `lifecycle.{cuh,cu}` | ✅ CO₂ uptake, mitosis, prefix-sum slots (ADR-025); overheat death and store disposition (ADR-004) | M9a/M9b |
 | `stats.cu` | ✅ tick stage 11, fixed-point telemetry reduction (ADR-026) | M9b |
+| `json.h` + `scenario.{h,cpp}` | ✅ hand-rolled jsonc reader; scenario load + world instantiation (docs/SCENARIOS.md) | M11a |
 | `step.cu` | ✅ tick sequence, the multi-rate clock and its presets (ADR-011, ADR-027) | M1/M9c |
 | `predation.{cuh,cu}` | ✅ TaumoebaStore, crawl, deterministic engulfment, digestion (M10a); N₂ lethality, heritable tolerance, division + stable compaction, the Taumoeba-82.5 arc (M10b) | M10b |
 | `snapshot.cpp` | serialise/restore, FNV-1a state hash | M12 |

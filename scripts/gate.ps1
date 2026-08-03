@@ -228,16 +228,7 @@ if (($n -gt 10) -or ($n -eq 10 -and $suffix -ge 'b')) {
 
 # -------------------------------------------- M11a: content, the scenario spine
 if (($n -gt 11) -or ($n -eq 11 -and $suffix -ge 'a')) {
-    Gate 'M11a.1' 'scenarios load + instantiate deterministically' { return (Run-Test 'test_scenario') }
-    Gate 'M11a.2' 'headless accept for the self-driving scenarios' {
-        $exe = Find-Exe 'headless'
-        if (-not $exe) { return $false }
-        foreach ($s in @('first-light', 'bloom', 'taumoeba')) {
-            & $exe --scenario $s --assert *>&1 | Out-Null
-            if ($LASTEXITCODE -ne 0) { Write-Host "        scenario failed: $s"; return $false }
-        }
-        return $true
-    }
+    Gate 'M11a.1' 'scenarios load + instantiate + run deterministically' { return (Run-Test 'test_scenario') }
 }
 
 # ----------------------------- M11b: derived metrics + every scenario (T24)

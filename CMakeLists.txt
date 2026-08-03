@@ -100,7 +100,8 @@ add_library(astro_sim STATIC
     src/sim/lifecycle.cu
     src/sim/predation.cu
     src/sim/stats.cu
-    src/sim/step.cu)
+    src/sim/step.cu
+    src/sim/scenario.cpp)
 target_link_libraries(astro_sim PUBLIC astro_core astro_fields)
 astro_strict(astro_sim)
 
@@ -144,6 +145,10 @@ astro_test(test_stats        tests/physics/test_stats.cu)
 astro_test(test_clock        tests/physics/test_clock.cu)
 astro_test(test_predation    tests/physics/test_predation.cu)
 astro_test(test_evolution    tests/physics/test_evolution.cu)
+astro_test(test_scenario     tests/physics/test_scenario.cu)
+# The scenario spine loads scenarios/*.json by absolute path so ctest (which runs from
+# the build dir) and headless both find them without a working-directory assumption.
+target_compile_definitions(test_scenario PRIVATE ASTRO_SCENARIOS_DIR="${CMAKE_SOURCE_DIR}/scenarios")
 
 # ---------------------------------------------------------------------------
 # tools -- headless runner. The determinism oracle (INV-8) and the scenario
@@ -151,6 +156,7 @@ astro_test(test_evolution    tests/physics/test_evolution.cu)
 # ---------------------------------------------------------------------------
 add_executable(headless tools/headless.cpp)
 target_link_libraries(headless PRIVATE astro_core astro_sim astro_fields CUDA::cudart_static)
+target_compile_definitions(headless PRIVATE ASTRO_SCENARIOS_DIR="${CMAKE_SOURCE_DIR}/scenarios")
 astro_strict(headless)
 
 # Golden-image comparator. No GL, no CUDA, no image library -- PPM is trivial to
