@@ -7,7 +7,7 @@ A sealed 4 mm chamber of water. Cells 10 μm across, black at every wavelength, 
 Deliberately **not** the interstellar scale — no ships, no Petrova arc, no Tau Ceti. Just what you would see down the eyepiece.
 
 ```
-Status:  M9c of M12 green  ·  C++20 + CUDA 13.1  ·  sm_89  ·  Windows 11
+Status:  M10b of M12 green  ·  C++20 + CUDA 13.1  ·  sm_89  ·  Windows 11
          ALL FIVE signature phenomena are live; cells behave, divide, die,
          and run on a multi-rate clock. Predation and content remain.
 ```
@@ -175,7 +175,7 @@ Without `-App`, the core library and the full test suite build with **no network
 | M9c | Life: multi-rate clock, slot compaction, charts | ✅ `m9c-green` |
 | M7b | View modes: Petrovascope, Thermal IR, Darkfield | ✅ `m7b-green` |
 | M10a | Predation: Taumoeba store, crawl, engulfment | ✅ `m10a-green` |
-| M10b | Evolution: N₂ lethality, heritable tolerance, Taumoeba-82.5 | ☐ |
+| M10b | Evolution: N₂ lethality, heritable tolerance, Taumoeba-82.5 | ✅ `m10b-green` |
 | M11 | Content: eight scenarios, inspector panels, telemetry | ☐ |
 | M12 | Ship: snapshot/replay, performance pass, packaging | ☐ |
 

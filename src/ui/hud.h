@@ -49,6 +49,7 @@ struct ChartState {
     float dead[CAPACITY]     = {};
     float energy_gj[CAPACITY]= {};   // total store, gigajoules (kiloton scale)
     float temp_c[CAPACITY]   = {};   // medium temperature, degrees Celsius
+    float tau_tol[CAPACITY]  = {};   // mean Taumoeba N2 tolerance -- the 82.5 arc (M10b)
     int      head  = 0;              // next write position
     int      count = 0;              // samples recorded so far (<= CAPACITY)
     uint64_t last_tick = ~0ull;      // append only when the sim tick advances

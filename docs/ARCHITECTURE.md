@@ -102,8 +102,9 @@ Fixed order. Do not reorder — fields are read and written within a single tick
 | 7 | `field_deposit` | one kernel | fixed-point atomic scatter into T/CO₂/N₂ accumulators |
 | 8 | `field_diffuse` | substepped stencil | explicit red-black; substep counts in `VERIFICATION.md` §6 |
 | 9 | `irradiance` | occlusion sweep + march | rebuilt from scratch each tick |
-| 10 | `lifecycle` | division, death, compaction | **mutates the store; must be last** |
-| 11 | `stats` | deterministic tree reduction | never `atomicAdd` on float (INV-2) |
+| 10 | `predation` | crawl, engulf, N₂ death, Taumoeba division + compaction | mutates the **Taumoeba** store; kills prey before lifecycle disposes of them |
+| 11 | `lifecycle` | uptake, division, death, compaction | **mutates the cell store; must be last** |
+| 12 | `stats` | deterministic tree reduction | run at HUD rate from `world_stats`, not every tick; never `atomicAdd` on float (INV-2) |
 
 ---
 

@@ -46,6 +46,9 @@ inline constexpr double TAU_N2_LETHAL_CONC = 0.01; // [kg/m^3] INVENTED -- Nitro
 inline constexpr double TAU_N2_TOLERANCE_INIT = 0; // [-] INVENTED -- Heritable trait in [0,1]. 0.825 => the 'Taumoeba-82.5' strain.
 inline constexpr double TAU_MUTATION_SIGMA = 0.02; // [-] INVENTED -- Per-division trait drift; drives the breeding scenario.
 inline constexpr double TAU_BIOMASS_YIELD = 0.59999999999999998; // [-] INVENTED -- Fraction of prey biomass converted.
+inline constexpr double TAU_MASS_DRY = 1e-13; // [kg] INVENTED -- Taumoeba DRY/organic biomass -- the growth variable it divides on, DISTINCT from TAU_MASS (the water-blob mass used only for drag/inertia). A mostly-water amoeba, exactly like the cell: CELL_MASS_DRY is to a cell's total mass as this is to TAU_MASS. Division at 2x this (TAU_DIVIDE_BIOMASS) is reachable in ~8 prey (a real cell yields CELL_MASS_DRY*TAU_BIOMASS_YIELD per meal); doubling the water-blob mass would need ~2655 prey and no evolution arc could run. Meta-lesson 9 (do not conflate water mass with dry biomass). See ADR-030.
+inline constexpr double TAU_N2_TOLERANCE_K = 1; // [-] INVENTED -- Tolerance headroom multiplier: the effective lethal concentration for a Taumoeba is TAU_N2_LETHAL_CONC*(1 + tolerance*k), so a fully tolerant one (tol=1, the notional Taumoeba-100) survives (1+k)x the base lethal concentration. k=1 makes tolerance a linear rescaling of survivable N2 from N_lethal to 2*N_lethal, so the survival frontier is tol* = N/N_lethal - 1 and selecting Taumoeba-82.5 needs the ramp to reach 1.825*N_lethal -- the target emerges from the ramp, not a cutoff. See ADR-030.
+inline constexpr double TAU_N2_LETHAL_TIME = 2000; // [s] INVENTED -- Mean survival time at hazard = TAU_N2_LETHAL_CONC (one lethal concentration above a Taumoeba's tolerance threshold). Sets TAU_N2_HAZARD_RATE by derivation, so the rate coefficient is not a free number. The fictional lethality has no physical derivation (canon only says 'nitrogen is lethal'), so this time SCALE is tuned, and the gate is what validates it: strong enough that rising nitrogen selects for tolerance, gentle enough that the population is RESCUED rather than driven extinct before it can adapt (test_evolution). See ADR-030.
 inline constexpr double WATER_VISCOSITY_20C = 0.0010020000000000001; // [Pa*s] REAL -- tabulated; VF cross-check
 inline constexpr double WATER_VISCOSITY_96C = 0.00029310000000000002; // [Pa*s] REAL -- tabulated at 96.415 C, interpolated from 95/100 C. VF gives 2.898e-4.
 inline constexpr double WATER_DENSITY = 998.20000000000005; // [kg/m^3] REAL -- at 20 C
@@ -122,6 +125,8 @@ inline constexpr double TAU_VOLUME = 3.3510321638291131e-14; // [m^3] DERIVED = 
 inline constexpr double TAU_MASS = 3.3450003059342215e-11; // [kg] DERIVED = WATER_DENSITY * TAU_VOLUME -- Taumoeba is mostly water
 inline constexpr double TAU_DRAG_20C = 3.776489400816919e-07; // [kg/s] DERIVED = 6 pi mu(20C) (TAU_DIAMETER/2) -- Stokes drag on the predator
 inline constexpr double TAU_CRAWL_THRUST = 1.8882447004084599e-12; // [N] DERIVED = TAU_CRAWL_SPEED * TAU_DRAG_20C -- driving force for the terminal crawl speed
+inline constexpr double TAU_DIVIDE_BIOMASS = 2.0000000000000001e-13; // [kg] DERIVED = 2 * TAU_MASS_DRY -- the dry biomass at which a Taumoeba divides
+inline constexpr double TAU_N2_HAZARD_RATE = 0.050000000000000003; // [m^3/(kg*s)] DERIVED = 1 / (TAU_N2_LETHAL_CONC * TAU_N2_LETHAL_TIME) -- Poisson lethality rate, so the death probability 1 - exp(-hazard * rate * dt) rests on a survival time, not a guess
 inline constexpr double TNT_GRAMS_PER_FULL_CELL = 358.50860420650093; // [g] DERIVED = E_max / 4184 J/g
 inline constexpr double WIEN_LAMBDA_AT_SETPOINT = 7.8410346082556516e-06; // [m] DERIVED = Wien b / T -- the THERMAL peak, distinct from the Petrova line
 
@@ -181,6 +186,9 @@ inline constexpr ParamMeta PARAM_TABLE[] = {
     { "TAU_N2_TOLERANCE_INIT", 0, "-", Provenance::Invented, "[REF 1.8] Heritable trait in [0,1]. 0.825 => the 'Taumoeba-82.5' strain.", true, 0, 1, false },
     { "TAU_MUTATION_SIGMA", 0.02, "-", Provenance::Invented, "Per-division trait drift; drives the breeding scenario.", true, 0, 0.5, false },
     { "TAU_BIOMASS_YIELD", 0.59999999999999998, "-", Provenance::Invented, "Fraction of prey biomass converted.", true, 0, 1, false },
+    { "TAU_MASS_DRY", 1e-13, "kg", Provenance::Invented, "Taumoeba DRY/organic biomass -- the growth variable it divides on, DISTINCT from TAU_MASS (the water-blob mass used only for drag/inertia). A mostly-water amoeba, exactly like the cell: CELL_MASS_DRY is to a cell's total mass as this is to TAU_MASS. Division at 2x this (TAU_DIVIDE_BIOMASS) is reachable in ~8 prey (a real cell yields CELL_MASS_DRY*TAU_BIOMASS_YIELD per meal); doubling the water-blob mass would need ~2655 prey and no evolution arc could run. Meta-lesson 9 (do not conflate water mass with dry biomass). See ADR-030.", true, 1e-14, 9.9999999999999994e-12, true },
+    { "TAU_N2_TOLERANCE_K", 1, "-", Provenance::Invented, "Tolerance headroom multiplier: the effective lethal concentration for a Taumoeba is TAU_N2_LETHAL_CONC*(1 + tolerance*k), so a fully tolerant one (tol=1, the notional Taumoeba-100) survives (1+k)x the base lethal concentration. k=1 makes tolerance a linear rescaling of survivable N2 from N_lethal to 2*N_lethal, so the survival frontier is tol* = N/N_lethal - 1 and selecting Taumoeba-82.5 needs the ramp to reach 1.825*N_lethal -- the target emerges from the ramp, not a cutoff. See ADR-030.", true, 0, 10, true },
+    { "TAU_N2_LETHAL_TIME", 2000, "s", Provenance::Invented, "Mean survival time at hazard = TAU_N2_LETHAL_CONC (one lethal concentration above a Taumoeba's tolerance threshold). Sets TAU_N2_HAZARD_RATE by derivation, so the rate coefficient is not a free number. The fictional lethality has no physical derivation (canon only says 'nitrogen is lethal'), so this time SCALE is tuned, and the gate is what validates it: strong enough that rising nitrogen selects for tolerance, gentle enough that the population is RESCUED rather than driven extinct before it can adapt (test_evolution). See ADR-030.", true, 1, 100000, true },
     { "WATER_VISCOSITY_20C", 0.0010020000000000001, "Pa*s", Provenance::Real, "tabulated; VF cross-check", false, 0.0, 0.0, false },
     { "WATER_VISCOSITY_96C", 0.00029310000000000002, "Pa*s", Provenance::Real, "tabulated at 96.415 C, interpolated from 95/100 C. VF gives 2.898e-4.", false, 0.0, 0.0, false },
     { "WATER_DENSITY", 998.20000000000005, "kg/m^3", Provenance::Real, "at 20 C", true, 500, 2000, false },
@@ -255,9 +263,11 @@ inline constexpr ParamMeta PARAM_TABLE[] = {
     { "TAU_MASS", 3.3450003059342215e-11, "kg", Provenance::Derived, "= WATER_DENSITY * TAU_VOLUME -- Taumoeba is mostly water", false, 0.0, 0.0, false },
     { "TAU_DRAG_20C", 3.776489400816919e-07, "kg/s", Provenance::Derived, "= 6 pi mu(20C) (TAU_DIAMETER/2) -- Stokes drag on the predator", false, 0.0, 0.0, false },
     { "TAU_CRAWL_THRUST", 1.8882447004084599e-12, "N", Provenance::Derived, "= TAU_CRAWL_SPEED * TAU_DRAG_20C -- driving force for the terminal crawl speed", false, 0.0, 0.0, false },
+    { "TAU_DIVIDE_BIOMASS", 2.0000000000000001e-13, "kg", Provenance::Derived, "= 2 * TAU_MASS_DRY -- the dry biomass at which a Taumoeba divides", false, 0.0, 0.0, false },
+    { "TAU_N2_HAZARD_RATE", 0.050000000000000003, "m^3/(kg*s)", Provenance::Derived, "= 1 / (TAU_N2_LETHAL_CONC * TAU_N2_LETHAL_TIME) -- Poisson lethality rate, so the death probability 1 - exp(-hazard * rate * dt) rests on a survival time, not a guess", false, 0.0, 0.0, false },
     { "TNT_GRAMS_PER_FULL_CELL", 358.50860420650093, "g", Provenance::Derived, "= E_max / 4184 J/g", false, 0.0, 0.0, false },
     { "WIEN_LAMBDA_AT_SETPOINT", 7.8410346082556516e-06, "m", Provenance::Derived, "= Wien b / T -- the THERMAL peak, distinct from the Petrova line", false, 0.0, 0.0, false },
 };
-inline constexpr int PARAM_COUNT = 103;
+inline constexpr int PARAM_COUNT = 108;
 
 } // namespace astro::canon

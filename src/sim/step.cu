@@ -109,8 +109,10 @@ void world_step(World& w) {
     //   7 field_deposit   M5
     //   8 field_diffuse   M5
     //   9 irradiance      M7
-    //  10 lifecycle       M9   (mutates the store; must stay last)
-    //  11 stats           M9b  (src/sim/stats.cu). Run from world_stats at HUD
+    //  10 predation       M10  (crawl, engulf, N2 death, Taumoeba division/compaction;
+    //                           mutates the Taumoeba store, kills prey for lifecycle)
+    //  11 lifecycle       M9   (mutates the cell store; must stay last)
+    //  12 stats           M9b  (src/sim/stats.cu). Run from world_stats at HUD
     //                           rate rather than every tick: it ends in a D2H copy
     //                           and nothing in the tick consumes it.
     // The multi-rate clock (ADR-011, ADR-027). physics_rate scales the physics

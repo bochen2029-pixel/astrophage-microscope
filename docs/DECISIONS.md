@@ -132,6 +132,32 @@ Append-only. Every contradiction in the source material and every non-obvious en
 
 ---
 
+## ADR-030 — Evolution: dry biomass, a derived hazard, and the Taumoeba-82.5 arc as pure selection
+
+**Status:** accepted, 2026-08-02 (M10b).
+
+**Context.** M10a gave the Taumoeba a store, a crawl, and engulfment. M10b makes it **evolve**: `PHYSICS.md` §11's N₂ lethality, heritable tolerance, and division, whose gate demands the **Taumoeba-82.5** strain emerge by *directional selection*, never by script. Three model choices had to be settled, each with a trap.
+
+### 1. The division biomass is DRY biomass, not the water-blob mass
+
+`PHYSICS.md` §11 says "divide at 2× initial biomass," and M10a initialised the Taumoeba `biomass` field to `TAU_MASS` — the full water-density mass of a 40 μm blob (3.345e-11 kg). But a Taumoeba eats 10 μm cells whose *dry* biomass is `CELL_MASS_DRY` = 2.1e-14 kg, 1593× lighter. Doubling the **water mass** would take ~2655 prey per division, and no evolution arc could run in any finite test.
+
+This is **meta-lesson 9 (match the units to the source)** in a new guise: `biomass` (water mass) and the prey it banks (dry mass) were different currencies. A 40 μm amoeba is *mostly water*, exactly as a cell is — so, as `CELL_MASS_DRY` is to a cell's total mass, `TAU_MASS_DRY` (INVENTED, 1e-13 kg) is the Taumoeba's **dry/organic biomass**, and `TAU_MASS` sets only its drag/inertia. The `biomass` field now initialises to `TAU_MASS_DRY`, division fires at `TAU_DIVIDE_BIOMASS` = 2× that (DERIVED, faithful to "2× initial biomass"), reachable in ~8 prey. The integrator already used the `TAU_MASS` *constant*, never the field, so this is a pure biomass-semantics change; M10a's engulfment is untouched.
+
+### 2. `k` is a modelling choice; the lethality *rate* is derived, not guessed
+
+`hazard = max(0, N_local − TAU_N2_LETHAL_CONC·(1 + tolerance·k))`. `TAU_N2_TOLERANCE_K` = 1 (INVENTED): full tolerance doubles the survivable concentration, so the survival frontier is `tol* = N/N_lethal − 1` and breeding Taumoeba-82.5 needs the ramp to reach 1.825·`N_lethal` — **the target emerges from the ramp, not from a cutoff** (meta-lesson 2). The death probability `1 − exp(−hazard·rate·dt_bio)` uses `TAU_N2_HAZARD_RATE` **DERIVED** = `1/(TAU_N2_LETHAL_CONC·TAU_N2_LETHAL_TIME)` from an interpretable survival time, rather than a bare coefficient. The fictional lethality has no physical derivation, so `TAU_N2_LETHAL_TIME` (2000 s) is honestly INVENTED and **tuned**, and the gate is what validates it: my first value (120 s, "equal to digest time") drove the population **extinct in six rounds** — death outran reproduction before tolerance could climb. Weakening it 17× rescued the population. Recorded because the seductively-clean "equal to digest time" derivation was simply wrong, and only running the arc exposed it (meta-lesson 5).
+
+The death draws **one uniform unconditionally** per alive Taumoeba, survivor and dier alike (ADR-022): drawing only in the death branch would couple the stream to the N₂ history and break determinism.
+
+### 3. Division mirrors mitosis; the store now compacts
+
+Daughter slots come from `cub::DeviceScan::ExclusiveSum` (never atomicAdd), daughter id = `first_id + prefix`, daughter stream = `pcg_split(parent, id)`, biomass split in half, and the **mutation is the daughter's first draw** — `clamp(parent_tol + N(0, TAU_MUTATION_SIGMA), 0, 1)` — so the parent's trajectory never depends on whether it divided (ADR-025). A per-Taumoeba `generation` counter records lineage depth. Death and division churn the store, so it gets the ADR-028 primitive: a stable, prefix-sum, out-of-place `taumoeba_store_compact`, opt-in via `MotionConfig::tau_compaction_enabled`, default off so M10a is bit-preserved. Reordering the Taumoeba SoA is determinism-safe because engulf claims key on predator *id*, not slot.
+
+**Consequences / the gate.** `test_evolution` (T31–T33): the dividing/dying/compacting store is bit-reproducible (T31, a third airing of T22's argument); under a slow N₂ ramp the mean tolerance rises monotonically on a 5-round moving average and **Taumoeba-82.5 appears at lineage generation 36** — within the 40-generation budget — while the population is decimated by selection (2748 → 119) and then *recovers* once the tolerant strain stops dying (T32); and a **constant-N₂ control** plateaus at max tolerance 0.17, proving the rise is the rising ramp's directional selection and not mutation drift or the [0,1]-clamp (T33, meta-lesson 4). Nothing special-cases 0.825: high N₂ kills the intolerant, survivors divide and pass on mutated tolerance, the frontier climbs, the population tracks it. No contract change — `Stats.mean_tau_tolerance` and `n_taumoeba` were already declared.
+
+---
+
 ## ADR-029 — The two IR view modes, implemented without a contract bump
 
 **Status:** accepted, 2026-08-02 (M7b).

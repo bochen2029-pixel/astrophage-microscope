@@ -21,7 +21,7 @@ The simulation itself: the cell and Taumoeba stores, the integrator, and every p
 | `lifecycle.{cuh,cu}` | ✅ CO₂ uptake, mitosis, prefix-sum slots (ADR-025); overheat death and store disposition (ADR-004) | M9a/M9b |
 | `stats.cu` | ✅ tick stage 11, fixed-point telemetry reduction (ADR-026) | M9b |
 | `step.cu` | ✅ tick sequence, the multi-rate clock and its presets (ADR-011, ADR-027) | M1/M9c |
-| `predation.{cuh,cu}` | ✅ TaumoebaStore, crawl, deterministic engulfment, digestion (M10a); N₂ lethality + evolution at M10b | M10a |
+| `predation.{cuh,cu}` | ✅ TaumoebaStore, crawl, deterministic engulfment, digestion (M10a); N₂ lethality, heritable tolerance, division + stable compaction, the Taumoeba-82.5 arc (M10b) | M10b |
 | `snapshot.cpp` | serialise/restore, FNV-1a state hash | M12 |
 
 ## Contracts
@@ -38,7 +38,9 @@ Produces `cell_store_v1.h`, `snapshot_v1.h`. Consumes `fields_v1.h`, `scenario_v
 - **`lifecycle` runs last** in the tick. It mutates the store; anything after it reads stale indices.
 - **`mass` is never stored.** It is `biomass + energy/c²`, recomputed. An accumulating mass field drifts and silently breaks the energy ledger.
 - **The 800× mass spread** between empty and full cells is why the integrator is an exact-propagator OU update rather than anything simpler. Read PHYSICS.md §3.1 before touching it.
-- **Never special-case P1–P5.** If you are writing an `if` to make a signature phenomenon happen, the model is wrong somewhere upstream.
+- **Never special-case P1–P5** — or the Taumoeba-82.5 arc. If you are writing an `if` to make a signature phenomenon or the 0.825 strain happen, the model is wrong somewhere upstream. Selection does the work.
+- **The Taumoeba `biomass` field is DRY biomass** (`TAU_MASS_DRY`), the growth variable it divides on — NOT the water-blob mass `TAU_MASS`, which sets only its drag. They are as distinct as a cell's `CELL_MASS_DRY` and total mass. Conflating them makes a division need ~2655 prey instead of ~8, and no evolution arc can run (ADR-030).
+- **The N₂ death draws one uniform *unconditionally*** from each alive Taumoeba's stream — survivor and dier alike. Drawing only in the death branch would make the stream depend on the N₂ history and silently break the determinism the gate rests on (ADR-022).
 
 ## Status
 

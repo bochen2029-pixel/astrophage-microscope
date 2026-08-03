@@ -20,11 +20,12 @@ A sealed 4 mm × 4 mm × 60 μm chamber of water. Cells 10 μm across, black at 
 wavelength, each holding up to 1.5 MJ as neutrino mass. Real Stokes drag, Langevin
 dynamics, Fickian diffusion, conduction, photon momentum.
 
-**M0 through M9c are green, plus the deferred M7b view modes and M10a predation.**
-All five signature phenomena are live; cells behave, divide, die, run on a
-multi-rate clock with slot compaction; all five view modes draw distinctly; and
-the Taumoeba predator crawls and engulfs (deterministically). **Next up: M10b —
-Evolution** (N₂ lethality, heritable tolerance, the Taumoeba-82.5 arc).
+**M0 through M10b are green, plus the deferred M7b view modes.** All five signature
+phenomena are live; cells behave, divide, die, run on a multi-rate clock with slot
+compaction; all five view modes draw distinctly; the Taumoeba predator crawls,
+engulfs, and **evolves** — under a rising N₂ ramp the Taumoeba-82.5 strain breeds
+itself by directional selection (deterministically). **Next up: M11 — Content**
+(scenario loader, inspector/instrument panels, CSV telemetry). Physics is closed.
 
 **This is a simulator and visualisation, not a game.** No win state, no story mode,
 no asset files — everything procedural or generated.
@@ -45,7 +46,7 @@ git -C C:\Astrophage tag --list
 **The last `m<N>-green` tag is ground truth.** Not a doc, not a log, not this file.
 If anything here disagrees with the tags, believe the tags and fix the doc.
 
-As of writing: `m0-green` … `m8-green`, `m8b-green`, `m9a-green`, `m9b-green`.
+As of writing: `m0-green` … `m9c-green`, plus `m7b-green` and `m10a-green`, `m10b-green`.
 
 Then verify the baseline **before changing anything**:
 
@@ -100,7 +101,7 @@ fix the contract.
 
 ## 3. The state, in numbers
 
-**22 tests green, 12 golden images, 10 audit invariant checks, 29 ADRs.**
+**23 tests green, 12 golden images, 10 audit invariant checks, 30 ADRs.**
 
 ```
 test_canon ......... generated constants consistent; the right params carry the canon lock
@@ -124,6 +125,10 @@ test_morphology .... T27: area-preserving silhouettes to 1.6e-14, bounded, disti
 test_lifecycle ..... T18 doubling 1.996, CO2 exhaustion, T22 bit-reproducible division
 test_stats ......... T23: reduction bit-identical across 8 runs, energy ledger vs host,
                      death paths, store disposition (void 40 kg/m^3 vs retain 25,500)
+test_clock ......... preset ratios exact, biology/physics compounding, rate-1 identity
+test_predation ..... T30: Taumoeba crawl/engulf/digest bit-reproducible; culture thinned
+test_evolution ..... T31-T33: dividing/dying/compacting store bit-reproducible; the
+                     Taumoeba-82.5 arc by directional selection; constant-N2 control
 determinism_replay . real World, seed- and population-sensitive (INV-8)
 ```
 
@@ -149,6 +154,8 @@ writing an `if` to make one happen, stop — the model is wrong upstream.**
 | **division** | doubling **1.996** in one `LIFE_DOUBLING_TIME`; a 2,000 → **50,508** cell run is **bit-reproducible** |
 | **death** | `void` corpses at **40.1 kg/m³** (rise), `retain` at **~25,500** (sink) |
 | **telemetry** | 8 reductions of one state → **identical bit pattern**; ledger matches a host sum to 1e-9 |
+| **predation** | 150 Taumoeba thin a 6,000-cell culture to **5,898**, bit-reproducible, all contained |
+| **evolution** | **Taumoeba-82.5 at lineage generation 36** (budget 40) by directional selection; constant-N₂ control plateaus at max tol **0.17**; dividing/dying/compacting store bit-reproducible |
 
 ### Performance
 
@@ -318,50 +325,49 @@ network access beyond dependency fetch, Windows settings, spending money.
 
 ---
 
-## 6. What is next — M10b (Evolution)
+## 6. What is next — M11 (Content)
 
-M9c (clock, compaction, charts), M7b (the view modes), and **M10a (the Taumoeba
-store, crawl, and engulfment)** are all **done and green**. M10b is next.
+Predation is **complete**: M10a (the store, crawl, engulfment) and **M10b (N₂
+lethality, heritable tolerance, and the Taumoeba-82.5 arc)** are both done and green.
+All physics milestones are behind us. M11 turns the engine into an instrument.
 
-**M10a already shipped:** the `TaumoebaStore` (its own SoA, PCG32 streams keyed on a
-Taumoeba id, double-mixed seed disjoint from the cells), amoeboid crawl (run-and-
-tumble on the prey-density signal), deterministic **engulfment** (an `atomicMin`
-claim so the lowest-id predator wins a shared prey), and digestion. T30 proves it
-bit-reproducible; a predator introduction thins the culture (6,000 → 5,898).
+**M10b shipped (ADR-030):** N₂ Poisson lethality, heritable tolerance, Taumoeba
+division on **dry biomass** (`TAU_MASS_DRY`, distinct from the drag-only water mass
+`TAU_MASS`), a `generation` counter, and a stable opt-in `taumoeba_store_compact`.
+`test_evolution` proves the dividing/dying/compacting store bit-reproducible and the
+82.5 strain emergent (generation 36, budget 40) with a constant-N₂ control. The
+lethality rate is derived from a survival time; that time was *tuned* (120 s went
+extinct in 6 rounds → 2000 s rescued the population — meta-lesson 5).
 
-**M10b scope.** `PHYSICS.md` §11, evolution half. The **N₂ field lethality**
-(`hazard = max(0, N − N_lethal·(1 + tol·k))`, Poisson death), Taumoeba **division**
-at 2× biomass, **heritable tolerance** (`parent + N(0, TAU_MUTATION_SIGMA)` clamped
-to [0,1]), and the mean-tolerance chart.
+**M11 scope.** No new physics. `PHYSICS.md` is closed.
 
-**Gate.** M10a gate + a predator introduction crashes the population; under a slowly
-rising N₂ ramp the mean tolerance rises monotonically on a 5-generation moving
-average, and a strain with tolerance ≥ 0.825 (**Taumoeba-82.5**) appears within 40
-generations at default `TAU_MUTATION_SIGMA` — by genuine directional selection,
-**not by script** (`SCENARIOS.md` §6).
+1. **Scenario loader + schema** against `contracts/scenario_v1.h`; all eight
+   scenarios from `docs/SCENARIOS.md` with their `accept` blocks. The acceptance
+   vocabulary (`Metric`, `AcceptCheck`, `CompareOp`) is already in `telemetry_v1.h`.
+   A JSON parser is a new dependency → an ADR (Iron Rule 8), unless hand-rolled.
+2. **The headless runner evaluates every `accept` block — that is the gate (T24).**
+   `gate.ps1` M11.1 already loops `scenarios/*.json`.
+3. **The parameter inspector** on the `PARAM_TABLE` provenance data: every `CANON`
+   parameter **locked by default**, unlocking sets the `NON-CANON RUN` flag
+   (`Stats.non_canon_run`) in the HUD and telemetry header. `test_param_locks` is
+   M11.2.
+4. **The cell inspector** (with the P1 buoyancy readout), instrument panels, **CSV
+   telemetry export**.
 
-**Three things M10b will confront:**
+**Gate.** M10b gate + T24 (every scenario passes its accept block) + canon locks
+default-on with the non-canon flag.
 
-1. **The store is append-only and now needs to reclaim.** N₂ kills predators and
-   division appends them, so give `TaumoebaStore` the scan/gather buffers and the
-   stable prefix-sum compaction the cell store has (ADR-028). Division reuses the
-   mitosis pattern (ADR-025): prefix-sum daughter slots, `pcg_split`, the mutation
-   drawn from the daughter's own stream.
-2. **The N₂ Poisson death draws from the Taumoeba stream** — a conditional draw,
-   fine for determinism as long as it stays a pure function of state (the taxis IDLE
-   lesson, ADR-022). **Q19 stands:** `biology_rate` does not scale N₂ diffusion.
-3. **The 82.5 arc must EMERGE.** The gate forbids scripting it. If you find yourself
-   special-casing 0.825, stop — that is the P1–P5 rule applied to evolution.
+**Watch for:** the accept thresholds must trace to a physical value or a canon
+constant, not a magic number (meta-lesson 2); assert the metric the scenario is
+*about*, not a proxy that passes while it is broken (meta-lesson 4); and loading
+scenarios must add no per-tick host traffic (the 200k benchmark is the guard).
 
-### Then M11 → M12
+### Then M12
 
-- **M11 Content** — scenario loader, all eight scenarios from `docs/SCENARIOS.md`,
-  the parameter inspector with provenance badges and canon locks, the cell
-  inspector, CSV telemetry.
 - **M12 Ship** — snapshot/replay, performance pass, packaging, v1.0. The M7b
-  remainder (bloom, cross-fade slider, Thermal field-halo) is render polish that
-  fits M12's performance/packaging pass; pre-ignition warm-up needs
-  `render_view_v3` and can ride a contract bump there.
+  remainder (bloom over Petrova, cross-fade slider, Thermal field-halo) is render
+  polish that fits M12's pass; pre-ignition warm-up needs `render_view_v3` and can
+  ride a contract bump there.
 
 ---
 
@@ -486,7 +492,10 @@ photography shows irregular grains, so **both morphologies ship**.
 
 State which milestone you are taking, produce the **change manifest** the session
 ritual requires (files to touch, contract changes y/n, tests to add, rollback plan,
-diff budget), and confirm the M9b gate is green before you change anything.
+diff budget), and confirm the last gate is green before you change anything
+(`gate.ps1 -Milestone M10b`).
 
-If you are picking up M9c, say up front which way you are going on **Q19** — it is a
-decision, not a bug, and it needs an ADR either way.
+If you are picking up **M11**, say up front whether you are adding a JSON dependency
+(an ADR either way) or hand-rolling the parser, and name the acceptance metric each
+scenario is *actually about* before you wire its `accept` block — a scenario that
+passes on a proxy is the meta-lesson-4 trap.

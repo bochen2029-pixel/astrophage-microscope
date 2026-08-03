@@ -150,6 +150,17 @@ DERIVED = [
      "6 pi mu(20C) (TAU_DIAMETER/2) -- Stokes drag on the predator"),
     ("TAU_CRAWL_THRUST", B["TAU_CRAWL_SPEED"] * 6.0 * math.pi * mu20 * (B["TAU_DIAMETER"] / 2.0), "N",
      "TAU_CRAWL_SPEED * TAU_DRAG_20C -- driving force for the terminal crawl speed"),
+    # M10b evolution. A Taumoeba grows its dry biomass by eating and divides at twice
+    # its initial dry biomass -- faithful to "divide at 2x initial biomass"
+    # (PHYSICS.md Sec 11) with the DRY biomass as the growth variable, not the
+    # water-blob mass (ADR-030). The N2 lethality rate is derived from an
+    # interpretable survival time so it is not a guessed coefficient (meta-lesson 2).
+    ("TAU_DIVIDE_BIOMASS", 2.0 * B["TAU_MASS_DRY"], "kg",
+     "2 * TAU_MASS_DRY -- the dry biomass at which a Taumoeba divides"),
+    ("TAU_N2_HAZARD_RATE", 1.0 / (B["TAU_N2_LETHAL_CONC"] * B["TAU_N2_LETHAL_TIME"]), "m^3/(kg*s)",
+     "1 / (TAU_N2_LETHAL_CONC * TAU_N2_LETHAL_TIME) -- Poisson lethality rate, so the "
+     "death probability 1 - exp(-hazard * rate * dt) rests on a survival time, not a "
+     "guess"),
     ("TNT_GRAMS_PER_FULL_CELL", B["CELL_ENERGY_MAX"] / B["TNT_JOULE"], "g", "E_max / 4184 J/g"),
     ("WIEN_LAMBDA_AT_SETPOINT", B["WIEN_B"] / B["CELL_TEMP_SETPOINT"], "m",
      "Wien b / T -- the THERMAL peak, distinct from the Petrova line"),

@@ -39,7 +39,9 @@ enum class BrushKind : uint8_t { Heat = 0, Chill = 1, InjectCO2 = 2, InjectN2 = 
 struct StatsAccum {
     unsigned long long energy = 0, temp_cell = 0, temp_medium = 0;
     unsigned long long co2 = 0, n2 = 0, max_temp = 0;
+    unsigned long long tau_tolerance = 0;    // fixed-point sum over alive Taumoeba (M10b)
     unsigned int n_alive = 0, n_dead = 0, n_awake = 0, n_dormant = 0;
+    unsigned int n_taumoeba = 0;             // alive Taumoeba (the Taumoeba-82.5 readout)
 };
 
 // Everything the motion stages need. Passed by value into kernels, so POD.
@@ -67,6 +69,10 @@ struct MotionConfig {
     // (ADR-028). OFF by default so an untouched run is bit-identical to M9b; ON
     // trades the persistent graveyard for unbounded growth and lower iteration cost.
     bool        compaction_enabled = false;
+    // Same, for the Taumoeba store (M10b). N2 death and division churn it; ON reclaims
+    // dead-predator slots so the population can turn over at a bounded capacity. OFF by
+    // default keeps M10a bit-identical.
+    bool        tau_compaction_enabled = false;
 };
 
 struct WorldDesc {

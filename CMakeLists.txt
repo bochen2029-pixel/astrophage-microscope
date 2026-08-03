@@ -143,6 +143,7 @@ astro_test(test_lifecycle    tests/physics/test_lifecycle.cu)
 astro_test(test_stats        tests/physics/test_stats.cu)
 astro_test(test_clock        tests/physics/test_clock.cu)
 astro_test(test_predation    tests/physics/test_predation.cu)
+astro_test(test_evolution    tests/physics/test_evolution.cu)
 
 # ---------------------------------------------------------------------------
 # tools -- headless runner. The determinism oracle (INV-8) and the scenario

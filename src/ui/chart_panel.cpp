@@ -43,6 +43,7 @@ void chart_panel_draw(ChartState& c, const Stats& stats) {
         c.dead[c.head]      = static_cast<float>(stats.n_dead);
         c.energy_gj[c.head] = static_cast<float>(stats.total_energy_j / 1.0e9);
         c.temp_c[c.head]    = static_cast<float>(stats.mean_temp_medium_k - 273.15);
+        c.tau_tol[c.head]   = static_cast<float>(stats.mean_tau_tolerance);
         c.head = (c.head + 1) % ChartState::CAPACITY;
         if (c.count < ChartState::CAPACITY) ++c.count;
     }
@@ -72,6 +73,15 @@ void chart_panel_draw(ChartState& c, const Stats& stats) {
     std::snprintf(overlay, sizeof(overlay), "%.2f C medium  (max %.2f C)",
                   stats.mean_temp_medium_k - 273.15, stats.max_temp_medium_k - 273.15);
     ImGui::PlotLines("medium temp", c.temp_c, n, off, overlay, lo - 1.0f, hi + 1.0f, sz);
+
+    // Only once predators exist: the mean N2 tolerance is the Taumoeba-82.5 readout,
+    // and it climbs under a rising nitrogen ramp (M10b). Fixed 0..1 axis so the 0.825
+    // strain sits at a legible height rather than auto-scaling away.
+    if (stats.n_taumoeba > 0) {
+        std::snprintf(overlay, sizeof(overlay), "%.3f mean tol   (%d Taumoeba)",
+                      stats.mean_tau_tolerance, stats.n_taumoeba);
+        ImGui::PlotLines("Taumoeba tol", c.tau_tol, n, off, overlay, 0.0f, 1.0f, sz);
+    }
 
     ImGui::Text("this window:  +%d divisions   -%d deaths",
                 stats.divisions_this_window, stats.deaths_this_window);

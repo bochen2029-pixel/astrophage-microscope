@@ -59,6 +59,19 @@ __global__ void stats_field_kernel(FieldView temp, FieldView co2, FieldView n2,
     if (i < n_n2)  astro::atomic_deposit(&a->n2,  static_cast<double>(n2.value[i]),  SCALE_FIELD);
 }
 
+// M10b. Alive-Taumoeba count and the fixed-point tolerance sum -- the mean-tolerance
+// readout that the evolution arc climbs. Tolerance is in [0,1]; at DEPOSIT_SCALE_STATS
+// (1e6) a full MAX_TAUMOEBA population sums to 6.6e10, eight orders inside int64.
+__global__ void stats_taumoeba_kernel(TaumoebaStore t, StatsAccum* a) {
+    const int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i >= t.count) return;
+    const uint32_t f = t.flags[i];
+    if (!(f & CELL_FLAG_OCCUPIED) || !(f & CELL_FLAG_ALIVE)) return;
+    atomicAdd(&a->n_taumoeba, 1u);
+    astro::atomic_deposit(&a->tau_tolerance, static_cast<double>(t.tolerance[i]),
+                          DEPOSIT_SCALE_STATS);
+}
+
 __global__ void stats_clear_kernel(StatsAccum* a) { *a = StatsAccum{}; }
 
 } // namespace
@@ -70,6 +83,10 @@ void stats_step(World& w) {
 
     const int32_t n = w.cells.count;
     if (n > 0) stats_cells_kernel<<<(n + block - 1) / block, block>>>(w.cells.view, w.d_stats);
+
+    const int32_t ntau = w.taumoeba.count;
+    if (ntau > 0)
+        stats_taumoeba_kernel<<<(ntau + block - 1) / block, block>>>(w.taumoeba, w.d_stats);
 
     const int32_t nt = w.fields.temperature.n * w.fields.temperature.n;
     const int32_t nc = w.fields.co2.n * w.fields.co2.n;
@@ -96,6 +113,11 @@ contract::Stats world_stats(World& w) {
     s.n_dead = static_cast<int32_t>(a.n_dead);
     s.n_awake = static_cast<int32_t>(a.n_awake);
     s.n_dormant = static_cast<int32_t>(a.n_dormant);
+
+    // The Taumoeba-82.5 readout: alive predator count and their mean N2 tolerance.
+    s.n_taumoeba = static_cast<int32_t>(a.n_taumoeba);
+    s.mean_tau_tolerance = a.n_taumoeba > 0u
+        ? astro::from_fixed(a.tau_tolerance, DEPOSIT_SCALE_STATS) / a.n_taumoeba : 0.0;
 
     s.total_energy_j = astro::from_fixed(a.energy, DEPOSIT_SCALE_STATS);
     s.mean_charge = (a.n_alive + a.n_dead) > 0u

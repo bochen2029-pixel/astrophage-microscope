@@ -6,6 +6,22 @@ Format: milestone · what landed · what is pending · open questions · gotchas
 
 ---
 
+## 2026-08-02 — M10b (Evolution) — GREEN · **Taumoeba-82.5 breeds itself**
+
+**Landed.** The evolution half of predation: N₂ Poisson lethality, heritable N₂ tolerance, Taumoeba division mirroring cell mitosis (prefix-sum slots, daughter stream, mutation from the daughter's draw), a per-Taumoeba `generation` counter, and a stable opt-in `taumoeba_store_compact` (ADR-028). `Stats.n_taumoeba` / `mean_tau_tolerance` filled in the stage-11 reduction; a mean-tolerance chart in the UI. **23 tests green** (added `test_evolution`). No contract change (both telemetry fields were already declared). New ADR-030.
+
+**The arc emerges — it is not scripted (T32).** Under a slow N₂ ramp the mean tolerance climbs monotonically 0.005 → 0.89, and **Taumoeba-82.5 appears at lineage generation 36** (budget 40), by directional selection: high N₂ kills the intolerant, survivors divide and pass on mutated tolerance, the frontier climbs, the population tracks it. The population is decimated by selection (2748 → 119) then **recovers** once the tolerant strain stops dying. A **constant-N₂ control** plateaus at max tolerance 0.17 (T33) — the rise is the *rising* ramp's selection, not drift or the [0,1]-clamp (meta-lesson 4). T31 is T22 a third time: the dividing/dying/compacting store is bit-reproducible.
+
+**Two model calls, both in ADR-030.**
+- **Division is on DRY biomass, not the water-blob mass.** M10a set `biomass = TAU_MASS` (a 40 μm water blob); doubling that needs ~2655 prey and no arc could run. Split it as the cell splits `CELL_MASS_DRY` from total mass: `TAU_MASS_DRY` (1e-13 kg) is the growth variable, `TAU_MASS` is drag-only. Division at 2× dry biomass, ~8 prey. Meta-lesson 9 in new clothes.
+- **The lethality rate is derived; its time scale is tuned.** `TAU_N2_HAZARD_RATE = 1/(N_lethal·TAU_N2_LETHAL_TIME)`. My first `TAU_N2_LETHAL_TIME` (120 s, "equal to digest time") drove the population **extinct in 6 rounds** — death outran reproduction. Weakening it 17× → 2000 s rescued it. The seductive derivation was wrong; only running the arc showed it (meta-lesson 5).
+
+**Gotchas.** The N₂ death draws **one uniform unconditionally** per alive Taumoeba (ADR-022 — survivor and dier both draw), or determinism breaks. The ramp must **cap** (~1.87·N_lethal): pushing past 2·N_lethal kills even a tol=1 strain, so an uncapped ramp ends every run in extinction. Prey supply self-limits the predator population, so the store cap is not the binding constraint. Fixed pre-existing doc drift: `ARCHITECTURE.md §3.4` and `step.cu` now list predation as tick stage 10 (M10a never recorded it).
+
+**Pending / next.** M11 Content (scenario loader, the 8 scenarios, inspector panels, CSV telemetry). Deferred: Q9 (27→8 bucket neighbour walk, now also Taumoeba prey-sensing), Q18 (Poisson tumble, inherited by the crawl), the M7b render remainder.
+
+---
+
 ## 2026-08-02 — M10a (Predation) — GREEN · **the predator arrives**
 
 **Landed.** The `TaumoebaStore` — a second organism SoA with its own PCG32 streams (double-mixed seed, disjoint from the cells), amoeboid crawl (run-and-tumble biased up the prey-density signal, reusing the taxis temporal comparison), deterministic engulfment, and digestion. `predation.{cuh,cu}`, tick stage 10, before lifecycle. 22 tests green. No contract change.

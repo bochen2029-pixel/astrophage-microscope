@@ -104,6 +104,31 @@ BASE = [
      "Per-division trait drift; drives the breeding scenario.", None, (0.0, 0.5, False)),
     ("TAU_BIOMASS_YIELD", 0.6, "-", INVENTED,
      "Fraction of prey biomass converted.", None, (0.0, 1.0, False)),
+    ("TAU_MASS_DRY", 1.0e-13, "kg", INVENTED,
+     "Taumoeba DRY/organic biomass -- the growth variable it divides on, DISTINCT "
+     "from TAU_MASS (the water-blob mass used only for drag/inertia). A mostly-water "
+     "amoeba, exactly like the cell: CELL_MASS_DRY is to a cell's total mass as this "
+     "is to TAU_MASS. Division at 2x this (TAU_DIVIDE_BIOMASS) is reachable in ~8 prey "
+     "(a real cell yields CELL_MASS_DRY*TAU_BIOMASS_YIELD per meal); doubling the "
+     "water-blob mass would need ~2655 prey and no evolution arc could run. Meta-lesson "
+     "9 (do not conflate water mass with dry biomass). See ADR-030.",
+     None, (1e-14, 1e-11, True)),
+    ("TAU_N2_TOLERANCE_K", 1.0, "-", INVENTED,
+     "Tolerance headroom multiplier: the effective lethal concentration for a Taumoeba "
+     "is TAU_N2_LETHAL_CONC*(1 + tolerance*k), so a fully tolerant one (tol=1, the "
+     "notional Taumoeba-100) survives (1+k)x the base lethal concentration. k=1 makes "
+     "tolerance a linear rescaling of survivable N2 from N_lethal to 2*N_lethal, so the "
+     "survival frontier is tol* = N/N_lethal - 1 and selecting Taumoeba-82.5 needs the "
+     "ramp to reach 1.825*N_lethal -- the target emerges from the ramp, not a cutoff. "
+     "See ADR-030.", None, (0.0, 10.0, True)),
+    ("TAU_N2_LETHAL_TIME", 2000.0, "s", INVENTED,
+     "Mean survival time at hazard = TAU_N2_LETHAL_CONC (one lethal concentration above "
+     "a Taumoeba's tolerance threshold). Sets TAU_N2_HAZARD_RATE by derivation, so the "
+     "rate coefficient is not a free number. The fictional lethality has no physical "
+     "derivation (canon only says 'nitrogen is lethal'), so this time SCALE is tuned, "
+     "and the gate is what validates it: strong enough that rising nitrogen selects for "
+     "tolerance, gentle enough that the population is RESCUED rather than driven extinct "
+     "before it can adapt (test_evolution). See ADR-030.", None, (1.0, 1e5, True)),
 
     # --- Medium (water) ------------------------------------------------------
     # These two tabulated values are CROSS-CHECKS on the Vogel-Fulcher fit, not
