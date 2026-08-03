@@ -2,10 +2,12 @@
 
 **Rewritten at the end of every session.** If this file disagrees with `git tag --list`, believe the tags.
 
-> **Starting a brand-new session?** Paste [`CONTINUATION_PROMPT.md`](CONTINUATION_PROMPT.md)
-> instead. It is the self-contained version: same status, plus the accumulated
-> meta-lessons, the process rules, and every open question with its reasoning. This
-> file is the terse form for a session already oriented.
+> **Starting a brand-new session to do M10b?** Paste [`M10B_KICKOFF.md`](M10B_KICKOFF.md)
+> as your first message — the comprehensive, self-contained init prompt: it forces the
+> read-in ritual, gives the full M10b scope/gate/design, points at the exact M10a code to
+> extend, and carries the process and the meta-lessons. [`CONTINUATION_PROMPT.md`](CONTINUATION_PROMPT.md)
+> is the general standing handoff (its §4 has the eleven meta-lessons in full). This file
+> is the terse status for a session already oriented.
 
 ---
 
