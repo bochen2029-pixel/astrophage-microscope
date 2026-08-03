@@ -151,6 +151,7 @@ astro_test(test_scenario     tests/physics/test_scenario.cu)
 # The scenario spine loads scenarios/*.json by absolute path so ctest (which runs from
 # the build dir) and headless both find them without a working-directory assumption.
 target_compile_definitions(test_scenario PRIVATE ASTRO_SCENARIOS_DIR="${CMAKE_SOURCE_DIR}/scenarios")
+astro_test(test_param_locks tests/physics/test_param_locks.cpp)
 
 # ---------------------------------------------------------------------------
 # tools -- headless runner. The determinism oracle (INV-8) and the scenario

@@ -131,6 +131,10 @@ struct World {
     contract::LightSource light{1.0f, 0.0f, 0.0f, 0.0f, 0};   // off by default
     float        ambient_irradiance = 0.0f;
 
+    // Set once any CANON parameter lock is broken (ADR-034); world_stats copies it to
+    // Stats.non_canon_run, which surfaces in the HUD and every telemetry export header.
+    bool         non_canon_run = false;
+
     // Spin-drive flash (ADR-033): armed by the scenario driver for the flash window,
     // recomputed every tick. While set, flash.cu forces stimulated full-rate discharge
     // (PHYSICS.md Sec 6) and accumulates the momentum/energy audit below in fixed point

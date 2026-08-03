@@ -147,6 +147,8 @@ contract::Stats world_stats(World& w) {
     w.deaths_reported = w.deaths_total;
     // P2 asserts this never happens unaided; it is reported, never suppressed.
     s.boil_events = s.max_temp_medium_k >= canon::WATER_BOILING_POINT ? 1 : 0;
+    // Persistent once a CANON lock is broken (ADR-034); the HUD and every export show it.
+    s.non_canon_run = w.non_canon_run ? 1 : 0;
     return s;
 }
 

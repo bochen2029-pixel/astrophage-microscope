@@ -6,6 +6,18 @@ Format: milestone · what landed · what is pending · open questions · gotchas
 
 ---
 
+## 2026-08-03 — M11c (Content: runtime-param overlay, canon locks, telemetry) — GREEN · **a run cannot quietly go non-canon**
+
+**Landed.** The provenance/telemetry backbone of the inspector, split from the original M11c (Iron Rule 9 — the ImGui panels are now M11d). `src/core/params.h`: a `ParamSet` runtime OVERLAY of `PARAM_TABLE`'s 109 params (ADR-034) — values from canon, every CANON param locked by default, and a **sticky `non_canon_run`** flag set the moment a canon lock is broken. `World.non_canon_run` → `world_stats` → `Stats.non_canon_run`. CSV telemetry export (`headless --csv`): the SCENARIOS.md columns, header recording seed / scenario / non-canon status. **`test_param_locks` green** (the M11c gate). New ADR-034; no contract change (`Stats.non_canon_run` pre-declared).
+
+**The design call (ADR-034):** the overlay does NOT replace `constexpr` canon — canon stays the source of truth and the default (Iron Rule 3). The sim reads `canon::` by default; the overlay is what the inspector edits and (from M11d) the sim reads overridden values from for the curated tunable set. The flag trips on **unlocking** (not changing), stickily: a run that looks canon but broke a lock is the worst failure the UI can have (ui/MODULE.md), so the guard is conservative and irreversible.
+
+**Why the split.** The M11 UI panels did not exist (`src/ui` had only hud/chart/scale_bar). Building three ImGui panels + the runtime-param system in one session — panels that need a display to verify — is two milestones. M11c is the headless-verifiable backend (`test_param_locks` + a written CSV); M11d is the panels + app auto-play of scenarios.
+
+**Pending / next.** M11d: params_panel (badges + lock toggles → `ParamSet`), inspector_panel (click-cell + the P1 buoyancy line), scenario_panel (objective checkmarks over `accept.cpp`), the HUD non-canon badge, and wiring the app to auto-play a scenario's drive script (so the eight scenarios can be watched, not just asserted). Then M12 Ship.
+
+---
+
 ## 2026-08-03 — M11b (Content: acceptance, driving, the flash) — GREEN · **all 8 scenarios pass their objectives**
 
 **Landed.** The acceptance layer on M11a's spine. `scenario_v2` adds a scripted `drive[]` (ADR-032): `scenario_apply_drive` (sim) applies heat / N₂-ramp / flash / top-up stimuli each tick, shared by headless and (later) the app. `sim/accept.{h,cpp}` measures every objective from `Stats` + a `RunAggregates`; `headless --scenario ID --assert` runs to the horizon and exits nonzero on a missed check. The **spin-drive flash** (`flash.cu`, ADR-033, new canon `PETROVA_FLASH_POWER`) is the one new physics. **T24 green: all 8 ACCEPT.** New ADR-032/033. Contract bump v1→v2 (drive, `thermal_active`, compaction flags, `duration_s`).

@@ -264,11 +264,39 @@ Three findings, all in ADR-018:
 
 **Gate.** M11a gate + **T24: the headless runner executes *every* scenario's `accept` block and all eight pass.**
 
-### M11c — Content: the inspector and telemetry UI
+### M11c — Content: the runtime-parameter system, canon locks, and telemetry export
 
-**Scope.** The parameter inspector with provenance badges from `PARAM_TABLE`, **every `CANON` parameter locked by default; unlocking sets the persistent `NON-CANON RUN` flag** (`Stats.non_canon_run`) in the HUD and the telemetry header. The cell inspector (click a cell → its state, including the buoyancy readout that teaches P1), the objective/acceptance panel (the accept checkmarks), instrument panels, and **CSV telemetry export** (the columns in `SCENARIOS.md`).
+**Split from the original M11c (Iron Rule 9).** The original bundled a whole runtime-parameter
+system, the canon-lock guarantee, CSV export, AND four ImGui panels. The first three are
+headless-verifiable (a unit test, a written file); the panels are pixels. They are two
+sessions and two gates — and the panels are best built where a display can check them.
 
-**Gate.** M11b gate + `test_param_locks`: a `CANON` parameter is locked by default and unlocking sets `non_canon_run` in both the HUD state and the telemetry header.
+**Scope.** The **runtime-parameter overlay** (`src/core/params.h`): a `ParamSet` over `PARAM_TABLE`'s
+109 parameters, values initialised from canon, **every `CANON` parameter locked by default**,
+and a sticky `non_canon_run` flag set the moment a canon lock is broken. The `Stats.non_canon_run`
+plumbing (`World` → `world_stats`) so the flag reaches the HUD and every export. **CSV telemetry
+export** (`headless --csv`): the `SCENARIOS.md` columns, one row per sampled tick, a header
+recording seed / scenario / `git describe` / and every broken canon lock. This is the anti-drift
+backbone of the UI — *a run that quietly changed a canon number and looks canon is the worst
+failure the inspector can have* — and it is the architectural crux (canon is `constexpr`).
+
+**Gate.** M11b gate + `test_param_locks`: a `CANON` parameter is locked by default and breaking
+that lock sets `non_canon_run` (sticky); the overlay's values match `PARAM_TABLE`.
+
+### M11d — Content: the inspector and objective UI
+
+**Scope.** The ImGui layer over M11c's backend: the **parameter inspector** (`params_panel.cpp`)
+with provenance badges and lock toggles driving the `ParamSet`; the **cell inspector**
+(`inspector_panel.cpp`, click a cell → its state, including the buoyancy line that teaches P1);
+the **objective/acceptance panel** (`scenario_panel.cpp`, the accept checkmarks — a view onto
+`sim/accept.cpp`); the HUD non-canon badge + energy ledger; and wiring the app to **auto-play** a
+loaded scenario's drive script (`scenario_apply_drive` in the tick loop) so the eight scenarios
+can be watched, not just asserted. Where the sim reads *overridden* param values (not just the
+flag) also lands here.
+
+**Gate.** M11c gate + goldens/build: the panels render (a golden capture per panel where an oracle
+is possible), the app auto-plays each scenario without escaping containment, and the objective
+panel agrees with `headless --assert`.
 
 ---
 

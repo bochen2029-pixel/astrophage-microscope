@@ -2,98 +2,85 @@
 
 **Rewritten at the end of every session.** If this file disagrees with `git tag --list`, believe the tags.
 
-> **Content is complete through acceptance (M11a + M11b).** The eight scenarios now load,
-> drive themselves, and **pass their objectives** — `headless --scenario <id> --assert` is
-> green for all eight (T24). The next milestone is **M11c — the inspector and telemetry
-> UI**: the parameter inspector with provenance badges + canon locks, the cell inspector,
-> the objective/acceptance panel, and CSV telemetry export. See the M11 section of
-> `docs/MILESTONES.md` (M11c) and **ADR-032/033** (the M11b decisions).
-> [`CONTINUATION_PROMPT.md`](CONTINUATION_PROMPT.md) is the standing handoff (its §4 has the
-> meta-lessons — read them).
+> **The content backend is complete (M11a–M11c).** Scenarios load, drive, pass their
+> objectives, and export telemetry; the runtime-parameter overlay + canon locks guarantee a
+> run cannot quietly go non-canon. The next milestone is **M11d — the ImGui panels + app
+> auto-play**: the parameter inspector, cell inspector, objective/acceptance panel, the HUD
+> non-canon badge, and wiring the app to auto-play a scenario's drive script so the eight
+> scenarios can be **watched**, not just asserted. See the M11 section of `docs/MILESTONES.md`
+> (M11d) and **ADR-034** (the runtime-param overlay). `CONTINUATION_PROMPT.md` §4 has the
+> meta-lessons.
+
+> **⚠ M11d needs a display.** M11c did the headless-verifiable backend; M11d is ImGui panels
+> that a screenshot/golden-capture and, ideally, a human eye should check. Prefer a session
+> where the app window is visible. Offscreen golden capture (`scripts/goldens.ps1`) is the
+> headless oracle; use it, but *look* at the panels too (meta-lesson: look at the output).
 
 ---
 
 ## Where the build stands
 
-**Last green: `m11b-green`. Next milestone: M11c — the inspector + telemetry UI.**
+**Last green: `m11c-green`. Next milestone: M11d — the inspector/objective UI + app auto-play.**
 
-**All content is live: the eight scenarios load, drive, and pass their accept blocks.**
-25 tests green, 12 goldens, 10 audit checks, 33 ADRs.
+**All content + telemetry backend is live and headless-verified.** 26 tests green, 12 goldens,
+10 audit checks, 34 ADRs.
 
 | | measured |
 |---|---|
 | **M11a** | all 8 scenarios load + instantiate + run bit-reproducibly (`test_scenario`) |
-| **M11b** | **all 8 pass `--assert` (T24)**: three-percent-line −52.1/+1681 μm/s + r=−0.82; komorov 1.5 MJ; shadow-garden r=−0.88; first-light awake=1, medium 369.2 K, no boil; bloom doubling 706k s; taumoeba max-tol 0.99; spin-drive impulse/cycle 1.0, fully discharged |
-| **M10b** | Taumoeba-82.5 by directional selection; constant-N₂ control plateaus at 0.17 |
+| **M11b** | all 8 pass `--assert` (T24): velocities/correlations/doubling/tolerance/impulse |
+| **M11c** | `test_param_locks`: CANON locked by default, breaking a lock sets sticky `non_canon_run`; overlay == `PARAM_TABLE`; `headless --csv` writes valid telemetry |
 | **P1–P5** | all five phenomena live and asserted through the scenarios |
 
 ## Start here
 
 ```bash
 git -C C:\Astrophage tag --list
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/gate.ps1 -Milestone M11b
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/gate.ps1 -Milestone M11c
 ```
 
-Read: `CLAUDE.md` → `docs/ARCHITECTURE.md` (esp. §6 the provenance system) → **the M11 section only** of `docs/MILESTONES.md` (M11c) → **ADR-032/033** (the M11b decisions) → `src/core/canon_generated.h`'s `PARAM_TABLE` (the inspector reads it) → `src/ui/MODULE.md` + `contracts/telemetry_v1.h` (`Stats.non_canon_run`) + the existing `src/ui/*_panel.cpp`.
+Read: `CLAUDE.md` → `docs/ARCHITECTURE.md` (esp. §6 provenance) → `docs/RENDERING.md` (you are in `ui`/`render`) → **the M11 section only** of `docs/MILESTONES.md` (M11d) → **ADR-034** → `src/core/params.h` (the `ParamSet` the panels drive) → `src/sim/accept.cpp` (the objective panel is a view onto it) → `src/ui/hud.cpp` + `src/ui/MODULE.md` + the existing `chart_panel.cpp` (the panel pattern) → `src/app/application.cpp` (the tick loop, to wire auto-play).
 
-## What M11c is — the inspector and telemetry UI
+## What M11d is — the ImGui panels and app auto-play
 
-**M11b made the content pass headless; M11c gives it pixels and controls.** Four pieces,
-gated on `test_param_locks` + the M11b gate:
+**M11c gave the backend; M11d gives it controls and pixels.** Five pieces (no test oracle beyond
+build + goldens + the reused `accept.cpp` — so *watch it*):
 
-1. **The parameter inspector** with provenance badges from `PARAM_TABLE` (`CANON` gold/locked,
-   `DERIVED` blue/read-only, `REAL` grey, `INVENTED` orange). **Every `CANON` parameter
-   locked by default; unlocking sets the persistent `NON-CANON RUN` flag** (`Stats.non_canon_run`)
-   in the HUD and the telemetry header. This is `test_param_locks` (the gate) and needs the
-   **runtime-parameter system** — canon is `constexpr`, so a param override is not expressible
-   today (ADR-031 §3). That system is the crux of M11c; it is also what makes `param_overrides`
-   (parsed since M11a) finally apply.
-2. **The cell inspector** — click a cell → its state, including the buoyancy readout that
-   teaches P1 (drift velocity vs charge, zero crossing at 3.006 %).
-3. **The objective/acceptance panel** — the accept checkmarks. The vocabulary is already
-   frozen and shared: `sim/accept.cpp`'s `accept_eval` / `metric_measure` / `metric_name`
-   are the same functions the UI panel calls (one definition, two consumers, by design).
-4. **CSV telemetry export** — the columns in `SCENARIOS.md` §"Telemetry export", header
-   comments recording the seed, scenario id, git describe, and **every broken canon lock**.
+1. **`params_panel.cpp`** — `PARAM_TABLE` rows with provenance badges (`CANON` gold/locked,
+   `DERIVED` blue/read-only, `REAL` grey, `INVENTED` orange) and lock toggles that drive the
+   `core/params.h` `ParamSet`. Unlocking a CANON row flips the non-canon badge (already wired to
+   `Stats.non_canon_run`).
+2. **`inspector_panel.cpp`** — click a cell → its state, with the **buoyancy line that teaches P1**
+   (`"SINKING — 31,915 kg/m³, 32× water"`), prominent, not a footnote.
+3. **`scenario_panel.cpp`** — scenario picker + objective text + **acceptance checkmarks**, a view
+   onto `sim/accept.cpp`'s `metric_measure`/`accept_eval` (do not re-implement).
+4. **The HUD non-canon badge + energy ledger** (`hud.cpp`) — the `NON-CANON RUN` badge from
+   `Stats.non_canon_run`, and the permanent stored-energy readout (~72 kt TNT at full 200k).
+5. **App auto-play** — call `scenario_apply_drive` in `application.cpp`'s tick loop when a scenario
+   is loaded, so `astrophage.exe --scenario first-light` actually ignites (not just loads). Then
+   **the sim reads overridden param values** for a curated tunable set (via `World` fields), so
+   `param_overrides` finally affect physics, not only the flag (ADR-034).
 
-## What already exists that M11c builds on
+## What already exists that M11d builds on
 
-- **`sim/accept.{h,cpp}` (M11b):** `accept_eval`, `metric_measure`, `metric_name`, `metric_needs`,
-  `RunAggregates`. The objective panel is a UI view onto these — do not re-implement them.
-- **The provenance system** (`ARCHITECTURE.md §6`): `PARAM_TABLE` in `canon_generated.h` carries
-  every parameter's tag, tunable range, and description straight from `canon.py`. The inspector
-  is a view onto it; `derive.py` emits it.
-- **`Stats.non_canon_run`** (`telemetry_v1.h`) is already declared — M11c sets it.
-- **The driving script (M11b):** `scenario_apply_drive` + the `Stimulus` list. The app can reuse
-  it to auto-play a scenario, or map the tools to interactive brushes.
-- **Scenario `scope` + `tools` + `param_overrides`** are parsed but not applied — M11c is where
-  `scope` (render) and `param_overrides` (runtime params) finally take effect.
+- **`core/params.h` (M11c):** `ParamSet`, `param_set_init/unlock/set/index`. The panel is a view + editor.
+- **`Stats.non_canon_run`** is set (`World.non_canon_run` → `world_stats`). The HUD/panel just displays it.
+- **`sim/accept.cpp`:** `accept_eval`, `metric_measure`, `metric_name`, `RunAggregates` — the objective panel's engine.
+- **`scenario_apply_drive` (M11b):** the driver the app reuses for auto-play.
+- **`headless --csv` (M11c):** the export path; the app's "Export CSV" button reuses the same columns.
+- **`chart_panel.cpp` / `hud.cpp`:** the established ImGui panel + SI→display idiom (use `core/units.h`, never open-code a factor).
 
-## The meta-lessons this build keeps re-learning (full text: CONTINUATION_PROMPT.md §4)
+## The meta-lessons (full text: CONTINUATION_PROMPT.md §4)
 
-- **A gate that PASSES while the thing is broken is worse than one that fails.** M11b's
-  `medium_temp_mean` check would have "passed" at 361 K on a 50 %-relative tol bug; the honest
-  fix was `tol_absolute` and a null (no cells → medium stays at 371 K, fails).
-- **Do not guess a threshold — derive it.** Every M11b accept traces to a physical value or
-  canon: the beam is 1 kW / `CELL_CROSS_SECTION`, the ramp frontier is `N/N_lethal − 1`, the
-  impulse is `ΣE/c`. The scenario *parameters* (irradiance, heat rate) were tuned; the
-  *assertions* were not.
-- **A measured symptom is not a diagnosis.** three-percent-line's 3.25× velocity error looked
-  like a metric bug; it was the awake-cell viscosity drop — predicted, then confirmed.
-- **Look at the output.** The scenarios pass headless; run `build/astrophage.exe --scenario <name>`
-  and watch one before trusting M11c's panels.
+- **Look at the output.** M11d is UI — a golden that passes can still look wrong. Run the app and watch a scenario play.
+- **A control that silently does nothing is worse than one labelled pending** (`ui/MODULE.md`). Wire the lock toggles to the real `ParamSet`, or label them pending.
+- **A gate that passes while the thing is broken is worse than one that fails.** The non-canon badge must be impossible to miss; that is the whole point of the flag.
 
 ## Deferred, with reasons
 
-- **`param_overrides` do not apply yet** — the runtime-param system is M11c's, and it is the
-  same machinery the canon lock needs (ADR-031 §3).
-- **`scope` is parsed, not applied** — render-only; M11c/app.
-- **The `"schema": 1`** field in the JSONs is a soft marker; the authority is
-  `SCENARIO_CONTRACT_VERSION == 2` in the header. Left as-is to avoid churn.
-- **M7b render remainder** — bloom over Petrova, the cross-fade slider, the real T-field
-  false-colour behind Thermal IR; pre-ignition warm-up needs `temp_cell` in the render instance
-  → `render_view_v3`. Fits M12.
-- **Q9** (27→8 bucket neighbour walk), **Q18** (Poisson tumble refractory), **Q7/ADR-017**
-  (GLSL mirrored formulas), **Q14/Q15**. Test-suite cost ~5–6 min (`test_evolution` + the
-  heavier `test_scenario`). Kept deliberately.
-- After M11: **M12 Ship** — snapshot/replay, the perf pass, packaging, the M7b remainder, `v1.0`.
+- **The sim reads only `canon::` today** — M11d adds a curated runtime-override read path (ADR-034); the full `constexpr`→runtime refactor stays deferred (no use case, high cost).
+- **`scope` is parsed, not applied** — render-only; M11d/app.
+- **CSV `git_describe`** is a placeholder — packaging (M12) injects it.
+- **M7b render remainder** — bloom over Petrova, the cross-fade slider, the T-field false-colour; pre-ignition warm-up needs `temp_cell` in the render instance → `render_view_v3`. Fits M12.
+- **Q9** (27→8 bucket walk), **Q18** (Poisson tumble), **Q7/ADR-017** (GLSL mirrored formulas). Test suite ~5–6 min.
+- After M11: **M12 Ship** — snapshot/replay, perf pass, packaging, the M7b remainder, `v1.0`.

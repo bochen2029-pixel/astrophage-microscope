@@ -148,6 +148,20 @@ Append-only. Every contradiction in the source material and every non-obvious en
 
 ---
 
+## ADR-034 — The runtime-parameter overlay: a ParamSet over constexpr canon, and a sticky non-canon flag
+
+**Status:** accepted, 2026-08-03 (M11c). Splits the original M11c into M11c (this) + M11d (the panels).
+
+**Context.** The parameter inspector must lock every `CANON` value, let the user unlock and tune, and flag any run that broke a lock (`Stats.non_canon_run`). But canon is `constexpr` (`canon::PETROVA_MAX_POWER`), read at compile time across all of sim/fields — that is the anti-drift machinery (Iron Rule 3, `ARCHITECTURE.md §5.1`), the whole point of which is that no value drifts between doc, code, and test. A runtime override is in tension with it, and doing it wrong (forking every value between a constexpr default and a mutable copy) would undermine the discipline.
+
+**Decision -- a runtime OVERLAY, not a replacement.** `src/core/params.h` defines a `ParamSet`: `value[PARAM_COUNT]` initialised from `PARAM_TABLE`, `locked[PARAM_COUNT]` (`CANON` locked by default, everything else unlocked), and a **sticky** `non_canon_run` bool. It does not replace the `constexpr` canon — the sim still reads `canon::` by default; the overlay is what the inspector edits and (from M11d) the sim reads *overridden* values from, for the curated tunable set. Generated canon stays the source of truth and the default; the overlay is a deliberate, flagged departure from it.
+
+**The flag is set on UNLOCK, not on change, and is sticky.** Touching a canon lock flags the run non-canon even if you then change nothing, or change the value back. `ui/MODULE.md` states the worst failure the inspector can have is a run that quietly changed a canon number and still looks canon; a conservative, irreversible-for-the-session flag is the honest guard. Only `CANON` params are locked, so unlocking any of them is the non-canon event; non-canon params (`INVENTED`/`REAL`/`DERIVED`) are freely tunable and never trip it.
+
+**Consequences / the gate.** `test_param_locks`: `CANON` locked by default, breaking a lock sets `non_canon_run` (sticky), the overlay's values equal `PARAM_TABLE`. The flag flows `World.non_canon_run` → `world_stats` → `Stats.non_canon_run` → the HUD and every CSV export header (`headless --csv`). **M11d** wires the UI toggles and makes the sim read overridden values for a curated set via `World` fields; the full `constexpr`→runtime refactor of *every* use site is deliberately NOT done — it would thread a `ParamSet` through every kernel signature for little gain, and no scenario overrides a param today. `param_overrides` (parsed since M11a, ADR-031 §3) apply through this overlay when M11d lands.
+
+---
+
 ## ADR-033 — The spin-drive flash: stimulated full-rate discharge, accounted not applied
 
 **Status:** accepted, 2026-08-03 (M11b).

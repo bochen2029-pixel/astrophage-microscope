@@ -41,6 +41,7 @@ struct Options {
     bool               assert_deterministic = false;
     const char*        scenario = nullptr;
     bool               assert_scenario = false;   // --assert: evaluate the accept block
+    const char*        csv = nullptr;              // --csv <path>: telemetry export
     bool               verbose = false;
     bool               report_extent = false;
     bool               compaction = false;   // reclaim dead slots (ADR-028)
@@ -153,11 +154,30 @@ const char* op_symbol(contract::CompareOp op) {
     return "?";
 }
 
+// CSV telemetry export (docs/SCENARIOS.md). The header records the provenance that makes a
+// run reproducible and honest -- seed, scenario, and whether any canon lock was broken.
+void csv_header(std::FILE* f, const contract::Scenario& sc, const sim::World& w) {
+    std::fprintf(f, "# scenario: %s\n# seed: %llu\n# non_canon_run: %d%s\n",
+                 sc.id, static_cast<unsigned long long>(w.seed),
+                 w.non_canon_run ? 1 : 0, w.non_canon_run ? " (CANON LOCK BROKEN)" : " (canon)");
+    std::fprintf(f, "# git_describe: injected at packaging (M12)\n");
+    std::fprintf(f, "t_s,n_live,n_dead,n_tau,mean_charge,total_energy_J,mean_temp_cell_K,"
+                    "mean_temp_medium_K,co2_total_kg,mean_tolerance,boil_events,divisions,deaths\n");
+}
+void csv_row(std::FILE* f, const contract::Stats& s) {
+    std::fprintf(f, "%.6f,%d,%d,%d,%.6f,%.6e,%.4f,%.4f,%.6e,%.6f,%d,%d,%d\n",
+                 s.sim_time_s, s.n_live, s.n_dead, s.n_taumoeba, s.mean_charge,
+                 s.total_energy_j, s.mean_temp_cell_k, s.mean_temp_medium_k,
+                 s.co2_total_kg, s.mean_tau_tolerance, s.boil_events,
+                 s.divisions_this_window, s.deaths_this_window);
+}
+
 // Run a scenario headless and evaluate its accept block (the T24 gate). Applies the
 // scenario's driving script every tick and samples at HUD rate. Returns true iff every
-// check passes; an empty accept block (sandbox) trivially passes without running.
+// check passes; an empty accept block (sandbox) trivially passes without running. When
+// csv_path is set, writes a telemetry row per sample (docs/SCENARIOS.md).
 bool run_scenario_assert(const contract::Scenario& sc, sim::World& w,
-                         long long ticks_override) {
+                         long long ticks_override, const char* csv_path) {
     if (sc.accept_count == 0) {
         std::printf("scenario %s: no objective (sandbox) -- ACCEPT\n", sc.id);
         return true;
@@ -189,20 +209,25 @@ bool run_scenario_assert(const contract::Scenario& sc, sim::World& w,
     const sim::MetricNeeds needs = sim::metric_needs(sc);
     sim::RunAggregates agg;
     contract::Stats st{};
+    std::FILE* csv = csv_path ? std::fopen(csv_path, "w") : nullptr;
+    if (csv) csv_header(csv, sc, w);
     for (long long t = 0; t < ticks; ++t) {
         sim::scenario_apply_drive(w, sc);
         sim::world_step(w);
         if (t % stride == 0) {
             st = sim::world_stats(w);
             sim::aggregates_sample(agg, st, w, needs, settle_s, interval_s);
+            if (csv) csv_row(csv, st);
         }
     }
     if (cudaDeviceSynchronize() != cudaSuccess) {
         std::printf("device error during scenario assert\n");
+        if (csv) std::fclose(csv);
         return false;
     }
     st = sim::world_stats(w);   // final state
     sim::aggregates_sample(agg, st, w, needs, settle_s, interval_s);
+    if (csv) { csv_row(csv, st); std::fclose(csv); }
 
     std::printf("scenario %s: assert over %.1f s (%lld ticks, %d checks)\n",
                 sc.id, st.sim_time_s, ticks, sc.accept_count);
@@ -237,6 +262,7 @@ void usage() {
         "  --scenario ID             run a scenario headless (M11)\n"
         "  --assert                  with --scenario: evaluate its accept block (T24),\n"
         "                            exit nonzero on any missed check\n"
+        "  --csv <path>              with --scenario --assert: write a telemetry CSV\n"
         "  --verbose\n");
 }
 
@@ -260,6 +286,7 @@ int main(int argc, char** argv) {
         else if (a == "--absorbing")            o.absorbing = true;
         else if (a == "--scenario")             o.scenario = (i + 1 < argc) ? argv[++i] : nullptr;
         else if (a == "--assert")               o.assert_scenario = true;
+        else if (a == "--csv")                  o.csv = (i + 1 < argc) ? argv[++i] : nullptr;
         else if (a == "--help" || a == "-h")  { usage(); return 0; }
         else { std::printf("unknown argument: %s\n", a.c_str()); usage(); return 2; }
     }
@@ -291,7 +318,7 @@ int main(int argc, char** argv) {
         // --assert evaluates the accept block (T24). Exit nonzero on any missed check,
         // so gate.ps1 can loop every scenario and fail the milestone on the first miss.
         if (o.assert_scenario) {
-            const bool pass = run_scenario_assert(sc, w, o.ticks_set ? o.ticks : 0);
+            const bool pass = run_scenario_assert(sc, w, o.ticks_set ? o.ticks : 0, o.csv);
             sim::world_destroy(w);
             return pass ? 0 : 1;
         }

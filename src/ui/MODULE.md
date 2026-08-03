@@ -13,14 +13,15 @@ Dear ImGui panels: the HUD, instrument controls, the cell inspector, the paramet
 | `hud.cpp` | ✅ clock, counts, fps, scope controls, population; **energy ledger and non-canon badge at M6/M11** | M1 |
 | `scale_bar.h` | ✅ pure length-snapping function — header-only so `test_scope` can check it with no GL | M1 |
 | `instrument_panel.cpp` | overlays, clock presets, the tool brushes | M5 |
-| `inspector_panel.cpp` | clicked-cell readout including the buoyancy line | M11 |
-| `params_panel.cpp` | `canon::PARAM_TABLE` with provenance badges and canon locks | M11 |
+| `inspector_panel.cpp` | clicked-cell readout including the buoyancy line | M11d (not built) |
+| `params_panel.cpp` | provenance badges + lock toggles driving the `core/params.h` `ParamSet` (M11c) | M11d (not built) |
 | `chart_panel.cpp` | population, energy, temperature, tolerance time series | M9 |
-| `scenario_panel.cpp` | scenario picker, objective text, acceptance checkmarks | M11 |
+| `scenario_panel.cpp` | scenario picker, objective text, acceptance checkmarks (view onto `sim/accept.cpp`) | M11d (not built) |
 
 ## Contracts
 
-Consumes `telemetry_v1.h`, `render_view_v2.h`, `scenario_v1.h`.
+Consumes `telemetry_v1.h`, `render_view_v2.h`, `scenario_v2.h`. The panels also read
+`core/params.h` (the `ParamSet` overlay) and `sim/accept.cpp` (the objective checkmarks).
 
 ## Things that will bite you
 

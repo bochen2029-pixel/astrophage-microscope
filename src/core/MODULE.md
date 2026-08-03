@@ -11,6 +11,7 @@ Generated canon, deterministic RNG, unit discipline, vector math, and the fixed-
 | File | Owns |
 |---|---|
 | `canon_generated.h` | **GENERATED — never edit.** Every physical constant + the `PARAM_TABLE` provenance table. Source: `scripts/canon.py`. |
+| `params.h` | runtime-parameter OVERLAY of `PARAM_TABLE` (`ParamSet`); CANON locked by default; breaking a lock sets a sticky `non_canon_run` (M11c, ADR-034). Header-only, POD, so `test_param_locks` checks it with no GL. |
 | `units.h` | `ASTRO_HD` host/device bridge; SI ↔ display conversions (the only sanctioned conversion points) |
 | `rng.cuh` | PCG32, per-cell streams, `pcg_split`, uniform and gaussian variates |
 | `vec.cuh` | `Vec3` (f64) for kinematics |
@@ -35,4 +36,7 @@ Produces none. Consumed by every other module.
 
 ## Status
 
-M0 complete. Tested by `test_canon`, `test_rng`, `test_fixed_atomic`.
+M0 complete. Tested by `test_canon`, `test_rng`, `test_fixed_atomic`. `params.h` (M11c) is
+tested by `test_param_locks` — the canon-lock guarantee. The overlay is a deliberate runtime
+departure from generated canon, which stays the source of truth and the default (ADR-034); it
+does NOT replace `canon::`, and the sim reads it only for the curated tunable set (from M11d).
