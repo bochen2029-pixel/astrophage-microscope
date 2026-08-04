@@ -62,6 +62,24 @@ Albedo is exactly zero at every wavelength ("super cross-sectionality"). In a li
 
 ---
 
+## Predation, and the Taumoeba-82.5 arc ✅ *live*
+
+![A Taumoeba swarm consuming an Astrophage culture](docs/images/taumoeba-culture.png)
+
+The **Taumoeba** — the amoeba that eats Astrophage — crawls, engulfs, digests, and **evolves**. Under a slowly rising nitrogen ramp, a population under genuine directional selection breeds the **Taumoeba-82.5** strain (N₂ tolerance ≥ 0.825) all by itself, deterministically, never by script; a constant-nitrogen control plateaus at 0.17, which is what proves the rise is selection and not drift. The predators are coloured by their tolerance — pale teal for the intolerant, gold-green for the evolved — so the arc is visible on screen: the swarm warms toward gold as selection does its work.
+
+*Above: thousands of Taumoeba (bred from twenty) consuming a 24,000-cell culture, mid-evolution at mean tolerance 0.46. The black voids are where the culture has been eaten.*
+
+---
+
+## The instrument
+
+![The full instrument — inspector, parameter table, objective panel, timeline scrubber](docs/images/ui-overview.png)
+
+Eight self-verifying scenarios play in the app and grade themselves live. Click a cell for its state and the P1 buoyancy line; the parameter table shows every constant with its provenance badge and canon lock, plus a live slider for the curated set the simulation actually reads; the objective panel checks the scenario's acceptance conditions each frame; and the timeline records a rolling ring of full-state snapshots you can rewind through. Everything here is procedural — there are no asset files.
+
+---
+
 ## It behaves like a microscope
 
 ![Focus sweep at 100× oil](docs/images/m3-focus-sweep.png)
@@ -194,7 +212,7 @@ Without `-App`, the core library and the full test suite build with **no network
 
 **M7 was the line where all five signature phenomena came live.** Everything after it adds behaviour and content on top of a physics core that is now complete.
 
-Scenarios planned for M11 include *First Light* (heat a slide of inert powder until it ignites), *Komorov* (Dimitri's 1 kW laser, reproduced on a microbalance), *Shadow Garden* (absolute self-shading), and *Spin Drive Face* — the one place the ship intrudes, because a spin drive is a cell-scale machine and the microscope is the right instrument to look at it.
+The eight scenarios are live and self-verifying: *First Light* (heat a slide of inert powder until it ignites), *Three-Percent Line* (buoyancy sorting), *Komorov* (Dimitri's 1 kW laser on a microbalance), *Shadow Garden* (absolute self-shading), *Bloom* (population dynamics), *Taumoeba* (predation and the 82.5 arc), *Spin-Drive Face* — the one place the ship intrudes, because a spin drive is a cell-scale machine and the microscope is the right instrument to look at it — and a free-play *Sandbox*. Each loads, drives itself, and passes its acceptance block headlessly (`headless --scenario ID --assert`).
 
 ## Credit
 
