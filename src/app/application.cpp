@@ -294,6 +294,80 @@ void apply_grab(Application& a) {
     }
 }
 
+// The living-screensaver demo (M14a, ADR-042). A playlist of scenario "acts": each is a self-driving
+// scenario shown for a fixed number of ticks, with a view mode and a slow scope zoom (start -> end)
+// eased across its run. The demo cycles them and loops. Nothing scripts a cell -- each act IS a
+// scenario and drives itself (scenario_apply_drive); the demo only cycles which one and moves the scope.
+struct DemoAct {
+    const char*        scenario;
+    int                duration_ticks;
+    contract::ViewMode mode;
+    int                objective;      // 0 = 10x, 1 = 40x, 2 = 100x
+    float              zoom_start, zoom_end;
+    const char*        caption;
+};
+
+// Curated for variety and aliveness: ignition, buoyancy sorting, a population bloom, the predation +
+// Taumoeba-82.5 selection arc, and absolute shadows. Durations are in ticks -- a fixed wall-time per
+// act, since one tick is always DT_PHYSICS of wall time whatever the scenario's clock (ADR-027).
+const DemoAct DEMO_PLAYLIST[] = {
+    {"first-light",        5000, contract::ViewMode::ThermalIR,    0, 0.85f, 1.8f, "Ignition"},
+    {"three-percent-line", 4500, contract::ViewMode::Brightfield,  1, 0.60f, 1.1f, "The 3% line"},
+    {"bloom",              5500, contract::ViewMode::Analysis,      0, 0.55f, 1.4f, "Bloom"},
+    {"taumoeba",           6000, contract::ViewMode::Brightfield,   1, 0.70f, 1.5f, "Predation & selection"},
+    {"shadow-garden",      4500, contract::ViewMode::Petrovascope,  1, 0.60f, 1.2f, "Absolute shadows"},
+};
+constexpr int DEMO_ACT_COUNT = static_cast<int>(sizeof(DEMO_PLAYLIST) / sizeof(DEMO_PLAYLIST[0]));
+
+// Load demo act `idx`: tear down the world and instantiate the act's scenario (the same teardown the
+// respawn/scrub paths use), then point the scope at it. The interop VBO was sized to the playlist's
+// max capacity at init, so a larger act still fits.
+Error load_act(Application& a, int idx) {
+    const DemoAct& act = DEMO_PLAYLIST[idx];
+    sim::world_destroy(a.world);
+    const std::string path = std::string(ASTRO_SCENARIOS_DIR) + "/" + act.scenario + ".json";
+    if (Error e = sim::scenario_load(path, a.scenario)) {
+        std::printf("[demo] act '%s' load failed: %s\n", act.scenario, status_str(e.status));
+        return e;
+    }
+    if (Error e = sim::scenario_instantiate(a.scenario, a.world)) {
+        std::printf("[demo] act '%s' instantiate failed: %s\n", act.scenario, status_str(e.status));
+        return e;
+    }
+    a.has_scenario = true;
+    a.obj_needs = sim::metric_needs(a.scenario);
+    a.scrub_motion = a.world.motion;
+    a.has_pick = false;                       // the picked slot referred to the old world
+    a.demo.act = idx;
+    a.hud.mode = act.mode;
+    a.camera.objective = act.objective;
+    a.camera.zoom = act.zoom_start;
+    a.camera.center_x = 0.0;
+    a.camera.center_y = 0.0;
+    a.hud.clock_preset  = static_cast<int>(a.scenario.clock);
+    a.hud.clock_physics = static_cast<float>(a.world.physics_rate);
+    a.hud.clock_biology = static_cast<float>(a.world.biology_rate);
+    std::printf("[demo] act %d/%d: %s (%s)\n", idx + 1, DEMO_ACT_COUNT, act.scenario, act.caption);
+    return ok();
+}
+
+// Advance the demo each frame (M14a): when the current act's ticks elapse (world.tick counts from 0
+// after each rebuild), load the next and loop; otherwise ease the scope zoom across the act. The world
+// rebuild happens here, between frames -- never mid tick-loop.
+void demo_update(Application& a) {
+    if (!a.demo.active || a.demo.act < 0) return;
+    const DemoAct& act = DEMO_PLAYLIST[a.demo.act];
+    const bool elapsed = a.world.tick >= static_cast<uint64_t>(act.duration_ticks);
+    if (a.demo.advance_requested || (elapsed && !a.demo.paused)) {
+        a.demo.advance_requested = false;
+        load_act(a, (a.demo.act + 1) % DEMO_ACT_COUNT);   // a fresh act starts at zoom_start
+        return;
+    }
+    const double t = astro::clamp(static_cast<double>(a.world.tick) /
+                                  static_cast<double>(act.duration_ticks), 0.0, 1.0);
+    a.camera.zoom = static_cast<float>(act.zoom_start + (act.zoom_end - act.zoom_start) * t);
+}
+
 void handle_input(Application& a) {
     const ImGuiIO& io = ImGui::GetIO();
     GLFWwindow* win = a.gl.window;
@@ -378,10 +452,26 @@ Error app_init(Application& a, const Options& o) {
     for (int idx : {a.param_idx_max_power, a.param_idx_flash_power, a.param_idx_co2_quota})
         if (idx >= 0) a.param_live[idx] = true;
 
-    // Build the World two ways: from a scenario (loaded + instantiated, which sizes its own
-    // capacity, medium, populations, and clock) or a plain uniform population from the flags.
+    // Build the World three ways: the demo (a playlist of acts, one interop sized to the largest), a
+    // single scenario (which sizes its own capacity, medium, populations, clock), or a plain uniform
+    // population from the flags.
     int32_t capacity = 0;
-    if (o.scenario) {
+    int32_t interop_tau = 0;
+    if (o.demo) {
+        a.demo.active = true;
+        // Pre-pass: the one interop VBO must fit the LARGEST act, since the world is rebuilt per act.
+        for (int i = 0; i < DEMO_ACT_COUNT; ++i) {
+            const std::string path =
+                std::string(ASTRO_SCENARIOS_DIR) + "/" + DEMO_PLAYLIST[i].scenario + ".json";
+            contract::Scenario tmp;
+            if (sim::scenario_load(path, tmp)) continue;   // a missing act is skipped, not fatal
+            int32_t cc = 0, tc = 0;
+            sim::scenario_capacities(tmp, cc, tc);
+            if (cc > capacity)    capacity = cc;
+            if (tc > interop_tau) interop_tau = tc;
+        }
+        ASTRO_TRY(load_act(a, 0));   // instantiate act 0's world (never larger than the sized interop)
+    } else if (o.scenario) {
         const std::string id = o.scenario;
         const bool is_path = id.size() > 5 && id.compare(id.size() - 5, 5, ".json") == 0;
         const std::string path = is_path ? id
@@ -398,6 +488,7 @@ Error app_init(Application& a, const Options& o) {
         a.has_scenario = true;
         a.obj_needs = sim::metric_needs(a.scenario);   // which aggregates the objective needs
         capacity = a.world.cells.capacity;
+        interop_tau = a.world.taumoeba.capacity;
     } else {
         const int32_t count = o.cells > 0 ? o.cells : canon::DEFAULT_CELLS;
         if (count > canon::MAX_CELLS) return fail(Status::InvalidArgument, "--cells exceeds MAX_CELLS");
@@ -407,6 +498,7 @@ Error app_init(Application& a, const Options& o) {
         wd.seed = o.seed;
         ASTRO_TRY(sim::world_create(a.world, wd));
         capacity = count;
+        interop_tau = a.world.taumoeba.capacity;
     }
 
     render::GlContextDesc gd;
@@ -420,12 +512,15 @@ Error app_init(Application& a, const Options& o) {
 
     // Registered with CUDA, so it must be created after the GL context. The instance buffer
     // holds cells AND the Taumoeba appended after them (M12b), hence the tau capacity too.
-    ASTRO_TRY(render::cells_pass_create(a.cells_pass, capacity, a.world.taumoeba.capacity));
+    ASTRO_TRY(render::cells_pass_create(a.cells_pass, capacity, interop_tau));
     ASTRO_TRY(render::post_pass_create(a.post_pass));
 
     // A scenario already spawned its populations and set its own clock + scope; a plain run
-    // spawns a uniform population and takes the clock/mode from the flags.
-    if (a.has_scenario) {
+    // spawns a uniform population and takes the clock/mode from the flags. The demo's load_act
+    // already pointed the scope + clock at act 0, so it needs neither.
+    if (a.demo.active) {
+        // nothing: load_act(0) set the scope, mode, and clock.
+    } else if (a.has_scenario) {
         a.hud.mode = a.scenario.scope.mode;
         a.hud.clock_preset = static_cast<int>(a.scenario.clock);
     } else {
@@ -514,6 +609,10 @@ int app_run(Application& a) {
             a.hud.poke_y = a.options.auto_grab_y;
         }
 
+        // Advance the living-screensaver demo (M14a): cycle to the next act when this one's ticks
+        // elapse, and ease the scope zoom. The world rebuild happens here, between frames.
+        if (a.demo.active) demo_update(a);
+
         // Push the inspector's curated overrides into the World before stepping (ADR-035).
         // With no edits these equal canon, so the tick is bit-identical to M11e.
         apply_param_overrides(a);
@@ -556,7 +655,7 @@ int app_run(Application& a) {
 
         // Record a rewind frame during live play (M12d). Never under --benchmark: the full-state
         // snapshot D2H would stall the pipeline and perturb the fps M1.5 gates on.
-        if (!a.options.benchmark && a.hud.scrub_live && !a.hud.paused &&
+        if (!a.options.benchmark && !a.options.demo && a.hud.scrub_live && !a.hud.paused &&
             a.world.tick - a.scrub_last_tick >= SCRUB_RECORD_INTERVAL) {
             scrub_record(a);
             a.scrub_last_tick = a.world.tick;
@@ -659,8 +758,17 @@ int app_run(Application& a) {
             if (a.hud.scrub_count > 0)
                 a.hud.scrub_sel_time_s =
                     a.scrub_ring[static_cast<size_t>(a.hud.scrub_selected)].sim_time_s;
+            // Mirror the demo state into the HUD for its panel (M14a); read the toggles back after.
+            a.hud.demo_active = a.demo.active;
+            if (a.demo.active && a.demo.act >= 0) {
+                a.hud.demo_act_name  = DEMO_PLAYLIST[a.demo.act].caption;
+                a.hud.demo_act_index = a.demo.act;
+                a.hud.demo_act_count = DEMO_ACT_COUNT;
+            }
             ui::hud_draw(a.hud, stats, a.camera, a.cells_pass.capacity,
                          a.world.chamber.w, a.world.chamber.h, a.world.chamber.d);
+            a.demo.paused = a.hud.demo_paused;
+            if (a.hud.demo_next) { a.demo.advance_requested = true; a.hud.demo_next = false; }
             ui::params_panel_draw(a.params, a.param_live);
             ui::scenario_panel_draw(a.has_scenario ? a.scenario.objective_text : nullptr,
                                     a.obj_checks, a.obj_count, a.has_scenario);

@@ -42,6 +42,7 @@ void print_usage() {
         "  --auto-poke TOOL   headless: hold TOOL (heat|chill|co2|n2) at the chamber centre\n"
         "  --auto-light       headless: hold a light spot off-centre; awake cells herd (M13b)\n"
         "  --auto-grab N X Y  headless: tow cell slot N to (X,Y) micrometres (optical tweezers)\n"
+        "  --demo             living-screensaver mode: cycle the scenarios with a moving scope\n"
         "  --help\n");
 }
 
@@ -149,6 +150,7 @@ Options parse_args(int argc, char** argv) {
                 else                                   o.bad = true;
             }
         }
+        else if (want("--demo")) o.demo = true;
         else if (want("--auto-light")) o.auto_light = true;
         else if (want("--auto-grab")) {
             // Three args: slot, then the target x and y in micrometres (stored as metres).

@@ -56,6 +56,9 @@ struct Options {
     // [m] every frame; the end-state distance-to-target readout is the gate. -1 = off.
     int32_t  auto_grab_slot = -1;
     double   auto_grab_x = 0.0, auto_grab_y = 0.0;
+    // The living-screensaver demo (M14a): cycle a playlist of scenario acts with camera + view
+    // choreography, looping. Default-off so every gate is unmoved; ignores --scenario.
+    bool     demo = false;
     // Suppress all ImGui drawing. Golden images must test the RENDERER, not the
     // panel layout -- otherwise every HUD tweak invalidates every golden.
     bool     no_ui      = false;

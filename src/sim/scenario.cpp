@@ -324,23 +324,26 @@ Error scenario_load(const std::string& path, Scenario& out) {
     return scenario_parse(text, out);
 }
 
-Error scenario_instantiate(const Scenario& s, World& w) {
+void scenario_capacities(const Scenario& s, int32_t& cell_cap, int32_t& tau_cap) {
     int64_t total_cells = 0, total_tau = 0;
     for (int i = 0; i < s.population_count; ++i) {
         if (s.populations[i].kind == OrganismKind::Taumoeba) total_tau += s.populations[i].count;
         else total_cells += s.populations[i].count;
     }
-
-    WorldDesc d;
-    d.chamber = Chamber{s.chamber_w, s.chamber_h, s.chamber_d};
     // Headroom for growth (bloom divides), clamped to the store's hard cap.
     int64_t cap = total_cells * 2 + 4096;
     if (cap < canon::DEFAULT_CELLS) cap = canon::DEFAULT_CELLS;
     if (cap > canon::MAX_CELLS) cap = canon::MAX_CELLS;
-    d.capacity = static_cast<int32_t>(cap);
+    cell_cap = static_cast<int32_t>(cap);
     int64_t tcap = total_tau * 4 + canon::DEFAULT_TAUMOEBA;
     if (tcap > canon::MAX_TAUMOEBA) tcap = canon::MAX_TAUMOEBA;
-    d.tau_capacity = static_cast<int32_t>(tcap);
+    tau_cap = static_cast<int32_t>(tcap);
+}
+
+Error scenario_instantiate(const Scenario& s, World& w) {
+    WorldDesc d;
+    d.chamber = Chamber{s.chamber_w, s.chamber_h, s.chamber_d};
+    scenario_capacities(s, d.capacity, d.tau_capacity);
     d.seed = s.seed;
     d.co2_init = s.co2_init;
     d.motion.boundary_x = static_cast<Boundary>(s.boundary_x);

@@ -65,6 +65,16 @@ struct HudState {
     float fps = 0.0f;
     float frame_ms = 0.0f;
 
+    // The living-screensaver demo (M14a). The app mirrors its state here before hud_draw and reads
+    // the toggles back: demo_active gates the panel, demo_paused freezes auto-advance, demo_next asks
+    // for the next act. demo_act_name/index/count label the current act (app-owned strings).
+    bool        demo_active = false;
+    bool        demo_paused = false;
+    bool        demo_next = false;
+    const char* demo_act_name = nullptr;
+    int         demo_act_index = 0;
+    int         demo_act_count = 0;
+
     // Time scrubber (M12d). The app fills scrub_count and the selected frame's clock; the
     // Timeline slider sets scrub_selected + scrub_seek_requested when the user rewinds, and
     // scrub_live toggles between playing/recording and viewing a past frame.

@@ -102,6 +102,17 @@ void hud_draw(HudState& hud, const Stats& stats, render::Camera& cam,
     if (stats.non_canon_run)
         ImGui::TextColored(ImVec4(1.0f, 0.35f, 0.30f, 1.0f), "NON-CANON RUN  [!]");
 
+    // The living-screensaver demo (M14a): shown only while a --demo run is cycling acts.
+    if (hud.demo_active) {
+        ImGui::SeparatorText("Demo  (M14: the living slide)");
+        ImGui::TextColored(ImVec4(0.75f, 0.85f, 1.0f, 1.0f), "act %d/%d: %s",
+                           hud.demo_act_index + 1, hud.demo_act_count,
+                           hud.demo_act_name ? hud.demo_act_name : "");
+        ImGui::Checkbox("pause auto-advance", &hud.demo_paused);
+        ImGui::SameLine();
+        if (ImGui::SmallButton("next act")) hud.demo_next = true;
+    }
+
     ImGui::SeparatorText("Objective");
     const auto& obj = canon::OBJECTIVES[cam.objective];
     for (int i = 0; i < canon::OBJECTIVE_COUNT; ++i) {

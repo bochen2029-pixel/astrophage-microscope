@@ -132,6 +132,22 @@ Append-only. Every contradiction in the source material and every non-obvious en
 
 ---
 
+## ADR-042 — The living-screensaver demo: a playlist of self-driving scenario acts, cycled with camera choreography
+
+**Status:** accepted, 2026-08-04 (M14a). Opens the M14 presentation arc.
+
+**Context.** Bo asked for a demo/screensaver mode that shows the culture *alive* — Conway's Game of Life as the *feeling* (cells coming to life), not the mechanism. The project's soul is honest emergence (P1–P5 fall out of equations, nothing scripted), so a screensaver must *frame* the real behaviours, never fake them. Three things had to be settled.
+
+**Cycle the self-driving scenarios, don't script a sandbox.** The eight scenarios already ARE curated, self-driving, thermally-stable demonstrations (each passes its accept block): first-light ignites, bloom blooms, taumoeba breeds the 82.5 strain. So the demo is a playlist of "acts," each a scenario shown for a fixed number of ticks, and it just cycles which one plays and moves the scope — `scenario_apply_drive` does all the biology, exactly as in `--scenario` auto-play (M11d). Nothing scripts a cell; the aliveness is the same emergent physics, only framed. The alternative — a hand-orchestrated sandbox with the interaction actors (auto-poke/light/grab) performing — risks the thermal-density instability M13b surfaced and needs manual timing; it is deferred (a fine M14b act).
+
+**One interop VBO, sized to the largest act.** Each act rebuilds the world (`world_destroy` + `scenario_instantiate` — the same teardown respawn and the scrubber already use), but the GL instance buffer is created once and must fit every act. `scenario_capacities` (extracted from `scenario_instantiate` so the formula has one source) lets `app_init` pre-scan the playlist and size the interop to the max (taumoeba's ~52k). A per-act world is always ≤ that, so the fill never overflows; `cells_pass.capacity` reporting the max is a cosmetic HUD detail.
+
+**Default-off, camera-choreographed, deterministic where it counts.** `--demo` (and a HUD panel: current act, pause, next) is the only entry; without it `app_init` and the tick loop are byte-for-byte M13b, so goldens (M3.2) and determinism (M0.4) are unmoved. Each act eases the scope zoom start→end across its run (cheap, cinematic) and picks a view mode that suits it (Thermal IR for ignition, Petrovascope for shadows). Live demo pacing is frame-rate-coupled like all interaction (ADR-040), but act durations are in ticks — a fixed wall-time per act, since one tick is always `DT_PHYSICS` of wall time whatever the clock (ADR-027) — so a headless `--demo` advances deterministically for the gate.
+
+**Consequences / the gate.** `M14a.1`: `--demo` cycles the full playlist headless (each act's `[demo] act N/M` line appears) with zero GL errors; determinism + goldens unmoved. M14a is a parallel arc off m13b-green; its gate re-runs M0..M13b but not the unbuilt M12f/g (like M13). Deferred to M14b: view-mode cross-fades (`render_view_v2`'s `mode_blend`), a caption overlay per act, an idle-input trigger (a true screensaver), and interaction-actor acts (the light-leash herding on a loop). Runtime enable from a non-demo start stays out — the interop is sized at init, so a normal run's buffer may be too small for taumoeba.
+
+---
+
 ## ADR-041 — The light-leash and optical tweezers: a positional spot and a harmonic trap, both honest and default-off
 
 **Status:** accepted, 2026-08-04 (M13b). Extends the M13 interaction arc (ADR-040).

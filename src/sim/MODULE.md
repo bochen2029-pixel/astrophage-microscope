@@ -20,7 +20,7 @@ The simulation itself: the cell and Taumoeba stores, the integrator, and every p
 | `taxis.{cuh,cu}` | ✅ run-and-tumble FEED/BREED/IDLE controller, emission discharge (PHYSICS.md §8, ADR-022) | M8 |
 | `lifecycle.{cuh,cu}` | ✅ CO₂ uptake, mitosis, prefix-sum slots (ADR-025); overheat death and store disposition (ADR-004) | M9a/M9b |
 | `stats.cu` | ✅ tick stage 11, fixed-point telemetry reduction (ADR-026) | M9b |
-| `json.h` + `scenario.{h,cpp}` | ✅ hand-rolled jsonc reader; scenario load, world instantiation, and the v2 driving script `scenario_apply_drive` (docs/SCENARIOS.md, ADR-032) | M11a/M11b |
+| `json.h` + `scenario.{h,cpp}` | ✅ hand-rolled jsonc reader; scenario load, world instantiation, and the v2 driving script `scenario_apply_drive` (docs/SCENARIOS.md, ADR-032); `scenario_capacities` single-sources the store-sizing formula so the M14 demo can pre-size its interop (ADR-042) | M11a/M11b |
 | `accept.{h,cpp}` | ✅ acceptance evaluation + derived metrics (displacement velocities, correlations, `biology_rate`-scaled doubling, flash impulse) shared by headless and the UI (ADR-032) | M11b |
 | `flash.cu` | ✅ the spin-drive flash: stimulated full-rate discharge, fixed-point momentum/energy audit (PHYSICS.md §6, ADR-033) | M11b |
 | `step.cu` | ✅ tick sequence, the multi-rate clock and its presets (ADR-011, ADR-027) | M1/M9c |

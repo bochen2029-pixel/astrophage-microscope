@@ -49,6 +49,12 @@ left drives the active tool. M13a added the Inspect + Heat/Chill/CO₂/N₂ pale
 ADR-040); M13b added **Light** (drag a spotlight — awake cells herd up its irradiance gradient)
 and **Grab** (tow the picked cell with an optical trap), ADR-041. All applied at a tick boundary.
 
+**M14 presentation (parallel arc off m13b-green).** `--demo` is the living-screensaver mode: a playlist
+of scenario "acts" (`DEMO_PLAYLIST`) cycled with camera + view-mode choreography, looping (ADR-042).
+Each act rebuilds the world (`load_act` = `world_destroy` + `scenario_instantiate`, the respawn/scrub
+teardown); the one interop VBO is pre-sized in `app_init` to the playlist's max capacity
+(`sim::scenario_capacities`) so every act fits. Default-off, so a normal run is byte-for-byte M13b.
+
 Notes for whoever extends this:
 
 - **`--headless` is a hidden window, not offscreen GL.** A real headless GL context on

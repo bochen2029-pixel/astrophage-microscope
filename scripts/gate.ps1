@@ -16,7 +16,7 @@
 param(
     [Parameter(Mandatory = $true)]
     # Trailing letter accepts split milestones (M5a/M5b, M8b) -- Iron Rule 9.
-    [ValidatePattern('^M(1[0-3]|[0-9])[a-z]?$')]
+    [ValidatePattern('^M(1[0-4]|[0-9])[a-z]?$')]
     [string]$Milestone,
     [switch]$SkipBuild
 )
@@ -393,6 +393,24 @@ if (($n -gt 13) -or ($n -eq 13 -and $suffix -ge 'b')) {
         if ($out -match 'GL debug errors') { return $false }
         if ($out -match 'dist ([\d\.]+) um') { return ([double]$Matches[1] -lt 20.0) }
         return $false
+    }
+}
+
+# ---------------------------- M14a: the living-screensaver demo
+# Scoped to the M14 arc off m13b-green (like M13, not the ship line). --demo cycles a playlist of the
+# self-driving scenarios with a moving scope; the gate confirms it advances through the WHOLE playlist
+# headless with zero GL errors. Default-off, so determinism (M0.4) + goldens (M3.2) above are unmoved.
+if (($n -gt 14) -or ($n -eq 14 -and $suffix -ge 'a')) {
+    Gate 'M14a.1' 'the demo cycles the full scenario playlist headless' {
+        $exe = Find-Exe 'astrophage'
+        if (-not $exe) { return $false }
+        # 60 frames x 500 ticks = 30000 ticks, more than one full loop of the ~25500-tick playlist.
+        $out = & $exe --demo --headless --gl-debug --frames 60 --ticks-per-frame 500 2>&1 | Out-String
+        if ($out -match 'GL debug errors') { return $false }
+        foreach ($act in @('first-light', 'three-percent-line', 'bloom', 'taumoeba', 'shadow-garden')) {
+            if ($out -notmatch "\[demo\] act.*$act") { return $false }
+        }
+        return $true
     }
 }
 

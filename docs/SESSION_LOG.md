@@ -6,6 +6,33 @@ Format: milestone · what landed · what is pending · open questions · gotchas
 
 ---
 
+## 2026-08-04 — M14a (Presentation: the living-screensaver demo) — GREEN · **the slide, alive, on a loop**
+
+**Landed.** The M14 arc opens (ADR-042) -- the demo/screensaver Bo asked for. `--demo` cycles a playlist of
+the self-driving scenarios (ignition -> the 3% line -> bloom -> predation/selection -> shadows) with camera +
+view-mode choreography, looping. Honest by construction: each act IS a scenario and drives itself
+(scenario_apply_drive, M11d) -- the demo only cycles which one plays and eases the scope zoom; it never
+scripts a cell (Conway's Life as the *feeling*, honest physics as the mechanism). A HUD panel (current act,
+pause auto-advance, next) and the `--demo` flag are the only entry; default-off, so app_init and the tick
+loop are byte-for-byte M13b (goldens M3.2 + determinism M0.4 unmoved).
+
+**One interop, sized to the largest act.** Each act rebuilds the world (world_destroy + scenario_instantiate
+-- the respawn/scrub teardown), but the GL VBO is created once. New `sim::scenario_capacities` single-sources
+the cap formula (extracted from scenario_instantiate) so app_init pre-scans the playlist and sizes the interop
+to the max (taumoeba's ~52k); a per-act world is always smaller. cells_pass.capacity reporting the max is a
+cosmetic HUD detail.
+
+**Verified.** `--demo --headless` cycles the full 5-act playlist and loops (each act's `[demo] act N/5` line,
+zero GL errors, no instantiate failures). Screenshot mid-taumoeba act: the Demo panel reads "act 4/5:
+Predation & selection", the swarm has bred to mean tolerance 0.88 (4351 Taumoeba) and the objective panel
+live-passes 2/2 -- the evolution arc, on a screensaver. Gate M0..M13b + M14a.1 green.
+
+**Pending / next.** M14b (view cross-fades via render_view_v2 mode_blend, a caption overlay, an idle-input
+trigger for a true screensaver, interaction-actor acts -- the light-leash herding on a loop). Then the M12
+ship line (M12f/g -> v1.0) or M13c. M13a+b+M14a all unpushed.
+
+---
+
 ## 2026-08-04 — M13b (Interaction: the light-leash + optical tweezers) — GREEN · **herd the culture, tow a cell**
 
 **Landed.** The M13 arc's second half (ADR-041). Two honest, emergent interactions, both applied at a tick

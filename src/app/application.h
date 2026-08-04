@@ -72,6 +72,17 @@ struct Application {
     uint64_t          scrub_last_tick = 0;
     sim::MotionConfig scrub_motion{};
 
+    // The living-screensaver demo (M14a): a playlist of scenario "acts" cycled with camera + view
+    // choreography. Populated only under --demo; the interop VBO was sized to the playlist's max
+    // capacity at init, so the world rebuild each act does always fits. `act` indexes DEMO_PLAYLIST.
+    struct DemoState {
+        bool active = false;
+        int  act = -1;                  // current playlist index, -1 before the first load
+        bool paused = false;            // freeze auto-advance on the current act (HUD toggle)
+        bool advance_requested = false; // HUD "next act" button
+    };
+    DemoState demo;
+
     double accumulator = 0.0;   // fixed-tick residue, seconds
     int    frames_done = 0;
     // Refreshed at HUD rate, not per frame: the stage-11 reduction ends in a

@@ -32,6 +32,13 @@ Error scenario_load(const std::string& path, contract::Scenario& out);
 // freshly default-constructed; on error the World is left destroyed.
 Error scenario_instantiate(const contract::Scenario& s, World& w);
 
+// The cell + Taumoeba store capacities scenario_instantiate would allocate for `s` (initial
+// populations plus growth headroom, clamped to the hard store caps). Exposed so a caller sizing a
+// shared buffer across several scenarios -- the M14 demo, whose one interop VBO must fit every act
+// it cycles -- can size it to the max without instantiating each. scenario_instantiate uses it too,
+// so the formula has one source (M14a).
+void scenario_capacities(const contract::Scenario& s, int32_t& cell_cap, int32_t& tau_cap);
+
 // Apply the scenario's driving script (v2, ADR-032) to `w` for the current tick. Call
 // once per tick BEFORE world_step, from headless --assert and (later) the app. Reads
 // w.sim_time_s and issues brushes / sets the light / arms the flash for every Stimulus
