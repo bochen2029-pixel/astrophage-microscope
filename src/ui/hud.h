@@ -12,10 +12,23 @@
 
 namespace astro::ui {
 
+// Interactive tools (M13a). Inspect picks a cell; the rest paint a field brush at the cursor.
+// Kept in ui because ToolKind -> sim::BrushKind is mapped app-side (ui may not include sim).
+enum ToolKind : int { TOOL_INSPECT = 0, TOOL_HEAT, TOOL_CHILL, TOOL_CO2, TOOL_N2, TOOL_COUNT };
+
 struct HudState {
     contract::ViewMode        mode    = contract::ViewMode::Brightfield;
     contract::AnalysisChannel channel = contract::AnalysisChannel::Charge;
     bool colorblind = false;   // swap the petrova-film LUT for magma (M12e)
+
+    // Interactive tools (M13a). The active tool, the brush geometry, and the pending poke the
+    // input handler sets from the cursor -- applied at a tick boundary by the app, because
+    // world_apply_brush must never be called from an input handler (it writes device memory).
+    int    active_tool = TOOL_INSPECT;
+    float  brush_radius_um = 180.0f;
+    float  brush_strength  = 0.5f;     // normalised [0,1]; the app scales it per tool
+    bool   poke_active = false;        // set each frame the left button paints a brush
+    double poke_x = 0.0, poke_y = 0.0; // chamber coordinates [m]
 
     // Set by the panel, consumed and cleared by the application.
     bool    respawn_requested = false;
@@ -76,6 +89,12 @@ void chart_panel_draw(ChartState& charts, const contract::Stats& stats);
 // Overlay, drawn on ImGui's foreground list so it sits above everything.
 // A microscope without a scale bar is a lava lamp (docs/RENDERING.md Sec 7.6).
 void draw_scale_bar(const render::Camera& cam, int fb_w, int fb_h);
+
+// The active-tool brush ring at the cursor (M13a). Drawn at true brush size (µm → px via the
+// camera), coloured by tool, so a poke lands where and how big the user expects. A no-op for the
+// Inspect tool.
+void draw_cursor_ring(const render::Camera& cam, int active_tool, float brush_radius_um,
+                      int fb_w, int fb_h);
 
 // Shows where the focal plane sits in the chamber and how thin the sharp band
 // is. Drawn inline in the scope panel, under the focal-plane slider.

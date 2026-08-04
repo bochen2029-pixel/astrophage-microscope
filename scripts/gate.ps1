@@ -16,7 +16,7 @@
 param(
     [Parameter(Mandatory = $true)]
     # Trailing letter accepts split milestones (M5a/M5b, M8b) -- Iron Rule 9.
-    [ValidatePattern('^M(1[0-2]|[0-9])[a-z]?$')]
+    [ValidatePattern('^M(1[0-3]|[0-9])[a-z]?$')]
     [string]$Milestone,
     [switch]$SkipBuild
 )
@@ -354,8 +354,24 @@ if (($n -gt 12) -or ($n -eq 12 -and $suffix -ge 'e')) {
     }
 }
 
+# ---------------------------- M13a: the field-brush toolset (poke the culture)
+if (($n -gt 13) -or ($n -eq 13 -and $suffix -ge 'a')) {
+    # An un-poked run is bit-identical (INV-8, M0.4 re-run above); a held Heat brush ignites a
+    # dormant culture (awake rises). The marquee interaction, verified via --auto-poke -- the
+    # headless stand-in for a mouse drag, like --inspect.
+    Gate 'M13a.1' 'the Heat tool ignites a dormant culture headless' {
+        $exe = Find-Exe 'astrophage'
+        if (-not $exe) { return $false }
+        $out = & $exe --cells 4000 --charge 0.05 --headless --frames 40 --ticks-per-frame 20 --auto-poke heat 2>&1 | Out-String
+        if ($out -match 'awake (\d+)') { return ([int]$Matches[1] -gt 0) }
+        return $false
+    }
+}
+
 # ---------------------------- M12g: package and v1.0
-if (($n -gt 12) -or ($n -eq 12 -and $suffix -ge 'g')) {
+# Scoped to the M12 ship line only (not $n -gt 12): M13 is a parallel arc branched from
+# m12e-green before packaging is built, so an M13 gate must not require the unbuilt package.ps1.
+if ($n -eq 12 -and $suffix -ge 'g') {
     Gate 'M12g.1' 'clean-environment package' {
         & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'scripts\package.ps1') -Verify *>&1 | Out-Null
         return ($LASTEXITCODE -eq 0)

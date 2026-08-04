@@ -234,31 +234,64 @@ void scrub_seek(Application& a, int index) {
     a.stats_cache = sim::world_stats(a.world);   // so the HUD reflects the rewound frame at once
 }
 
+// Apply the active field-brush tool at the pending poke location (M13a). Called per tick from the
+// tick loop -- world_apply_brush must land at a tick boundary, never from the input handler. The
+// normalised strength [0,1] is scaled to each field's units. Heat over dormant powder spreads a
+// self-propagating ignition front (P2/P3 + diffusion); an un-poked run is bit-identical (INV-8).
+void apply_poke(Application& a) {
+    if (!a.hud.poke_active || a.hud.active_tool == ui::TOOL_INSPECT) return;
+    const double radius = a.hud.brush_radius_um * 1e-6;
+    const double s = a.hud.brush_strength;
+    sim::BrushKind kind = sim::BrushKind::Heat;
+    double amount = 0.0;
+    switch (a.hud.active_tool) {
+        case ui::TOOL_HEAT:  kind = sim::BrushKind::Heat;      amount = s * 5.0; break;  // K/tick
+        case ui::TOOL_CHILL: kind = sim::BrushKind::Chill;     amount = s * 5.0; break;  // K/tick (brush negates)
+        case ui::TOOL_CO2:   kind = sim::BrushKind::InjectCO2; amount = s * canon::CO2_SAT_CONC_1ATM; break;
+        case ui::TOOL_N2:    kind = sim::BrushKind::InjectN2;  amount = s * 0.5; break;  // kg/m^3
+        default: return;
+    }
+    if (Error e = sim::world_apply_brush(a.world, kind, a.hud.poke_x, a.hud.poke_y, radius, amount))
+        std::printf("[app] brush failed: %s\n", status_str(e.status));
+}
+
 void handle_input(Application& a) {
     const ImGuiIO& io = ImGui::GetIO();
     GLFWwindow* win = a.gl.window;
 
-    static bool dragging = false;
-    static bool armed = false;          // a left press began over the chamber, not a panel
-    static double last_x = 0.0, last_y = 0.0;
-    static double press_x = 0.0, press_y = 0.0;
-    static double moved = 0.0;          // cursor travel accumulated while the button is down
     double mx = 0.0, my = 0.0;
     glfwGetCursorPos(win, &mx, &my);
+    static double last_x = 0.0, last_y = 0.0;
 
-    const bool down = glfwGetMouseButton(win, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
-    if (down && !io.WantCaptureMouse) {
-        if (!armed) { armed = true; press_x = mx; press_y = my; moved = 0.0; }
-        if (dragging) {
-            a.camera.pan_pixels(mx - last_x, my - last_y, a.gl.fb_width, a.gl.fb_height);
-            moved += std::abs(mx - last_x) + std::abs(my - last_y);
-        }
-        dragging = true;
+    // RIGHT-drag pans the stage (M13a: left is freed for the active tool).
+    static bool panning = false;
+    const bool rdown = glfwGetMouseButton(win, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS;
+    if (rdown && !io.WantCaptureMouse) {
+        if (panning) a.camera.pan_pixels(mx - last_x, my - last_y, a.gl.fb_width, a.gl.fb_height);
+        panning = true;
     } else {
-        // Release. A press that barely moved is a pick; a drag pans the stage (M11f).
-        if (armed && moved < 4.0 && !io.WantCaptureMouse) try_pick(a, press_x, press_y);
-        dragging = false;
-        armed = false;
+        panning = false;
+    }
+
+    // LEFT button drives the active tool: Inspect picks a cell on a click; a brush tool paints
+    // at the cursor while held. The poke is recorded here and applied at a tick boundary below.
+    a.hud.poke_active = false;
+    static bool larmed = false, ldrag = false;
+    static double press_x = 0.0, press_y = 0.0, moved = 0.0;
+    const bool ldown = glfwGetMouseButton(win, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
+    if (ldown && !io.WantCaptureMouse) {
+        if (!larmed) { larmed = true; press_x = mx; press_y = my; moved = 0.0; }
+        if (ldrag) moved += std::abs(mx - last_x) + std::abs(my - last_y);
+        ldrag = true;
+        if (a.hud.active_tool != ui::TOOL_INSPECT) {
+            a.camera.screen_to_world(mx, my, a.gl.fb_width, a.gl.fb_height, a.hud.poke_x, a.hud.poke_y);
+            a.hud.poke_active = true;
+        }
+    } else {
+        // A left press that barely moved, under the Inspect tool, is a cell pick (M11f).
+        if (larmed && moved < 4.0 && !io.WantCaptureMouse && a.hud.active_tool == ui::TOOL_INSPECT)
+            try_pick(a, press_x, press_y);
+        larmed = false; ldrag = false;
     }
     last_x = mx; last_y = my;
 
@@ -401,6 +434,13 @@ int app_run(Application& a) {
 
         render::gl_context_begin_frame(a.gl);
         handle_input(a);
+        // Headless brush stand-in (M13a): hold the named tool at the chamber centre every frame.
+        if (a.options.auto_poke >= 0) {
+            a.hud.active_tool = a.options.auto_poke;
+            a.hud.poke_active = true;
+            a.hud.poke_x = 0.0;
+            a.hud.poke_y = 0.0;
+        }
 
         // Push the inspector's curated overrides into the World before stepping (ADR-035).
         // With no edits these equal canon, so the tick is bit-identical to M11e.
@@ -416,6 +456,7 @@ int app_run(Application& a) {
             // simulated time on any machine. Required for golden captures.
             for (int i = 0; i < a.options.ticks_per_frame; ++i) {
                 if (a.has_scenario) sim::scenario_apply_drive(a.world, a.scenario);
+                apply_poke(a);
                 sim::world_step(a.world);
             }
         } else {
@@ -429,6 +470,7 @@ int app_run(Application& a) {
             int substeps = 0;
             while (a.accumulator >= canon::DT_PHYSICS && substeps < 8) {
                 if (a.has_scenario) sim::scenario_apply_drive(a.world, a.scenario);
+                apply_poke(a);
                 sim::world_step(a.world);
                 a.accumulator -= canon::DT_PHYSICS;
                 ++substeps;
@@ -549,6 +591,8 @@ int app_run(Application& a) {
             ui::inspector_panel_draw(a.cell_readout);
             ui::chart_panel_draw(a.charts, stats);
             ui::draw_scale_bar(a.camera, a.gl.fb_width, a.gl.fb_height);
+            ui::draw_cursor_ring(a.camera, a.hud.active_tool, a.hud.brush_radius_um,
+                                 a.gl.fb_width, a.gl.fb_height);
         }
 
         render::gl_context_render_ui(a.gl);
@@ -581,14 +625,14 @@ int app_run(Application& a) {
         if (a.options.frames > 0 && a.frames_done >= a.options.frames) break;
     }
 
-    // A bounded scenario run reports where it ended up, so a headless auto-play can be
-    // checked (the gate) and the driving confirmed without eyeballing the HUD.
-    if (a.has_scenario && a.options.frames > 0) {
+    // A bounded run reports where it ended up, so a headless auto-play or a poke can be checked
+    // (the gate) without eyeballing the HUD. Max medium temp exposes an overheating brush.
+    if (a.options.frames > 0) {
         const contract::Stats s = sim::world_stats(a.world);
-        std::printf("[app] %s @ %.2f s: live %d awake %d medium %.2f K mean_charge %.4f "
+        std::printf("[app] %s @ %.2f s: live %d awake %d medium %.2f K (max %.2f K) mean_charge %.4f "
                     "non_canon %d\n",
-                    a.scenario.id, s.sim_time_s, s.n_live, s.n_awake, s.mean_temp_medium_k,
-                    s.mean_charge, s.non_canon_run);
+                    a.has_scenario ? a.scenario.id : "(uniform)", s.sim_time_s, s.n_live, s.n_awake,
+                    s.mean_temp_medium_k, s.max_temp_medium_k, s.mean_charge, s.non_canon_run);
     }
 
     if (a.gl.gl_error_count > 0) {

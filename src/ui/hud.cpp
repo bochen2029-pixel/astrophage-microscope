@@ -142,6 +142,20 @@ void hud_draw(HudState& hud, const Stats& stats, render::Camera& cam,
             ImGui::TextDisabled("(only Charge is populated at M1)");
     }
 
+    ImGui::SeparatorText("Tools  (M13: poke the culture)");
+    static const char* kToolNames[] = {"Inspect", "Heat", "Chill", "CO2", "N2"};
+    for (int t = 0; t < TOOL_COUNT; ++t) {
+        if (t) ImGui::SameLine();
+        if (ImGui::RadioButton(kToolNames[t], hud.active_tool == t)) hud.active_tool = t;
+    }
+    if (hud.active_tool != TOOL_INSPECT) {
+        ImGui::SliderFloat("brush size", &hud.brush_radius_um, 20.0f, 600.0f, "%.0f um");
+        ImGui::SliderFloat("brush strength", &hud.brush_strength, 0.0f, 1.0f, "%.2f");
+        ImGui::TextDisabled("left-drag to apply; right-drag pans the stage");
+    } else {
+        ImGui::TextDisabled("left-click a cell to inspect; right-drag pans the stage");
+    }
+
     ImGui::SeparatorText("Clock  (ADR-011: two independent rates)");
     static const char* kClockNames[] = {"Realtime", "Motion", "Metabolic", "Generational", "Custom"};
     if (ImGui::Combo("preset##clock", &hud.clock_preset, kClockNames, IM_ARRAYSIZE(kClockNames)))
@@ -261,6 +275,34 @@ void draw_scale_bar(const render::Camera& cam, int fb_w, int fb_h) {
     const ImVec2 tp(x0 + (bar_px - ts.x) * 0.5f, y - 8 - ts.y);
     dl->AddText(ImVec2(tp.x + 1.5f, tp.y + 1.5f), shadow, label);
     dl->AddText(tp, ink, label);
+}
+
+void draw_cursor_ring(const render::Camera& cam, int active_tool, float brush_radius_um,
+                      int fb_w, int fb_h) {
+    if (active_tool == TOOL_INSPECT) return;
+    const ImGuiIO& io = ImGui::GetIO();
+    if (io.WantCaptureMouse) return;   // over a panel, not the chamber
+
+    const double mpp = cam.metres_per_pixel(fb_w, fb_h);
+    if (mpp <= 0.0) return;
+    // Brush radius in framebuffer px, then to logical points (the framebuffer may be scaled),
+    // the same conversion draw_scale_bar makes.
+    const float sx = (fb_w > 0) ? io.DisplaySize.x / static_cast<float>(fb_w) : 1.0f;
+    const float radius = static_cast<float>(brush_radius_um * 1e-6 / mpp) * sx;
+
+    ImU32 col;
+    switch (active_tool) {
+        case TOOL_HEAT:  col = IM_COL32(255, 120, 60, 220);  break;
+        case TOOL_CHILL: col = IM_COL32(90, 170, 255, 220);  break;
+        case TOOL_CO2:   col = IM_COL32(110, 220, 130, 220); break;
+        case TOOL_N2:    col = IM_COL32(200, 130, 240, 220); break;
+        default:         col = IM_COL32(220, 220, 220, 220); break;
+    }
+    ImDrawList* dl = ImGui::GetForegroundDrawList();
+    const ImVec2 p = io.MousePos;
+    dl->AddCircle(p, radius > 2.0f ? radius : 2.0f, col, 48, 2.0f);
+    dl->AddLine(ImVec2(p.x - 5, p.y), ImVec2(p.x + 5, p.y), col, 1.5f);   // crosshair
+    dl->AddLine(ImVec2(p.x, p.y - 5), ImVec2(p.x, p.y + 5), col, 1.5f);
 }
 
 } // namespace astro::ui

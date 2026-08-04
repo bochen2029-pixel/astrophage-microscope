@@ -7,11 +7,11 @@ A sealed 4 mm chamber of water. Cells 10 μm across, black at every wavelength, 
 Deliberately **not** the interstellar scale — no ships, no Petrova arc, no Tau Ceti. Just what you would see down the eyepiece.
 
 ```
-Status:  M12e of M12 green  ·  C++20 + CUDA 13.1  ·  sm_89  ·  Windows 11
+Status:  M12e green · M13a interactive  ·  C++20 + CUDA 13.1  ·  sm_89  ·  Windows 11
          All five signature phenomena, predation and the Taumoeba-82.5
-         evolution arc, and eight self-verifying scenarios are live and
-         playable. Shipping: snapshot/replay + time scrubber done;
-         render polish and packaging remain.
+         evolution arc, and eight self-verifying scenarios are live. The
+         culture is now mouse-interactive — heat the slide to ignite it,
+         just as in the novel. Render polish and packaging remain.
 ```
 
 ![Astrophage at the 40× working objective](docs/images/brightfield-40x.png)
@@ -209,6 +209,7 @@ Without `-App`, the core library and the full test suite build with **no network
 | M12e | Ship: render legibility — Taumoeba tolerance colour + colourblind LUT | ✅ `m12e-green` |
 | M12f | Ship: render remainder (`render_view_v3`, bloom, cross-fade, T-field) | ☐ |
 | M12g | Ship: packaging (clean-machine `.zip`), user guide, `v1.0` | ☐ |
+| M13a | Interaction: field-brush toolset — poke the culture to ignite (heat/chill/CO₂/N₂) | ✅ `m13a-green` |
 
 **M7 was the line where all five signature phenomena came live.** Everything after it adds behaviour and content on top of a physics core that is now complete.
 

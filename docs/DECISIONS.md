@@ -132,6 +132,22 @@ Append-only. Every contradiction in the source material and every non-obvious en
 
 ---
 
+## ADR-040 — The interactive slide: right-drag pans, left drives a tool, and every poke is honest
+
+**Status:** accepted, 2026-08-03 (M13a). Opens the M13 arc — direct mouse manipulation of the culture.
+
+**Context.** "Poke the cells like the actor did" — heat a slide to ignite it, and later light it to herd, inject to feed/kill, grab a cell. The `world_apply_brush(Heat|Chill|InjectCO2|InjectN2)` machinery already existed (the scenario driver uses it); it was never wired to the mouse. Three things had to be settled.
+
+**The input model: right-drag pans, left drives the active tool.** Left-drag was pan; freeing it for a tool means pan moves to **right-drag** (scroll still zooms). A tool palette selects Inspect (a left *click* still picks a cell, M11f) or a brush; a brush paints while the left button is held. A cursor ring shows the brush at true µm size, coloured by tool.
+
+**Honest-only, and applied at a tick boundary.** Every poke is a field deposit through `world_apply_brush` — nothing fakes fluid advection (the sim has none; M13's later tweezers will be a real optical-trap force, still honest). The brush is applied from the **tick loop, never the input handler** — `world_apply_brush` writes device memory, which mid-tick would break INV-8. The input handler only records `{tool, x, y}`; the loop applies it before each `world_step`.
+
+**Live pokes are non-deterministic by design; an un-poked run is not.** The INV-8 guarantee is for seed+scenario replays, which take no live input, so live brushing being frame-rate-coupled is fine — a sandbox. A run with `poke_active` false is bit-identical to M12e (M0.4 re-run confirms). The heat rate is tuned (≈2.5 K/tick at half strength over a ~180 µm brush) to cross the 96.415 °C setpoint locally — igniting the culture and letting P2 self-regulate — without overshooting the 573 K lethal; then the ignited cells warm their neighbours and the front spreads (emergent, nothing scripted).
+
+**Consequences / the gate.** `M13a.1`: `--auto-poke heat` (the headless stand-in for a held mouse drag, like `--inspect`) ignites a dormant culture (awake rises), verified headless; determinism (M0.4) and goldens (M3.2) unmoved. M13a is a **parallel arc off m12e-green** — its gate re-runs M0..M12e but not the unbuilt M12f/M12g ship line. Deferred to M13b: the light-leash (drag the light source) and optical tweezers.
+
+---
+
 ## ADR-039 — Render legibility: colour the predators by tolerance, a colourblind LUT, and `--mode` overrides
 
 **Status:** accepted, 2026-08-03 (M12e).

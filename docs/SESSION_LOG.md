@@ -6,6 +6,18 @@ Format: milestone · what landed · what is pending · open questions · gotchas
 
 ---
 
+## 2026-08-03 — M13a (Interaction: the field-brush toolset) — GREEN · **poke the culture to ignite it**
+
+**Landed.** The M13 arc opens (direct mouse manipulation). A Tools palette (Inspect + Heat/Chill/CO2/N2), the input model changed so **right-drag pans** and **left drives the active tool** (a left click still picks a cell under Inspect), brushes painted at the cursor via `world_apply_brush` at a tick boundary, a brush size/strength control, and a cursor ring at true µm size coloured by tool. Heat is the marquee: hold over dormant powder and it ignites -- the local medium crosses 96.415 °C, cells wake and warm their neighbours (P2), the front spreads, all emergent. New ADR-040. A **parallel arc off m12e-green** (before the M12f/g ship line); its gate re-runs M0..M12e but not the unbuilt M12f/g.
+
+**Honest + safe.** Every poke is a field deposit (nothing fakes advection; M13b's tweezers will be a real optical-trap force). Applied from the tick loop, never the input handler (mid-tick device writes break INV-8). Live pokes are non-deterministic by design; an un-poked run is bit-identical (M0.4 confirms). Heat rate tuned (~2.5 K/tick, 180 µm) to cross the setpoint without overshooting 573 K lethal. Verified: `--auto-poke heat` (headless stand-in for a drag) ignites a dormant culture (awake 60, max medium 140 °C, cells alive); Thermal-IR screenshot shows the ignited cells' gold rims + the palette.
+
+**Gotcha.** The brush is LOCAL; the mean medium temp barely moves while the local hotspot hits the setpoint -- read `max_temp`, not the mean (the end-state printf now reports both, for uniform runs too). `three-percent-line` cells sink off-centre, so a centre poke misses them; verify ignition on a spread population.
+
+**Pending / next.** M13b: the light-leash (drag the light source, cells herd) + optical tweezers (grab a cell). The M12 ship line (M12f render remainder, M12g package → v1.0) is still open in parallel.
+
+---
+
 ## 2026-08-03 — M12e (Ship: render legibility) — GREEN · **the evolution arc, visible**
 
 **Landed.** Two low-risk render features (chosen over the render remainder, whose render_view_v3 bump cascades into scenario_v3). (1) The **Taumoeba are coloured by their N2 tolerance** (carried in the instance since M12b): pale teal for the intolerant, vivid gold-green for the evolved Taumoeba-82.5 -- the selection arc is visible, the swarm warming toward gold as the N2 ramp breeds tolerance. A no-op for cells (gated on the ADR-037 predator bit), so every golden is byte-identical. (2) The **colourblind-safe LUT** (a HUD toggle + --colorblind) swaps the petrova-film LUT for magma in Petrovascope, default-off so the m7b golden is unmoved. (3) **--mode now overrides a scenario's scope.mode** (like --objective). New ADR-039.

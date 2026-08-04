@@ -413,3 +413,43 @@ bump must not move a measurement golden).
 the user guide, `README.md` finalisation, and CSV `git_describe` injection.
 
 **Gate.** M12f gate + the packaged `.zip` runs on a scrubbed-PATH clean environment. Tag `v1.0`.
+
+---
+
+## M13 — The interactive slide
+
+Direct mouse manipulation of the culture: heat it to ignite (the actor's move), light it to herd,
+inject to feed and kill, grab a cell with optical tweezers. **Honest-only** — every poke is a field
+deposit or a real force, nothing fakes fluid advection. Live pokes are non-deterministic by nature
+(the INV-8 guarantee is for seed+scenario replays, which take no live input); an *un-poked* run stays
+bit-identical. The input model changes: **right-drag pans** the stage (freeing left-drag for the active
+tool), scroll still zooms.
+
+### M13a — The field-brush toolset
+
+**Scope.** The tool palette (Inspect + Heat / Chill / CO₂ / N₂), the input-model change (left-drag =
+active tool, right-drag = pan; a left *click* still picks a cell under the Inspect tool), the brushes
+painted at the cursor via `world_apply_brush` at a tick boundary, a brush radius/strength control, and
+a cursor ring showing the brush. Heat becomes the marquee: hold over dormant powder and a
+self-propagating ignition front spreads (P2 + P3 + diffusion, emergent). `--auto-poke <tool>` is the
+headless stand-in for a held brush (a mouse drag is not expressible headless), like `--inspect`.
+
+**Gate.** M12e gate + determinism unaffected (no poke ⇒ bit-identical, INV-8) + `--auto-poke heat`
+ignites a dormant culture headless (awake count rises) + a screenshot of the palette + cursor ring.
+
+### M13b — The light-leash and optical tweezers
+
+**Scope.** The **light spotlight** (the Light tool drags the `World::light` source; cells phototax
+toward it and follow — emergent herding, P4 + taxis), and **optical tweezers** (grab a cell, a spring
+force toward the cursor via a `World` trap field the forces kernel reads; release resumes physics).
+Consider focal-plane coupling: tweezers grab only in-focus cells.
+
+**Gate.** M13a gate + `--auto-light` herds a culture + a tweezers grab moves a cell to a target (a
+headless scripted grab), both verified headless + by screenshot.
+
+### M13c — Recordable experiments (optional)
+
+**Scope.** Record poke-events alongside the M12d snapshot ring so an interactive session is
+replayable and shareable — rewind, branch, hand someone your ignition.
+
+**Gate.** A recorded session replays to the same state hash.

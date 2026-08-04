@@ -45,6 +45,10 @@ struct Options {
     // verifiable in a headless screenshot (the Timeline slider is a mouse drag otherwise).
     // -1 = no seek.
     int32_t  scrub_to = -1;
+    // Headless stand-in for a held mouse brush (M13a): apply the named tool at the chamber
+    // centre every frame (a drag is not expressible headless, like --inspect). -1 = off, else a
+    // ui::ToolKind int (1 Heat, 2 Chill, 3 CO2, 4 N2).
+    int      auto_poke = -1;
     // Suppress all ImGui drawing. Golden images must test the RENDERER, not the
     // panel layout -- otherwise every HUD tweak invalidates every golden.
     bool     no_ui      = false;

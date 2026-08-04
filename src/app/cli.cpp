@@ -39,6 +39,7 @@ void print_usage() {
         "  --scenario ID      load a scenario and auto-play its drive script\n"
         "  --inspect N        pre-select cell slot N in the inspector (headless picking)\n"
         "  --scrub-to N       on the last frame, rewind to recorded timeline frame N\n"
+        "  --auto-poke TOOL   headless: hold TOOL (heat|chill|co2|n2) at the chamber centre\n"
         "  --help\n");
 }
 
@@ -135,6 +136,17 @@ Options parse_args(int argc, char** argv) {
         }
         else if (want("--inspect")) o.inspect_slot = static_cast<int32_t>(next_int(-1));
         else if (want("--scrub-to")) o.scrub_to = static_cast<int32_t>(next_int(-1));
+        else if (want("--auto-poke")) {
+            if (i + 1 >= argc) { o.bad = true; }
+            else {
+                const char* m = argv[++i];
+                if      (std::strcmp(m, "heat") == 0)  o.auto_poke = 1;
+                else if (std::strcmp(m, "chill") == 0) o.auto_poke = 2;
+                else if (std::strcmp(m, "co2") == 0)   o.auto_poke = 3;
+                else if (std::strcmp(m, "n2") == 0)    o.auto_poke = 4;
+                else                                   o.bad = true;
+            }
+        }
         else if (want("--help") || want("-h")) o.help = true;
         else { std::printf("unknown argument: %s\n", a); o.bad = true; }
     }
