@@ -143,12 +143,19 @@ void hud_draw(HudState& hud, const Stats& stats, render::Camera& cam,
     }
 
     ImGui::SeparatorText("Tools  (M13: poke the culture)");
-    static const char* kToolNames[] = {"Inspect", "Heat", "Chill", "CO2", "N2"};
+    static const char* kToolNames[] = {"Inspect", "Heat", "Chill", "CO2", "N2", "Light", "Grab"};
     for (int t = 0; t < TOOL_COUNT; ++t) {
         if (t) ImGui::SameLine();
         if (ImGui::RadioButton(kToolNames[t], hud.active_tool == t)) hud.active_tool = t;
     }
-    if (hud.active_tool != TOOL_INSPECT) {
+    if (hud.active_tool == TOOL_GRAB) {
+        ImGui::SliderFloat("trap strength", &hud.trap_strength, 0.25f, 4.0f, "%.2f");
+        ImGui::TextDisabled("left-drag a cell to tow it (optical tweezers); right-drag pans");
+    } else if (hud.active_tool == TOOL_LIGHT) {
+        ImGui::SliderFloat("spot size", &hud.brush_radius_um, 20.0f, 600.0f, "%.0f um");
+        ImGui::SliderFloat("light strength", &hud.brush_strength, 0.0f, 1.0f, "%.2f");
+        ImGui::TextDisabled("left-drag the light; awake cells herd toward it; right-drag pans");
+    } else if (hud.active_tool != TOOL_INSPECT) {
         ImGui::SliderFloat("brush size", &hud.brush_radius_um, 20.0f, 600.0f, "%.0f um");
         ImGui::SliderFloat("brush strength", &hud.brush_strength, 0.0f, 1.0f, "%.2f");
         ImGui::TextDisabled("left-drag to apply; right-drag pans the stage");
@@ -296,10 +303,19 @@ void draw_cursor_ring(const render::Camera& cam, int active_tool, float brush_ra
         case TOOL_CHILL: col = IM_COL32(90, 170, 255, 220);  break;
         case TOOL_CO2:   col = IM_COL32(110, 220, 130, 220); break;
         case TOOL_N2:    col = IM_COL32(200, 130, 240, 220); break;
+        case TOOL_LIGHT: col = IM_COL32(255, 235, 120, 230); break;   // warm spotlight
+        case TOOL_GRAB:  col = IM_COL32(230, 230, 235, 230); break;   // tweezers reticle
         default:         col = IM_COL32(220, 220, 220, 220); break;
     }
     ImDrawList* dl = ImGui::GetForegroundDrawList();
     const ImVec2 p = io.MousePos;
+    // Grab has no radius -- a small fixed reticle marks the tow point instead of a brush ring.
+    if (active_tool == TOOL_GRAB) {
+        dl->AddCircle(p, 10.0f, col, 24, 2.0f);
+        dl->AddLine(ImVec2(p.x - 7, p.y), ImVec2(p.x + 7, p.y), col, 1.5f);
+        dl->AddLine(ImVec2(p.x, p.y - 7), ImVec2(p.x, p.y + 7), col, 1.5f);
+        return;
+    }
     dl->AddCircle(p, radius > 2.0f ? radius : 2.0f, col, 48, 2.0f);
     dl->AddLine(ImVec2(p.x - 5, p.y), ImVec2(p.x + 5, p.y), col, 1.5f);   // crosshair
     dl->AddLine(ImVec2(p.x, p.y - 5), ImVec2(p.x, p.y + 5), col, 1.5f);

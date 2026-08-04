@@ -243,5 +243,30 @@ int main() {
         CHECK_CLOSE(pos.y, -half + canon::CELL_RADIUS, 1e-6);   // settled on the floor
     }
 
+    // --- optical tweezers: the trap pulls a cell to its target (M13b) --------
+    {
+        // Direction: the force on an offset cell points toward the target, in-plane only.
+        const Vec3 f = trap_force(Vec3{0, 0, 0}, 100e-6, -50e-6, canon::CONTACT_STIFFNESS);
+        CHECK(f.x > 0.0);          // target is +x of the cell
+        CHECK(f.y < 0.0);          // target is -y of the cell
+        CHECK(f.z == 0.0);         // z is left to buoyancy -- the trap is in-plane
+
+        // Convergence: under the trap alone (noise off), a near-neutral cell reaches the target.
+        // (Behaviour with buoyancy and a real population is covered by the --auto-grab gate.)
+        const double tx = 500e-6, ty = -300e-6;
+        const double mass = cell_mass(canon::CELL_MASS_DRY,
+                                      canon::CHARGE_NEUTRAL_BUOYANCY * canon::CELL_ENERGY_MAX);
+        const double k = 2.0 * canon::CONTACT_STIFFNESS;   // the app's default trap_strength range
+        Vec3 pos{0, 0, 0}, vel{0, 0, 0};
+        Pcg32 rng = pcg32_seed(7u, 9u);
+        for (int i = 0; i < 4000; ++i)
+            integrate_cell(pos, vel, trap_force(pos, tx, ty, k), mass, gamma, T_ROOM,
+                           canon::DT_PHYSICS, false, rng);
+        std::printf("  trap: cell at (%+.1f, %+.1f) um, target (%+.1f, %+.1f) um\n",
+                    pos.x * 1e6, pos.y * 1e6, tx * 1e6, ty * 1e6);
+        CHECK_CLOSE(pos.x, tx, 1e-6);
+        CHECK_CLOSE(pos.y, ty, 1e-6);
+    }
+
     return astro::test::finish("test_motion");
 }

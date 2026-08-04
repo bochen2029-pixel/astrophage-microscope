@@ -12,9 +12,13 @@
 
 namespace astro::ui {
 
-// Interactive tools (M13a). Inspect picks a cell; the rest paint a field brush at the cursor.
-// Kept in ui because ToolKind -> sim::BrushKind is mapped app-side (ui may not include sim).
-enum ToolKind : int { TOOL_INSPECT = 0, TOOL_HEAT, TOOL_CHILL, TOOL_CO2, TOOL_N2, TOOL_COUNT };
+// Interactive tools. Inspect picks a cell; Heat/Chill/CO2/N2 paint a field brush (M13a); Light
+// drags a spotlight cells herd to and Grab tows a cell with an optical trap (M13b). Kept in ui
+// because the tool -> sim mapping is done app-side (ui may not include sim). Heat..N2 keep the
+// values --auto-poke maps to (1..4); Light/Grab are appended so those mappings are unchanged.
+enum ToolKind : int {
+    TOOL_INSPECT = 0, TOOL_HEAT, TOOL_CHILL, TOOL_CO2, TOOL_N2, TOOL_LIGHT, TOOL_GRAB, TOOL_COUNT
+};
 
 struct HudState {
     contract::ViewMode        mode    = contract::ViewMode::Brightfield;
@@ -29,6 +33,14 @@ struct HudState {
     float  brush_strength  = 0.5f;     // normalised [0,1]; the app scales it per tool
     bool   poke_active = false;        // set each frame the left button paints a brush
     double poke_x = 0.0, poke_y = 0.0; // chamber coordinates [m]
+
+    // Light and Grab tools (M13b). light_active: the Light tool is held, so the app parks a light
+    // spot at (poke_x, poke_y) and awake cells herd to it. grab_active: the Grab tool is held, so
+    // the app tows the picked cell toward (poke_x, poke_y). trap_strength scales the trap spring off
+    // the stability-limited CONTACT_STIFFNESS (the app clamps it); poke_x/y are shared by all tools.
+    bool   light_active  = false;
+    bool   grab_active   = false;
+    float  trap_strength = 1.5f;       // multiple of CONTACT_STIFFNESS
 
     // Set by the panel, consumed and cleared by the application.
     bool    respawn_requested = false;

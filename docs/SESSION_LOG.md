@@ -6,6 +6,37 @@ Format: milestone · what landed · what is pending · open questions · gotchas
 
 ---
 
+## 2026-08-04 — M13b (Interaction: the light-leash + optical tweezers) — GREEN · **herd the culture, tow a cell**
+
+**Landed.** The M13 arc's second half (ADR-041). Two honest, emergent interactions, both applied at a tick
+boundary, both default-off so an un-poked run is bit-identical (M0.4). (1) The **light-leash**: a Light tool drags a
+*positional spotlight* -- a radial `(1-t^2)^2` irradiance disc (a new default-off path in `emission_step`) whose peak
+awake sub-0.95-charge cells climb via the existing Feed run-and-tumble, following the cursor like a laser pointer
+-- emergent herding (P4 + taxis), nothing scripted. (2) The **optical tweezers**: a Grab tool tows the picked cell
+with a real harmonic trap (`trap_force`, forces kernel stage 5), stiffness scaled off the stability-limited
+CONTACT_STIFFNESS; z stays under buoyancy, so it holds a cell against gravity. Both are World fields, not a
+`LightSource` contract bump -- the render boundary is untouched (like `ambient_irradiance`).
+
+**Why a spot.** The canon `LightSource` is a directional plane wave (flat, for P5) with no peak to herd toward; a
+focused disc gives the gradient and cells do the rest. The directional light + its P5 shadows are untouched (the
+spot is a separate additive path).
+
+**Verified.** `--auto-light` herds an awake culture's centroid +326 um toward an off-frame +x spot (medium stays
+healthy at 369.5 K; brightfield shows the pile at the +x wall); `--auto-grab 0 1000 500` tows slot 0 to within 0.3 um
+of the target (inspector reads 1000.1, 500.3 um). `test_motion` gains a `trap_force` assertion. Gate M0..M12e +
+M13a + M13b.1/.2 green; M0.4 determinism + M3.2 goldens unmoved.
+
+**Gotcha (backlog).** Over-herding a big culture (~2000+ cells) into a tight pile drives the explicit thermal solver
+negative -- extreme local density overruns its substep budget (ADR-008-class, pre-existing, NOT the light code;
+awake+no-light is stable). Gate uses 1000 cells, below that. Worth a substep-vs-density guard someday.
+
+**User request logged:** a **demo/screensaver mode** (new M14a/b in MILESTONES) -- a looping attract mode framing the
+real emergent behaviours (Conway's Life as the feeling; honest physics as the mechanism).
+
+**Next.** M13c (record interactions), the M12 ship line (M12f/g -> v1.0), or M14 (demo mode). M13a+b unpushed.
+
+---
+
 ## 2026-08-03 — M13a (Interaction: the field-brush toolset) — GREEN · **poke the culture to ignite it**
 
 **Landed.** The M13 arc opens (direct mouse manipulation). A Tools palette (Inspect + Heat/Chill/CO2/N2), the input model changed so **right-drag pans** and **left drives the active tool** (a left click still picks a cell under Inspect), brushes painted at the cursor via `world_apply_brush` at a tick boundary, a brush size/strength control, and a cursor ring at true µm size coloured by tool. Heat is the marquee: hold over dormant powder and it ignites -- the local medium crosses 96.415 °C, cells wake and warm their neighbours (P2), the front spreads, all emergent. New ADR-040. A **parallel arc off m12e-green** (before the M12f/g ship line); its gate re-runs M0..M12e but not the unbuilt M12f/g.

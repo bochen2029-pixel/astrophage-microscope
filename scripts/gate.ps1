@@ -368,6 +368,34 @@ if (($n -gt 13) -or ($n -eq 13 -and $suffix -ge 'a')) {
     }
 }
 
+# ---------------------------- M13b: the light-leash and optical tweezers
+if (($n -gt 13) -or ($n -eq 13 -and $suffix -ge 'b')) {
+    # The light-leash: an awake culture climbs the irradiance gradient of a spot parked off-centre
+    # (--auto-light, the headless stand-in for dragging the Light tool), so its centroid tracks +x
+    # toward the spot. Emergent herding (P4 + the Feed state), nothing scripted; --gl-debug asserts a
+    # clean render. 1000 cells keep the herded pile below the explicit thermal solver's density limit.
+    Gate 'M13b.1' 'the light-leash herds an awake culture toward the spot headless' {
+        $exe = Find-Exe 'astrophage'
+        if (-not $exe) { return $false }
+        $out = & $exe --auto-light --awake --charge 0.5 --cells 1000 --headless --gl-debug `
+                      --frames 30 --ticks-per-frame 50 2>&1 | Out-String
+        if ($out -match 'GL debug errors') { return $false }
+        if ($out -match 'mean_x ([\-\d\.]+) um') { return ([double]$Matches[1] -gt 100.0) }
+        return $false
+    }
+    # The optical tweezers: a harmonic trap tows the grabbed cell to a target point (--auto-grab, the
+    # headless stand-in), reaching within a few um of it against buoyancy.
+    Gate 'M13b.2' 'the optical tweezers tow a cell to a target headless' {
+        $exe = Find-Exe 'astrophage'
+        if (-not $exe) { return $false }
+        $out = & $exe --auto-grab 0 1000 500 --cells 2000 --headless --gl-debug `
+                      --frames 30 --ticks-per-frame 50 2>&1 | Out-String
+        if ($out -match 'GL debug errors') { return $false }
+        if ($out -match 'dist ([\d\.]+) um') { return ([double]$Matches[1] -lt 20.0) }
+        return $false
+    }
+}
+
 # ---------------------------- M12g: package and v1.0
 # Scoped to the M12 ship line only (not $n -gt 12): M13 is a parallel arc branched from
 # m12e-green before packaging is built, so an M13 gate must not require the unbuilt package.ps1.

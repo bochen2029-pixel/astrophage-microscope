@@ -40,6 +40,8 @@ void print_usage() {
         "  --inspect N        pre-select cell slot N in the inspector (headless picking)\n"
         "  --scrub-to N       on the last frame, rewind to recorded timeline frame N\n"
         "  --auto-poke TOOL   headless: hold TOOL (heat|chill|co2|n2) at the chamber centre\n"
+        "  --auto-light       headless: hold a light spot off-centre; awake cells herd (M13b)\n"
+        "  --auto-grab N X Y  headless: tow cell slot N to (X,Y) micrometres (optical tweezers)\n"
         "  --help\n");
 }
 
@@ -145,6 +147,16 @@ Options parse_args(int argc, char** argv) {
                 else if (std::strcmp(m, "co2") == 0)   o.auto_poke = 3;
                 else if (std::strcmp(m, "n2") == 0)    o.auto_poke = 4;
                 else                                   o.bad = true;
+            }
+        }
+        else if (want("--auto-light")) o.auto_light = true;
+        else if (want("--auto-grab")) {
+            // Three args: slot, then the target x and y in micrometres (stored as metres).
+            if (i + 3 >= argc) { o.bad = true; }
+            else {
+                o.auto_grab_slot = static_cast<int32_t>(std::atoll(argv[++i]));
+                o.auto_grab_x = std::atof(argv[++i]) * 1e-6;
+                o.auto_grab_y = std::atof(argv[++i]) * 1e-6;
             }
         }
         else if (want("--help") || want("-h")) o.help = true;

@@ -187,6 +187,15 @@ ASTRO_HD inline Vec3 cell_force(double mass, double emit_power,
     return f;
 }
 
+// Optical tweezers (M13b, ADR-041). A harmonic restoring force F = -k(r - r_target) pulling a
+// grabbed cell toward the cursor point, in the two in-plane axes the user drags in (x, y). z is
+// left to buoyancy, so the trap holds a cell against gravity exactly as a real optical trap does.
+// Overdamped-stable while the stiffness stays below gamma/dt -- the same bound CONTACT_STIFFNESS is
+// derived to respect (ADR-018) -- which is why the app sets it as a multiple of CONTACT_STIFFNESS.
+ASTRO_HD inline Vec3 trap_force(Vec3 pos, double target_x, double target_y, double stiffness) {
+    return Vec3{stiffness * (target_x - pos.x), stiffness * (target_y - pos.y), 0.0};
+}
+
 // ---------------------------------------------------------------------------
 // Boundaries
 // ---------------------------------------------------------------------------

@@ -57,6 +57,26 @@ __global__ void clear_kernel(unsigned long long* v, int32_t count) {
     if (i < count) v[i] = 0ull;
 }
 
+// The light-spot irradiance profile (M13b, ADR-041). Fills the whole grid with a radial disc that
+// peaks at (spot_x, spot_y) and falls to zero at `radius` via the (1-t^2)^2 kernel the field brush
+// uses -- a focused illumination disc (an iris/field-stop narrowed to a spot), taken as top-down so
+// it casts no in-plane shadow (the directional light keeps P5). Awake sub-0.95-charge cells climb
+// this gradient in the Feed state (taxis.cuh); the herding is the existing run-and-tumble, unscripted.
+__global__ void spot_fill_kernel(float* out, int32_t n, double dx, double spot_x, double spot_y,
+                                 double radius, float source, float ambient) {
+    const int32_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx >= n * n) return;
+    const int32_t i = idx % n, j = idx / n;
+    const double half = 0.5 * static_cast<double>(n) * dx;
+    const double x = (static_cast<double>(i) + 0.5) * dx - half;
+    const double y = (static_cast<double>(j) + 0.5) * dx - half;
+    const double rx = x - spot_x, ry = y - spot_y;
+    const double t = (radius > 0.0) ? sqrt(rx * rx + ry * ry) / radius : 2.0;
+    double fall = (t >= 1.0) ? 0.0 : (1.0 - t * t);
+    fall *= fall;                                  // (1-t^2)^2, matching grid_brush's falloff
+    out[idx] = static_cast<float>(source * fall) + ambient;
+}
+
 // Feeding, plus the exact near-field shadow that makes P5 literal.
 __global__ void feed_kernel(CellStoreView v, HashView hash, FieldView irr,
                             Vec3 light_dir, float ambient, double dt,
@@ -100,6 +120,25 @@ void emission_step(World& w, double dt) {
     auto& irr = w.fields.irradiance;
     const int32_t cells = irr.n * irr.n;
     const int block = 256;
+
+    // Interactive light spotlight (M13b, ADR-041): a radial irradiance disc replaces the directional
+    // sweep while the Light tool is held. Default-off (light_spot false), so every scenario and every
+    // un-poked run takes the directional path below unchanged and stays bit-identical to M13a (INV-8).
+    // The scenario's `light` source is left untouched -- this is a separate, additive path.
+    if (w.light_spot && w.light_spot_irradiance > 0.0f) {
+        spot_fill_kernel<<<(cells + block - 1) / block, block>>>(
+            irr.value, irr.n, irr.dx, w.light_x, w.light_y,
+            static_cast<double>(w.light_spot_radius), w.light_spot_irradiance, w.ambient_irradiance);
+        if (w.cells.count > 0) {
+            const int g = (w.cells.count + block - 1) / block;
+            // Top-down spot: no in-plane occlusion sweep. feed samples the disc into v.irradiance
+            // (which taxis climbs next tick) and absorbs; light_dir is unused with occlusion off.
+            feed_kernel<<<g, block>>>(w.cells.view, hash_view(w.hash),
+                                      astro::fields::grid_view(irr), Vec3{0.0, 0.0, 0.0},
+                                      w.ambient_irradiance, dt, /*occlusion_exact=*/0);
+        }
+        return;
+    }
 
     const LightSource& L = w.light;
     const float source = L.enabled ? L.irradiance : 0.0f;

@@ -453,3 +453,38 @@ headless scripted grab), both verified headless + by screenshot.
 replayable and shareable — rewind, branch, hand someone your ignition.
 
 **Gate.** A recorded session replays to the same state hash.
+
+---
+
+## M14 — Demo mode (the living screensaver)
+
+A toggleable, looping **attract mode** that shows the culture visibly *alive* — an unattended
+screensaver that cycles the simulation's most emergent, beautiful behaviours with camera and
+view-mode choreography. Requested by Bo, 2026-08-03: cells that "really come to life," Conway's
+Game of Life as the *feeling* to evoke. **Crucially, the opposite of Conway mechanically:** Life
+is discrete scripted rules; here the aliveness is the real continuous physics (ignition fronts,
+herding, blooms, predation swarms, the Taumoeba-82.5 arc, buoyancy sorting) and the demo only
+*frames* it — it never scripts a cell. Honest emergence stays the whole point (ONBOARDING Part 1).
+
+### M14a — The act engine + `--demo` loop
+
+**Scope.** A playlist of "acts," each a scenario (or a sandbox seeded for one striking behaviour)
+with a duration and a camera keyframe track (slow pans / zooms / focal racks). A `--demo` flag and
+a HUD toggle run the playlist and loop it. The **performer reuses the interaction stand-ins as
+live actors** — M13a `--auto-poke` to ignite a slide, M13b `--auto-light` to herd a swarm along a
+path, `--auto-grab` to shuttle a cell — so the demo pokes its own culture, honestly. Acts and
+camera keyframes are deterministic for a fixed seed+timeline even though the live pokes are not
+(non-deterministic by design, ADR-040); default-off so every gate is unmoved.
+
+**Gate.** `--demo` advances through the full playlist headless with zero GL errors and a screenshot
+per act; determinism (M0.4) + goldens (M3.2) unmoved (demo mode is default-off).
+
+### M14b — View choreography + idle-trigger screensaver
+
+**Scope.** Per-act view-mode cross-fades (Brightfield → Thermal IR → Petrovascope → Analysis,
+reusing the `render_view_v2` `mode_blend`) timed to what each act shows best, and a true
+screensaver trigger: start the demo after N seconds of no input, exit on any input. A gentle
+title/caption per act ("Ignition", "The 3% line", "Selection").
+
+**Gate.** The idle trigger arms and disarms headless (simulated idle), a cross-fade renders clean,
+zero GL errors.

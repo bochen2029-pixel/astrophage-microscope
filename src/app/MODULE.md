@@ -32,7 +32,7 @@ Render frame rate floats; `DT_PHYSICS` never does. Max 8 substeps per frame.
 
 - **`sim::step` is called from here and nowhere else.** No module self-schedules.
 - **The `Stats` copy back from device is ~30 Hz, not per tick.** Per-tick D2H would stall the pipeline and dominate the frame budget.
-- **Tool brushes are commands, not direct writes.** They enqueue into a command buffer consumed at a defined point in the tick, so a brush stroke lands at a deterministic tick boundary. Writing straight into device memory from the input handler breaks INV-8.
+- **Every interaction lands at a tick boundary, not in the input handler.** The field brushes (M13a), the light spot and the optical trap (M13b) all write device state — a brush deposit, the emission spot, a forces-kernel spring — and doing that mid-tick from the input handler breaks INV-8. The handler only records `{tool, cursor, picked slot}` into `HudState`; `apply_poke` / `apply_light` / `apply_grab` run from the tick loop before `world_step`. `--auto-poke` / `--auto-light` / `--auto-grab` are the headless stand-ins (a mouse drag is not expressible headless).
 - `--benchmark` and `--headless` must work with no window for the M1 gate to be checkable in CI.
 
 ## Status
@@ -43,6 +43,11 @@ scope, and calls `sim::scenario_apply_drive` before every `world_step`, so the e
 play unattended in the app (verified by an offscreen screenshot — first-light ignites, the
 spin-drive flash empties the store). The app owns the `core/params.h` `ParamSet` the inspector
 edits and mirrors its `non_canon_run` into the World each frame (M11d, ADR-034).
+
+**M13 interaction (parallel arc off m12e-green).** Direct mouse manipulation: right-drag pans,
+left drives the active tool. M13a added the Inspect + Heat/Chill/CO₂/N₂ palette (field brushes,
+ADR-040); M13b added **Light** (drag a spotlight — awake cells herd up its irradiance gradient)
+and **Grab** (tow the picked cell with an optical trap), ADR-041. All applied at a tick boundary.
 
 Notes for whoever extends this:
 

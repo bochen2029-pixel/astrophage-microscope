@@ -11,12 +11,12 @@ The simulation itself: the cell and Taumoeba stores, the integrator, and every p
 | File | Owns | Milestone |
 |---|---|---|
 | `cell_store.{cuh,cu}` | ✅ SoA allocation, spawn, prefix-sum slots, stable compaction (ADR-028); `cell_store_sample` one-cell D2H for the inspector (M11f) | M1/M9c |
-| `world.cuh` + `step.cu` | ✅ world lifetime, the tick sequence, `Stats` | M1 |
-| `integrator.{cuh,cu}` | ✅ exact joint position–velocity OU propagator, buoyancy, boundaries (PHYSICS.md §3, ADR-016) | M2 |
+| `world.cuh` + `step.cu` | ✅ world lifetime, the tick sequence, `Stats`; the default-off light-spot + optical-trap interaction fields (M13b, ADR-041) | M1 |
+| `integrator.{cuh,cu}` | ✅ exact joint position–velocity OU propagator, buoyancy, boundaries (PHYSICS.md §3, ADR-016); the optical-trap harmonic force (M13b, ADR-041) | M2 |
 | `hash.cu` | spatial hash by counting sort; SoA reorder | M4 |
 | `contact.cu` | soft-sphere repulsion, wall adhesion | M4 |
 | `thermal.cu` | ignition latch, thermostat, conduction (PHYSICS.md §5) | M6 |
-| `emission.cu` | Petrova emission, directionality, photon thrust | M7 |
+| `emission.cu` | Petrova emission, directionality, photon thrust; the M13b light-spot radial-irradiance path cells herd up (ADR-041) | M7 |
 | `taxis.{cuh,cu}` | ✅ run-and-tumble FEED/BREED/IDLE controller, emission discharge (PHYSICS.md §8, ADR-022) | M8 |
 | `lifecycle.{cuh,cu}` | ✅ CO₂ uptake, mitosis, prefix-sum slots (ADR-025); overheat death and store disposition (ADR-004) | M9a/M9b |
 | `stats.cu` | ✅ tick stage 11, fixed-point telemetry reduction (ADR-026) | M9b |

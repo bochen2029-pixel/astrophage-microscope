@@ -49,6 +49,13 @@ struct Options {
     // centre every frame (a drag is not expressible headless, like --inspect). -1 = off, else a
     // ui::ToolKind int (1 Heat, 2 Chill, 3 CO2, 4 N2).
     int      auto_poke = -1;
+    // Headless stand-in for the M13b light-leash: park a bright spot off-centre in +x every frame,
+    // so awake sub-0.95-charge cells herd toward it; the end-state centroid readout is the gate.
+    bool     auto_light = false;
+    // Headless stand-in for the M13b optical tweezers: tow cell slot N to (auto_grab_x, auto_grab_y)
+    // [m] every frame; the end-state distance-to-target readout is the gate. -1 = off.
+    int32_t  auto_grab_slot = -1;
+    double   auto_grab_x = 0.0, auto_grab_y = 0.0;
     // Suppress all ImGui drawing. Golden images must test the RENDERER, not the
     // panel layout -- otherwise every HUD tweak invalidates every golden.
     bool     no_ui      = false;

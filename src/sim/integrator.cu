@@ -39,7 +39,9 @@ __global__ void field_sample_kernel(CellStoreView v, FieldView temp, FieldView c
 // integrate as separate stages for exactly this reason (ADR-018).
 __global__ void forces_kernel(CellStoreView v, HashView hash, MotionConfig cfg,
                               double contact_stiffness,
-                              double* fx, double* fy, double* fz) {
+                              double* fx, double* fy, double* fz,
+                              int32_t trap_slot, double trap_x, double trap_y,
+                              double trap_stiffness) {
     const int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i >= v.count) return;
     const uint32_t flags = v.flags[i];
@@ -63,6 +65,13 @@ __global__ void forces_kernel(CellStoreView v, HashView hash, MotionConfig cfg,
             }
         });
     }
+
+    // Optical tweezers (M13b, ADR-041): the grabbed cell gets a harmonic pull toward the cursor.
+    // trap_slot -1 (the un-grabbed default) never matches a valid index, so the force sum is
+    // bit-identical to M13a for every cell in an un-grabbed run (INV-8).
+    if (i == trap_slot)
+        force += trap_force(Vec3{v.x[i], v.y[i], v.z[i]}, trap_x, trap_y, trap_stiffness);
+
     fx[i] = force.x; fy[i] = force.y; fz[i] = force.z;
 }
 
@@ -157,8 +166,12 @@ void motion_step(World& w, double dt) {
     // exceeds ~2, and a divergent spring ejects cells, violating containment. At
     // physics_rate == 1 this is CONTACT_STIFFNESS exactly (ADR-027).
     const double k_contact = canon::CONTACT_STIFFNESS / w.physics_rate;
+    // The optical trap is an explicit overdamped spring like contact, so it takes the same
+    // 1/physics_rate stability scaling (ADR-027): k*dt/gamma must stay bounded at a fast clock.
+    const double k_trap = w.trap_stiffness / w.physics_rate;
     forces_kernel<<<grid, block>>>(w.cells.view, hash_view(w.hash), w.motion,
-                                   k_contact, w.d_fx, w.d_fy, w.d_fz);
+                                   k_contact, w.d_fx, w.d_fy, w.d_fz,
+                                   w.trap_slot, w.trap_x, w.trap_y, k_trap);
     integrate_kernel<<<grid, block>>>(w.cells.view, w.motion, w.chamber,
                                       w.d_fx, w.d_fy, w.d_fz, dt);
 }

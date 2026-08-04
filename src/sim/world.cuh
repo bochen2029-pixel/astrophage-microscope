@@ -131,6 +131,28 @@ struct World {
     contract::LightSource light{1.0f, 0.0f, 0.0f, 0.0f, 0};   // off by default
     float        ambient_irradiance = 0.0f;
 
+    // Interactive light spotlight (M13b, ADR-041). A default-OFF alternate to the directional
+    // `light` above: when `light_spot`, emission builds a radial irradiance disc centred at
+    // (light_x, light_y) instead of the directional sweep, and awake sub-0.95-charge cells phototax
+    // up its gradient -- emergent herding (P4 + the Feed state, taxis.cuh), nothing scripted. NOT in
+    // the fields contract: it is sim-internal interaction state, like `ambient_irradiance`, so the
+    // render boundary is untouched. Off by default (radius/irradiance 0), so every scenario and every
+    // un-poked run takes the directional path and is bit-identical to M13a (INV-8). The app sets these
+    // at a tick boundary from the Light tool; the scenario's `light` source is never touched.
+    bool         light_spot = false;
+    double       light_x = 0.0, light_y = 0.0;    // spot centre, chamber coords [m]
+    float        light_spot_radius = 0.0f;        // the (1-t^2)^2 falloff reaches zero here [m]
+    float        light_spot_irradiance = 0.0f;    // peak irradiance at the centre [W/m^2]
+
+    // Optical tweezers (M13b, ADR-041). A harmonic restoring force toward (trap_x, trap_y) on the
+    // grabbed cell (by slot), added in the forces kernel (stage 5). Honest -- a real optical trap,
+    // holding a cell against buoyancy in the plane the user drags in. Off by default (trap_slot -1),
+    // so no cell is trapped and the force sum is bit-identical. The stiffness is set app-side as a
+    // multiple of the stability-limited CONTACT_STIFFNESS (ADR-018), scaled by 1/physics_rate here.
+    int32_t      trap_slot = -1;                  // grabbed cell slot, or -1 for no trap
+    double       trap_x = 0.0, trap_y = 0.0;      // trap target, chamber coords [m]
+    double       trap_stiffness = 0.0;            // spring constant [N/m]; 0 = no pull
+
     // Set once any CANON parameter lock is broken (ADR-034); world_stats copies it to
     // Stats.non_canon_run, which surfaces in the HUD and every telemetry export header.
     bool         non_canon_run = false;

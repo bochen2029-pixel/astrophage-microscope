@@ -255,6 +255,45 @@ void apply_poke(Application& a) {
         std::printf("[app] brush failed: %s\n", status_str(e.status));
 }
 
+// The interactive light spot's peak irradiance at full strength [W/m^2]. Bloom-scale, so it drives
+// phototaxis but charges a cell only negligibly over a session (the Feed thrust caps at
+// PETROVA_MAX_POWER regardless). AUTO_LIGHT_* is where the headless --auto-light stand-in parks its
+// spot: past the +x wall with a wide radius, so the whole chamber has a monotonic +x gradient to
+// climb (the interactive tool instead sits the spot at the cursor, at brush_radius_um).
+constexpr float  LIGHT_SPOT_MAX_IRRADIANCE = 400.0f;
+constexpr double AUTO_LIGHT_SPOT_X         = 3000.0e-6;   // m, just past the +x chamber wall
+constexpr double AUTO_LIGHT_SPOT_RADIUS_UM = 6000.0;      // um, ~1.5x the chamber width
+
+// Park the light spot at the pending cursor point (M13b, ADR-041). Like apply_poke, called per tick
+// from the tick loop -- emission reads the spot at a tick boundary. When the Light tool is not held,
+// the spot is off and emission reverts to the scenario's directional light, untouched.
+void apply_light(Application& a) {
+    if (a.hud.light_active) {
+        a.world.light_spot = true;
+        a.world.light_x = a.hud.poke_x;
+        a.world.light_y = a.hud.poke_y;
+        a.world.light_spot_radius = a.hud.brush_radius_um * 1e-6f;
+        a.world.light_spot_irradiance = a.hud.brush_strength * LIGHT_SPOT_MAX_IRRADIANCE;
+    } else {
+        a.world.light_spot = false;
+    }
+}
+
+// Set or clear the optical trap on the grabbed cell (M13b, ADR-041). The trap slot is the picked
+// slot; the target is the cursor. Releasing (grab_active false) clears the trap so physics resumes.
+// The stiffness scales the stability-limited CONTACT_STIFFNESS; the sim scales it by 1/physics_rate.
+void apply_grab(Application& a) {
+    if (a.hud.grab_active && a.has_pick) {
+        a.world.trap_slot = a.pick_slot;
+        a.world.trap_x = a.hud.poke_x;
+        a.world.trap_y = a.hud.poke_y;
+        a.world.trap_stiffness = static_cast<double>(a.hud.trap_strength) * canon::CONTACT_STIFFNESS;
+    } else {
+        a.world.trap_slot = -1;
+        a.world.trap_stiffness = 0.0;
+    }
+}
+
 void handle_input(Application& a) {
     const ImGuiIO& io = ImGui::GetIO();
     GLFWwindow* win = a.gl.window;
@@ -273,17 +312,29 @@ void handle_input(Application& a) {
         panning = false;
     }
 
-    // LEFT button drives the active tool: Inspect picks a cell on a click; a brush tool paints
-    // at the cursor while held. The poke is recorded here and applied at a tick boundary below.
+    // LEFT button drives the active tool: Inspect picks a cell on a click; a brush paints while held;
+    // Light drags a spotlight; Grab tows the picked cell. The interaction is recorded here and applied
+    // at a tick boundary below (M13a/b) -- an input handler must never write device memory.
     a.hud.poke_active = false;
+    a.hud.light_active = false;
+    a.hud.grab_active = false;
     static bool larmed = false, ldrag = false;
     static double press_x = 0.0, press_y = 0.0, moved = 0.0;
     const bool ldown = glfwGetMouseButton(win, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
     if (ldown && !io.WantCaptureMouse) {
-        if (!larmed) { larmed = true; press_x = mx; press_y = my; moved = 0.0; }
+        const bool first_press = !larmed;
+        if (first_press) { larmed = true; press_x = mx; press_y = my; moved = 0.0; }
         if (ldrag) moved += std::abs(mx - last_x) + std::abs(my - last_y);
         ldrag = true;
-        if (a.hud.active_tool != ui::TOOL_INSPECT) {
+        const int tool = a.hud.active_tool;
+        if (tool == ui::TOOL_GRAB) {
+            if (first_press) try_pick(a, mx, my);   // latch the cell under the cursor to tow
+            a.camera.screen_to_world(mx, my, a.gl.fb_width, a.gl.fb_height, a.hud.poke_x, a.hud.poke_y);
+            a.hud.grab_active = true;
+        } else if (tool == ui::TOOL_LIGHT) {
+            a.camera.screen_to_world(mx, my, a.gl.fb_width, a.gl.fb_height, a.hud.poke_x, a.hud.poke_y);
+            a.hud.light_active = true;
+        } else if (tool != ui::TOOL_INSPECT) {
             a.camera.screen_to_world(mx, my, a.gl.fb_width, a.gl.fb_height, a.hud.poke_x, a.hud.poke_y);
             a.hud.poke_active = true;
         }
@@ -441,6 +492,27 @@ int app_run(Application& a) {
             a.hud.poke_x = 0.0;
             a.hud.poke_y = 0.0;
         }
+        // Headless light-leash stand-in (M13b): park a bright spot past the +x wall so the whole
+        // chamber has a monotonic +x gradient; awake sub-0.95-charge cells herd toward it. The
+        // end-state centroid readout (below) is the gate.
+        if (a.options.auto_light) {
+            a.hud.active_tool = ui::TOOL_LIGHT;
+            a.hud.light_active = true;
+            a.hud.poke_x = AUTO_LIGHT_SPOT_X;
+            a.hud.poke_y = 0.0;
+            a.hud.brush_radius_um = static_cast<float>(AUTO_LIGHT_SPOT_RADIUS_UM);
+            a.hud.brush_strength = 1.0f;
+        }
+        // Headless tweezers stand-in (M13b): tow the requested slot to the requested target every
+        // frame. The end-state distance-to-target readout (below) is the gate.
+        if (a.options.auto_grab_slot >= 0) {
+            a.hud.active_tool = ui::TOOL_GRAB;
+            a.hud.grab_active = true;
+            a.has_pick = true;
+            a.pick_slot = a.options.auto_grab_slot;
+            a.hud.poke_x = a.options.auto_grab_x;
+            a.hud.poke_y = a.options.auto_grab_y;
+        }
 
         // Push the inspector's curated overrides into the World before stepping (ADR-035).
         // With no edits these equal canon, so the tick is bit-identical to M11e.
@@ -457,6 +529,8 @@ int app_run(Application& a) {
             for (int i = 0; i < a.options.ticks_per_frame; ++i) {
                 if (a.has_scenario) sim::scenario_apply_drive(a.world, a.scenario);
                 apply_poke(a);
+                apply_light(a);
+                apply_grab(a);
                 sim::world_step(a.world);
             }
         } else {
@@ -471,6 +545,8 @@ int app_run(Application& a) {
             while (a.accumulator >= canon::DT_PHYSICS && substeps < 8) {
                 if (a.has_scenario) sim::scenario_apply_drive(a.world, a.scenario);
                 apply_poke(a);
+                apply_light(a);
+                apply_grab(a);
                 sim::world_step(a.world);
                 a.accumulator -= canon::DT_PHYSICS;
                 ++substeps;
@@ -633,6 +709,38 @@ int app_run(Application& a) {
                     "non_canon %d\n",
                     a.has_scenario ? a.scenario.id : "(uniform)", s.sim_time_s, s.n_live, s.n_awake,
                     s.mean_temp_medium_k, s.max_temp_medium_k, s.mean_charge, s.non_canon_run);
+
+        // M13b headless checks: the light-leash centroid and the tweezers' distance to target, so the
+        // gate can assert the culture herded toward the spot / the grabbed cell reached its target.
+        if (a.options.auto_light) {
+            const int32_t n = a.world.cells.count;
+            if (n > 0) {
+                std::vector<double> px(n), py(n), pz(n);
+                if (Error e = sim::cell_store_download_positions(a.world.cells, px.data(), py.data(),
+                                                                 pz.data(), n)) {
+                    std::printf("[app] auto-light centroid download failed: %s\n", status_str(e.status));
+                } else {
+                    double mx = 0.0, my = 0.0;
+                    for (int32_t i = 0; i < n; ++i) { mx += px[i]; my += py[i]; }
+                    mx /= n; my /= n;
+                    std::printf("[app] auto-light centroid: mean_x %.1f um mean_y %.1f um "
+                                "(spot at +%.0f um)\n", m_to_um(mx), m_to_um(my),
+                                AUTO_LIGHT_SPOT_X * 1e6);
+                }
+            }
+        }
+        if (a.options.auto_grab_slot >= 0) {
+            sim::CellSample cs;
+            if (Error e = sim::cell_store_sample(a.world.cells, a.options.auto_grab_slot, cs)) {
+                std::printf("[app] auto-grab sample failed: %s\n", status_str(e.status));
+            } else if (cs.valid) {
+                const double dx = cs.x - a.options.auto_grab_x, dy = cs.y - a.options.auto_grab_y;
+                std::printf("[app] auto-grab: cell slot %d at (%.1f, %.1f) um, target (%.1f, %.1f) um, "
+                            "dist %.1f um\n", a.options.auto_grab_slot, m_to_um(cs.x), m_to_um(cs.y),
+                            m_to_um(a.options.auto_grab_x), m_to_um(a.options.auto_grab_y),
+                            m_to_um(std::sqrt(dx * dx + dy * dy)));
+            }
+        }
     }
 
     if (a.gl.gl_error_count > 0) {
