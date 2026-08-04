@@ -129,6 +129,7 @@ void hud_draw(HudState& hud, const Stats& stats, render::Camera& cam,
     // Astrophage is black in visible light and emits where no eye can see, so the
     // IR modes are dark until something makes a cell glow -- say so, or an empty
     // Petrovascope reads as a broken screen rather than as "nothing is emitting".
+    ImGui::Checkbox("colourblind-safe LUT", &hud.colorblind);
     if (hud.mode == ViewMode::Petrovascope)
         ImGui::TextDisabled("(only emitting cells glow; ignite and seek light to see it)");
     else if (hud.mode == ViewMode::ThermalIR)

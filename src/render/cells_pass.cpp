@@ -179,8 +179,9 @@ in float v_shape_w;
 flat in uint v_flags;
 flat in uint v_seed;
 
-uniform int u_mode;      // contract::ViewMode
-uniform int u_channel;   // contract::AnalysisChannel
+uniform int u_mode;       // contract::ViewMode
+uniform int u_channel;    // contract::AnalysisChannel
+uniform int u_colorblind; // ScopeState::colorblind_safe -- swaps the petrova-film LUT for magma
 
 out vec4 frag;
 
@@ -260,7 +261,13 @@ void main() {
     // teal membrane blob, distinct from the opaque black Astrophage. Sim never sets this bit,
     // so a cell always skips this branch and every measurement golden is byte-identical.
     if ((v_flags & 0x8000u) != 0u) {
-        vec3 tcol  = alive ? vec3(0.28, 0.85, 0.62) : vec3(0.45, 0.46, 0.50);
+        // Colour the predator by its N2 tolerance (carried in v_charge by interop.cu, M12b):
+        // the intolerant are a pale teal, the evolved Taumoeba-82.5 strain a vivid gold-green,
+        // so the evolution arc is visible -- the swarm warms toward gold as selection breeds
+        // tolerance (docs/PHYSICS.md Sec 11, the biology's emotional peak, M12e).
+        float tol = clamp(v_charge, 0.0, 1.0);
+        vec3 tcol = alive ? mix(vec3(0.30, 0.62, 0.70), vec3(0.80, 0.93, 0.30), tol)
+                          : vec3(0.45, 0.46, 0.50);
         float talpha = cov_a * (alive ? 0.55 : 0.35) * v_alpha_scale;
         if (talpha <= 0.002) discard;
         frag = vec4(tcol, clamp(talpha, 0.0, 1.0));
@@ -292,7 +299,9 @@ void main() {
         // hard it emits; one that is NOT emitting is invisible -- the canon
         // instrument. Dead cells never emit. (Bloom over this is deferred.)
         float e = alive ? v_emit : 0.0;
-        color = petrova(0.35 + 0.65 * e);
+        // Colourblind-safe: the petrova-film plum->pink LUT reads poorly under deuteranopia, so
+        // swap in the perceptually-uniform magma ramp (RENDERING.md Sec 5, ScopeState.colorblind_safe).
+        color = (u_colorblind != 0) ? ramp(0.35 + 0.65 * e) : petrova(0.35 + 0.65 * e);
         alpha = cov_a * e;
     } else if (u_mode == 3) {
         // Thermal IR, film grade (2026 film reference). Astrophage absorbs at EVERY
@@ -380,6 +389,7 @@ Error cells_pass_create(CellsPass& p, int32_t cell_capacity, int32_t tau_capacit
     p.u_na             = glGetUniformLocation(p.program, "u_na");
     p.u_immersion      = glGetUniformLocation(p.program, "u_immersion");
     p.u_morphology     = glGetUniformLocation(p.program, "u_morphology");
+    p.u_colorblind     = glGetUniformLocation(p.program, "u_colorblind");
 
     glGenVertexArrays(1, &p.vao);
     glGenBuffers(1, &p.instance_vbo);
@@ -421,7 +431,7 @@ void cells_pass_destroy(CellsPass& p) {
 
 void cells_pass_draw(const CellsPass& p, const Camera& cam, int fb_w, int fb_h,
                      int32_t count, ViewMode mode, AnalysisChannel channel,
-                     contract::Morphology morphology) {
+                     contract::Morphology morphology, bool colorblind) {
     // The background is part of the mode: brightfield is lamp-white, the IR modes
     // are near-black so a faint glow reads, and Analysis is a neutral dark grey.
     switch (mode) {
@@ -455,6 +465,7 @@ void cells_pass_draw(const CellsPass& p, const Camera& cam, int fb_w, int fb_h,
     glUniform1f(p.u_na, static_cast<float>(obj.na));
     glUniform1f(p.u_immersion, static_cast<float>(obj.immersion));
     glUniform1i(p.u_morphology, static_cast<int>(morphology));
+    glUniform1i(p.u_colorblind, colorblind ? 1 : 0);
 
     glBindVertexArray(p.vao);
     glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, count);

@@ -330,9 +330,33 @@ if (($n -gt 12) -or ($n -eq 12 -and $suffix -ge 'd')) {
     }
 }
 
-# ---------------------------- M12e: package and v1.0
+# ---------------------------- M12e: render legibility (evolution arc + colourblind LUT)
 if (($n -gt 12) -or ($n -eq 12 -and $suffix -ge 'e')) {
-    Gate 'M12e.1' 'clean-environment package' {
+    # The Taumoeba tolerance colour is a no-op for the cell path (M3.2 goldens, re-run above,
+    # still match) so this just confirms the predators still render cleanly with it.
+    Gate 'M12e.1' 'Taumoeba tolerance colouring renders headless (no GL errors)' {
+        $exe = Find-Exe 'astrophage'
+        if (-not $exe) { return $false }
+        & $exe --scenario taumoeba --headless --gl-debug --frames 15 --ticks-per-frame 25 *>&1 | Out-Null
+        return ($LASTEXITCODE -eq 0)
+    }
+    # The colourblind LUT must actually change Petrovascope: render a lit scene with and without
+    # --colorblind and require the images to DIFFER (imgdiff exits nonzero). A must-differ check,
+    # the same idea as the morphology golden pair -- it proves the swap does something.
+    Gate 'M12e.2' 'colourblind LUT changes Petrovascope (must differ)' {
+        $exe = Find-Exe 'astrophage'; $diff = Find-Exe 'imgdiff'
+        if (-not $exe -or -not $diff) { return $false }
+        $a = Join-Path $build 'm12e_petro_norm.ppm'; $b = Join-Path $build 'm12e_petro_cb.ppm'
+        & $exe --scenario shadow-garden --mode petrovascope --headless --frames 12 --ticks-per-frame 20 --screenshot $a *>&1 | Out-Null
+        & $exe --scenario shadow-garden --mode petrovascope --colorblind --headless --frames 12 --ticks-per-frame 20 --screenshot $b *>&1 | Out-Null
+        & $diff $a $b *>&1 | Out-Null
+        return ($LASTEXITCODE -ne 0)   # nonzero = the images differ = the LUT swap did something
+    }
+}
+
+# ---------------------------- M12g: package and v1.0
+if (($n -gt 12) -or ($n -eq 12 -and $suffix -ge 'g')) {
+    Gate 'M12g.1' 'clean-environment package' {
         & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'scripts\package.ps1') -Verify *>&1 | Out-Null
         return ($LASTEXITCODE -eq 0)
     }

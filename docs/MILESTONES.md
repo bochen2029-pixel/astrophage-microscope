@@ -384,9 +384,32 @@ and the time scrubber over M12a's snapshots.
 **Gate.** M12c gate + a screenshot of each new view affordance + the goldens still match (the
 `render_view_v3` bump must not move a measurement golden).
 
-### M12e — Package and v1.0
+### M12e — Render legibility: the evolution arc and the colourblind LUT
+
+**Scope.** Two low-risk shader features (defaults preserve every golden). The **Taumoeba are coloured
+by their N2 tolerance** (carried in the instance since M12b): pale teal for the intolerant, vivid
+gold-green for the evolved Taumoeba-82.5 strain — so the selection arc is visible, the swarm warming
+toward gold as it evolves. The **colourblind-safe LUT** (`ScopeState::colorblind_safe`, a HUD toggle
+and `--colorblind`) swaps the petrova-film LUT for magma in Petrovascope. `--mode` now overrides a
+scenario's `scope.mode` (consistent with `--objective`), so any scenario can be viewed in any mode.
+
+**Gate.** M12d gate + goldens still match (both changes are a no-op for the cell path) + the colourblind
+LUT visibly changes Petrovascope (`imgdiff` of a lit scene with/without `--colorblind` must differ) +
+a screenshot of the tolerance-coloured swarm.
+
+### M12f — The render remainder
+
+**Scope.** The **`render_view_v3` → `scenario_v3` cascade** (per-cell `temp_c` for pre-ignition
+Thermal-IR warm-up; `scenario_v2.h` includes `render_view_v2.h`, so both bump together), plus bloom
+over the Petrova emission, the cross-fade slider (`ScopeState::mode_blend`), and the real T-field
+false-colour behind Thermal IR.
+
+**Gate.** M12e gate + a screenshot of each affordance + the goldens still match (the `render_view_v3`
+bump must not move a measurement golden).
+
+### M12g — Package and v1.0
 
 **Scope.** `scripts/package.ps1`: a static-runtime `.zip` that runs on a scrubbed-PATH clean machine,
 the user guide, `README.md` finalisation, and CSV `git_describe` injection.
 
-**Gate.** M12d gate + the packaged `.zip` runs on a scrubbed-PATH clean environment. Tag `v1.0`.
+**Gate.** M12f gate + the packaged `.zip` runs on a scrubbed-PATH clean environment. Tag `v1.0`.

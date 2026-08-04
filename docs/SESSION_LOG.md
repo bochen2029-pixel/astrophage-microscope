@@ -6,6 +6,16 @@ Format: milestone · what landed · what is pending · open questions · gotchas
 
 ---
 
+## 2026-08-03 — M12e (Ship: render legibility) — GREEN · **the evolution arc, visible**
+
+**Landed.** Two low-risk render features (chosen over the render remainder, whose render_view_v3 bump cascades into scenario_v3). (1) The **Taumoeba are coloured by their N2 tolerance** (carried in the instance since M12b): pale teal for the intolerant, vivid gold-green for the evolved Taumoeba-82.5 -- the selection arc is visible, the swarm warming toward gold as the N2 ramp breeds tolerance. A no-op for cells (gated on the ADR-037 predator bit), so every golden is byte-identical. (2) The **colourblind-safe LUT** (a HUD toggle + --colorblind) swaps the petrova-film LUT for magma in Petrovascope, default-off so the m7b golden is unmoved. (3) **--mode now overrides a scenario's scope.mode** (like --objective). New ADR-039.
+
+**Verified.** Screenshot: at mean tolerance 0.46 the swarm has warmed from teal (tol 0) toward yellow-gold. The colourblind LUT by a **must-differ** (imgdiff of Petrovascope with/without --colorblind: max channel delta 241 on the glow) -- the opposite of a golden, proving the swap does something. Gate green M0..M12e; M3.2 goldens unmoved, M1.5 fps intact.
+
+**Pending / next.** M12f: the render remainder (the render_view_v3->scenario_v3 cascade for pre-ignition temp_c, bloom over Petrova, cross-fade, T-field false-colour). Then M12g: package + v1.0.
+
+---
+
 ## 2026-08-03 — M12d (Ship: the time scrubber) — GREEN · **rewind through the run**
 
 **Landed.** The scrubber rewinds a live run through a rolling ring of full-state snapshots. `snapshot_to_bytes`/`from_bytes` (M12a's ASPH, in memory) so recording a frame costs no disk; `snapshot_save`/`load` are now thin wrappers over them (test_snapshot T21.4 exercises the in-memory round trip -- same INV-8 fidelity). The app records a frame every 30 ticks during live play, bounded to 256 MB (oldest evicted), and **off under --benchmark** so M1.5's fps is unperturbed; the HUD **Timeline** slider rewinds into the ring. New ADR-038. M12 re-split M12d/e/f: scrubber, then the render remainder, then package.

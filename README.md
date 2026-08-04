@@ -7,9 +7,11 @@ A sealed 4 mm chamber of water. Cells 10 μm across, black at every wavelength, 
 Deliberately **not** the interstellar scale — no ships, no Petrova arc, no Tau Ceti. Just what you would see down the eyepiece.
 
 ```
-Status:  M12d of M12 green  ·  C++20 + CUDA 13.1  ·  sm_89  ·  Windows 11
-         ALL FIVE signature phenomena are live; cells behave, divide, die,
-         and run on a multi-rate clock. Predation and content remain.
+Status:  M12e of M12 green  ·  C++20 + CUDA 13.1  ·  sm_89  ·  Windows 11
+         All five signature phenomena, predation and the Taumoeba-82.5
+         evolution arc, and eight self-verifying scenarios are live and
+         playable. Shipping: snapshot/replay + time scrubber done;
+         render polish and packaging remain.
 ```
 
 ![Astrophage at the 40× working objective](docs/images/brightfield-40x.png)
@@ -186,8 +188,9 @@ Without `-App`, the core library and the full test suite build with **no network
 | M12b | Ship: Taumoeba rendering | ✅ `m12b-green` |
 | M12c | Ship: performance pass — zero steady-state allocation + throughput (T28/T29) | ✅ `m12c-green` |
 | M12d | Ship: time scrubber — rewind a run through an in-memory snapshot ring | ✅ `m12d-green` |
-| M12e | Ship: render remainder (`render_view_v3`, bloom, cross-fade), colourblind LUT | ☐ |
-| M12f | Ship: packaging (clean-machine `.zip`), user guide, `v1.0` | ☐ |
+| M12e | Ship: render legibility — Taumoeba tolerance colour + colourblind LUT | ✅ `m12e-green` |
+| M12f | Ship: render remainder (`render_view_v3`, bloom, cross-fade, T-field) | ☐ |
+| M12g | Ship: packaging (clean-machine `.zip`), user guide, `v1.0` | ☐ |
 
 **M7 was the line where all five signature phenomena came live.** Everything after it adds behaviour and content on top of a physics core that is now complete.
 

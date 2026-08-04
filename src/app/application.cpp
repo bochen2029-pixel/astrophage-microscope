@@ -359,6 +359,8 @@ Error app_init(Application& a, const Options& o) {
     if (o.objective >= 0 && o.objective < canon::OBJECTIVE_COUNT) a.camera.objective = o.objective;
     if (o.zoom > 0.0f) a.camera.zoom = o.zoom;
     a.camera.focal_plane = o.focus_um * 1e-6;
+    a.hud.colorblind = o.colorblind;
+    if (o.view_mode_set) a.hud.mode = o.view_mode;   // --mode overrides a scenario's scope.mode
 
     // Pre-select a cell for the inspector, so a headless screenshot can show the panel
     // (picking is a mouse click a headless run cannot make). ID latches on the first read.
@@ -506,7 +508,7 @@ int app_run(Application& a) {
 
         render::cells_pass_draw(a.cells_pass, a.camera, a.gl.fb_width, a.gl.fb_height,
                                 draw_count, a.hud.mode, a.hud.channel,
-                                a.options.morphology);
+                                a.options.morphology, a.hud.colorblind);
         // The condenser affects the field as well as the cells, so it goes after
         // them. Applied to the ILLUMINATED modes -- Brightfield and Thermal IR (the
         // film's IR view is a lit circular field) -- but not the emission modes

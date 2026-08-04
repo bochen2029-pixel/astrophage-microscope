@@ -132,6 +132,22 @@ Append-only. Every contradiction in the source material and every non-obvious en
 
 ---
 
+## ADR-039 — Render legibility: colour the predators by tolerance, a colourblind LUT, and `--mode` overrides
+
+**Status:** accepted, 2026-08-03 (M12e).
+
+**Context.** Two low-risk render features, chosen for M12e over the render remainder because the latter's `render_view_v3` bump cascades into `scenario_v3` (`scenario_v2.h` includes `render_view_v2.h`) and wants a focused session. Both are shader changes that a measurement golden cannot see.
+
+**The Taumoeba are coloured by their N2 tolerance.** M12b already carried each predator's tolerance into the instance's `charge` slot; the fragment shader's predator branch now mixes pale teal (intolerant) → vivid gold-green (the evolved Taumoeba-82.5 strain) by it. The selection arc — the biology's emotional peak — becomes visible: the swarm warms toward gold as the N2 ramp breeds tolerance. It is a no-op for cells (the branch is gated on the render-only predator bit, ADR-037, which sim never sets), so every golden is byte-identical.
+
+**A colourblind-safe LUT, verified by a must-differ check.** `ScopeState::colorblind_safe` (a HUD toggle and `--colorblind`) swaps the petrova-film plum→pink LUT — poor under deuteranopia — for the perceptually-uniform magma ramp, in Petrovascope. It is gated on a uniform that defaults to 0, so the default path is the unchanged `petrova()` and the m7b Petrova golden still matches. Proving it *does* something needs the opposite of a golden: the gate renders a lit scene with and without `--colorblind` and requires `imgdiff` to report the images DIFFER (max channel delta ~241 on the glowing cells) — the must-differ idea of ADR-017's morphology pair.
+
+**`--mode` now overrides a scenario's `scope.mode`.** It was silently ignored for a scenario (the scope's mode won), unlike `--objective`, which overrides. Now an explicit `--mode` wins for both, so any scenario can be viewed in any mode — which is also what let the colourblind LUT be verified on a lit scenario headless.
+
+**Consequences / the gate.** `M12e.1` (the tolerance-coloured swarm renders clean) + `M12e.2` (the colourblind must-differ) + M3.2 (goldens unmoved). Deferred: colouring the predators in the *emission* modes too (they read the tolerance colour in every mode today, a visualization aid), and a tolerance-keyed Analysis channel.
+
+---
+
 ## ADR-038 — The time scrubber: an in-memory snapshot ring, bounded, with motion re-applied on seek
 
 **Status:** accepted, 2026-08-03 (M12d).

@@ -20,6 +20,7 @@ void print_usage() {
         "  --no-ui            suppress all ImGui drawing (for golden captures)\n"
         "  --mode NAME        brightfield | darkfield | petrovascope | thermal | analysis\n"
         "  --awake            spawn the population awake (glows in Thermal IR)\n"
+        "  --colorblind       colourblind-safe LUT (magma instead of petrova-film)\n"
         "  --morphology M     sphere | irregular  (appearance only; goldens pin sphere)\n"
         "  --aperture F       field diaphragm radius, 0 = full rectangle\n"
         "  --ticks-per-frame N  fixed ticks per frame, ignoring wall clock;\n"
@@ -111,6 +112,7 @@ Options parse_args(int argc, char** argv) {
             if (i + 1 >= argc) { o.bad = true; }
             else {
                 const char* m = argv[++i];
+                o.view_mode_set = true;   // explicit --mode overrides a scenario's scope.mode
                 if      (std::strcmp(m, "brightfield") == 0)  o.view_mode = contract::ViewMode::Brightfield;
                 else if (std::strcmp(m, "darkfield") == 0)    o.view_mode = contract::ViewMode::Darkfield;
                 else if (std::strcmp(m, "petrovascope") == 0) o.view_mode = contract::ViewMode::Petrovascope;
@@ -120,6 +122,7 @@ Options parse_args(int argc, char** argv) {
             }
         }
         else if (want("--awake"))      o.awake     = true;
+        else if (want("--colorblind")) o.colorblind = true;
         else if (want("--headless"))   o.headless  = true;
         else if (want("--gl-debug"))   o.gl_debug  = true;
         else if (want("--benchmark"))  o.benchmark = true;

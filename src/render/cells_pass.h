@@ -20,7 +20,7 @@ struct CellsPass {
     // Uniform locations, resolved once at build time.
     int u_center_um = -1, u_half_extent_um = -1, u_px_per_um = -1;
     int u_mode = -1, u_channel = -1, u_focal_plane_um = -1;
-    int u_na = -1, u_immersion = -1, u_morphology = -1;
+    int u_na = -1, u_immersion = -1, u_morphology = -1, u_colorblind = -1;
 };
 
 // The instance buffer holds cells AND the Taumoeba appended after them (M12b), so it is sized
@@ -33,6 +33,7 @@ void  cells_pass_destroy(CellsPass& p);
 void cells_pass_draw(const CellsPass& p, const Camera& cam, int fb_w, int fb_h,
                      int32_t count, contract::ViewMode mode,
                      contract::AnalysisChannel channel,
-                     contract::Morphology morphology = contract::Morphology::Irregular);
+                     contract::Morphology morphology = contract::Morphology::Irregular,
+                     bool colorblind = false);
 
 } // namespace astro::render

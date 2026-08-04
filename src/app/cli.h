@@ -59,7 +59,9 @@ struct Options {
     // capture the non-brightfield modes headless (an awake idle cell glows in
     // Thermal IR and is dark in the Petrovascope).
     contract::ViewMode view_mode = contract::ViewMode::Brightfield;
+    bool     view_mode_set = false;  // was --mode given (so it overrides a scenario's scope.mode)
     bool     awake      = false;
+    bool     colorblind = false;     // colourblind-safe LUT (M12e); also a HUD toggle
 
     bool     help       = false;
     bool     bad        = false;

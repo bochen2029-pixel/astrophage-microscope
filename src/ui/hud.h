@@ -15,6 +15,7 @@ namespace astro::ui {
 struct HudState {
     contract::ViewMode        mode    = contract::ViewMode::Brightfield;
     contract::AnalysisChannel channel = contract::AnalysisChannel::Charge;
+    bool colorblind = false;   // swap the petrova-film LUT for magma (M12e)
 
     // Set by the panel, consumed and cleared by the application.
     bool    respawn_requested = false;
