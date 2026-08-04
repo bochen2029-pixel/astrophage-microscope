@@ -15,6 +15,7 @@
 #include "core/canon_generated.h"
 #include "core/units.h"
 #include "sim/scenario.h"
+#include "sim/snapshot.h"
 #include "ui/params_panel.h"
 
 #ifndef ASTRO_SCENARIOS_DIR
@@ -196,6 +197,43 @@ void try_pick(Application& a, double px, double py) {
     if (!a.has_pick) a.cell_readout.valid = false;
 }
 
+// Scrubber (M12d): record a full-state snapshot this often, and cap the ring's host memory so a
+// large population cannot exhaust it. The ring is a rolling window; seeking rewinds into it.
+constexpr uint64_t SCRUB_RECORD_INTERVAL = 30;                    // ticks between recorded frames
+constexpr size_t   SCRUB_MAX_BYTES = 256ull * 1024ull * 1024ull; // 256 MB rolling window
+
+void scrub_record(Application& a) {
+    Application::ScrubFrame frame;
+    if (sim::snapshot_to_bytes(a.world, a.has_scenario ? a.scenario.id : nullptr, frame.bytes))
+        return;   // best-effort: a failed snapshot just skips this frame, never the run
+    frame.tick = a.world.tick;
+    frame.sim_time_s = a.world.sim_time_s;
+    a.scrub_bytes += frame.bytes.size();
+    a.scrub_ring.push_back(std::move(frame));
+    while (a.scrub_bytes > SCRUB_MAX_BYTES && a.scrub_ring.size() > 1) {
+        a.scrub_bytes -= a.scrub_ring.front().bytes.size();
+        a.scrub_ring.erase(a.scrub_ring.begin());
+    }
+}
+
+// Rewind to a recorded frame. snapshot_from_bytes world_creates a fresh world with DEFAULT motion
+// (snapshot_v1 does not carry it), so re-apply the run's motion config; the clock rates come back
+// from the header, and the interop buffer was sized for this run's capacity, so it still fits.
+void scrub_seek(Application& a, int index) {
+    if (index < 0 || index >= static_cast<int>(a.scrub_ring.size())) return;
+    // The ring is not touched by the restore, so a reference is safe (and avoids copying MBs).
+    const std::vector<char>& bytes = a.scrub_ring[static_cast<size_t>(index)].bytes;
+    sim::world_destroy(a.world);
+    if (Error e = sim::snapshot_from_bytes(bytes.data(), bytes.size(), a.world)) {
+        std::printf("[app] scrub seek failed: %s\n", status_str(e.status));
+        return;
+    }
+    a.world.motion = a.scrub_motion;
+    a.world.non_canon_run = a.params.non_canon_run;
+    a.has_pick = false;                          // the picked slot referred to the old world
+    a.stats_cache = sim::world_stats(a.world);   // so the HUD reflects the rewound frame at once
+}
+
 void handle_input(Application& a) {
     const ImGuiIO& io = ImGui::GetIO();
     GLFWwindow* win = a.gl.window;
@@ -329,6 +367,9 @@ Error app_init(Application& a, const Options& o) {
         a.pick_slot = o.inspect_slot;
     }
 
+    // The scrubber re-applies this on every seek, since snapshot_v1 does not carry motion config.
+    a.scrub_motion = a.world.motion;
+
     a.hud.respawn_count = a.world.cells.count;
     a.hud.respawn_charge = o.charge;
     a.hud.live_charge = o.charge;
@@ -364,8 +405,9 @@ int app_run(Application& a) {
         apply_param_overrides(a);
 
         // Fixed-tick accumulator (src/app/MODULE.md). Render frame rate floats;
-        // DT_PHYSICS never does. Cap the catch-up rather than spiral.
-        if (a.hud.paused) {
+        // DT_PHYSICS never does. Cap the catch-up rather than spiral. The sim also holds when
+        // the scrubber is viewing a past frame (scrub_live false, M12d).
+        if (a.hud.paused || !a.hud.scrub_live) {
             a.accumulator = 0.0;
         } else if (a.options.ticks_per_frame > 0) {
             // Wall clock ignored entirely: the same command yields the same
@@ -391,6 +433,25 @@ int app_run(Application& a) {
             }
             if (substeps == 8) a.accumulator = 0.0;   // drop time, do not lag
         }
+
+        // Record a rewind frame during live play (M12d). Never under --benchmark: the full-state
+        // snapshot D2H would stall the pipeline and perturb the fps M1.5 gates on.
+        if (!a.options.benchmark && a.hud.scrub_live && !a.hud.paused &&
+            a.world.tick - a.scrub_last_tick >= SCRUB_RECORD_INTERVAL) {
+            scrub_record(a);
+            a.scrub_last_tick = a.world.tick;
+        }
+
+        // A seek from the Timeline slider rewinds the world to a recorded frame (and pauses there).
+        if (a.hud.scrub_seek_requested) {
+            a.hud.scrub_seek_requested = false;
+            scrub_seek(a, a.hud.scrub_selected);
+        }
+        // Headless verification: on the final frame, rewind to a recorded frame so the screenshot
+        // shows the restored past state (the interactive slider is a mouse drag otherwise).
+        if (a.options.scrub_to >= 0 && a.options.frames > 0 &&
+            a.frames_done == a.options.frames - 1)
+            scrub_seek(a, a.options.scrub_to);
 
         if (a.hud.set_charge_requested) {
             a.hud.set_charge_requested = false;
@@ -471,6 +532,13 @@ int app_run(Application& a) {
                 read_picked_cell(a);   // one cell D2H at HUD rate; no-op with no pick
             }
             const contract::Stats stats = a.stats_cache;
+            // Hand the scrubber ring's shape to the HUD's Timeline slider.
+            a.hud.scrub_count = static_cast<int>(a.scrub_ring.size());
+            if (a.hud.scrub_selected >= a.hud.scrub_count) a.hud.scrub_selected = a.hud.scrub_count - 1;
+            if (a.hud.scrub_selected < 0) a.hud.scrub_selected = 0;
+            if (a.hud.scrub_count > 0)
+                a.hud.scrub_sel_time_s =
+                    a.scrub_ring[static_cast<size_t>(a.hud.scrub_selected)].sim_time_s;
             ui::hud_draw(a.hud, stats, a.camera, a.cells_pass.capacity,
                          a.world.chamber.w, a.world.chamber.h, a.world.chamber.d);
             ui::params_panel_draw(a.params, a.param_live);

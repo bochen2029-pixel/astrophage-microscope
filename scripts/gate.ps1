@@ -316,8 +316,19 @@ if (($n -gt 12) -or ($n -eq 12 -and $suffix -ge 'c')) {
     Gate 'M12c.1' 'no steady-state allocation + sim throughput (T28/T29)' { return (Run-Test 'test_perf') }
 }
 
-# ---------------------------- M12d: the render remainder and the scrubber
-# (its gate lands when the render_view_v3 bump + affordances are built)
+# ---------------------------- M12d: the time scrubber
+if (($n -gt 12) -or ($n -eq 12 -and $suffix -ge 'd')) {
+    # The app records a rolling ring of full-state snapshots and rewinds into it (ADR-038).
+    # --scrub-to N is the headless stand-in for the mouse-drag Timeline slider: run, then rewind
+    # to recorded frame 0. Zero GL errors, and the ring's fidelity is test_snapshot's T21.4.
+    Gate 'M12d.1' 'app records + rewinds the timeline headless (no GL errors)' {
+        $exe = Find-Exe 'astrophage'
+        if (-not $exe) { return $false }
+        & $exe --scenario bloom --headless --gl-debug --frames 20 --ticks-per-frame 30 `
+               --scrub-to 0 *>&1 | Out-Null
+        return ($LASTEXITCODE -eq 0)
+    }
+}
 
 # ---------------------------- M12e: package and v1.0
 if (($n -gt 12) -or ($n -eq 12 -and $suffix -ge 'e')) {

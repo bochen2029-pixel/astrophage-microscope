@@ -10,7 +10,7 @@ Dear ImGui panels: the HUD, instrument controls, the cell inspector, the paramet
 
 | File | Owns | Milestone |
 |---|---|---|
-| `hud.cpp` | ✅ clock, counts, fps, scope controls, population, energy ledger, and the **NON-CANON RUN badge** (M11d) | M1 |
+| `hud.cpp` | ✅ clock, counts, fps, scope controls, population, energy ledger, the **NON-CANON RUN badge** (M11d), and the **Timeline** scrubber slider (M12d, ADR-038) | M1 |
 | `scale_bar.h` | ✅ pure length-snapping function — header-only so `test_scope` can check it with no GL | M1 |
 | `instrument_panel.cpp` | overlays, clock presets, the tool brushes | M5 |
 | `params_panel.cpp` | ✅ provenance badges over `core/params.h`'s `ParamSet` + the canon lock toggles (M11d, ADR-034); a real editable slider for the curated **LIVE** override set the sim reads, read-only otherwise (M11f, ADR-035) | M11d |

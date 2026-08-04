@@ -41,6 +41,10 @@ struct Options {
     // headless run cannot make, so this is how the inspector panel is verified in a
     // screenshot. -1 = no pre-pick (the normal interactive path clicks to select).
     int32_t  inspect_slot = -1;
+    // On the final frame, rewind to recorded scrubber frame N (M12d), so the seek path is
+    // verifiable in a headless screenshot (the Timeline slider is a mouse drag otherwise).
+    // -1 = no seek.
+    int32_t  scrub_to = -1;
     // Suppress all ImGui drawing. Golden images must test the RENDERER, not the
     // panel layout -- otherwise every HUD tweak invalidates every golden.
     bool     no_ui      = false;

@@ -7,11 +7,18 @@
 #pragma once
 
 #include <cstdint>
+#include <vector>
 
 #include "core/result.h"
 #include "sim/world.cuh"
 
 namespace astro::sim {
+
+// The in-memory form of the ASPH dump: the same bytes snapshot_save writes to a file, held in a
+// buffer. The time scrubber (M12d) records a rolling ring of these so it can rewind without file
+// I/O per frame; snapshot_save/load are thin wrappers over them.
+Error snapshot_to_bytes(const World& w, const char* scenario_id, std::vector<char>& out);
+Error snapshot_from_bytes(const char* data, size_t n, World& w);
 
 // Write the full world state to `path` (ASPH). `scenario_id` may be null (a plain run). The
 // ADR-035 overrides that differ from canon are recorded on the ParamOverride array, and the

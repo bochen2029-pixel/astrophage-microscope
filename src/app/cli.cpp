@@ -37,6 +37,7 @@ void print_usage() {
         "  --screenshot PATH  write a PPM of the last frame\n"
         "  --scenario ID      load a scenario and auto-play its drive script\n"
         "  --inspect N        pre-select cell slot N in the inspector (headless picking)\n"
+        "  --scrub-to N       on the last frame, rewind to recorded timeline frame N\n"
         "  --help\n");
 }
 
@@ -130,6 +131,7 @@ Options parse_args(int argc, char** argv) {
             if (i + 1 >= argc) o.bad = true; else o.scenario = argv[++i];
         }
         else if (want("--inspect")) o.inspect_slot = static_cast<int32_t>(next_int(-1));
+        else if (want("--scrub-to")) o.scrub_to = static_cast<int32_t>(next_int(-1));
         else if (want("--help") || want("-h")) o.help = true;
         else { std::printf("unknown argument: %s\n", a); o.bad = true; }
     }

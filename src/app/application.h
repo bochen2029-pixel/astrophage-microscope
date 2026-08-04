@@ -1,6 +1,9 @@
 // src/app/application.h -- composition root. The only place globals are allowed.
 #pragma once
 
+#include <cstdint>
+#include <vector>
+
 #include "app/cli.h"
 #include "core/params.h"
 #include "core/result.h"
@@ -58,6 +61,16 @@ struct Application {
     sim::MetricNeeds   obj_needs{};
     ui::ObjectiveCheck obj_checks[contract::MAX_ACCEPT_CHECKS]{};
     int                obj_count = 0;
+
+    // The time scrubber (M12d): a rolling ring of full-state snapshots the user rewinds through.
+    // Bounded by total bytes so a large population can't exhaust host memory; recorded during live
+    // play (never under --benchmark). Seeking restores a past frame and re-applies the motion
+    // config snapshot_v1 does not carry (ADR-036/038).
+    struct ScrubFrame { std::vector<char> bytes; uint64_t tick = 0; double sim_time_s = 0.0; };
+    std::vector<ScrubFrame> scrub_ring;
+    size_t            scrub_bytes = 0;
+    uint64_t          scrub_last_tick = 0;
+    sim::MotionConfig scrub_motion{};
 
     double accumulator = 0.0;   // fixed-tick residue, seconds
     int    frames_done = 0;

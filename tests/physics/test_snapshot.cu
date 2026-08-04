@@ -152,6 +152,32 @@ int main() {
         CHECK(static_cast<bool>(e));                 // must fail (no world to destroy)
     }
 
+    // --- T21.4 (GATE): the in-memory API round-trips (the scrubber's ring) -----
+    // The time scrubber (M12d) records a rolling ring of snapshot_to_bytes buffers and seeks
+    // with snapshot_from_bytes -- no file I/O per frame. It must have the same fidelity as the
+    // file path: the restored world reproduces the full-state hash.
+    {
+        World w{};
+        CHECK(!make_growth_world(w, 1500, 2.0e7, /*absorbing=*/false));
+        for (int t = 0; t < 45; ++t) world_step(w);
+        cudaDeviceSynchronize();
+        const uint64_t h0 = hashw(w);
+        const int32_t c0 = w.cells.count;
+
+        std::vector<char> bytes;
+        CHECK(!snapshot_to_bytes(w, "mem", bytes));
+        world_destroy(w);
+
+        World w2{};
+        CHECK(!snapshot_from_bytes(bytes.data(), bytes.size(), w2));
+        std::printf("  T21.4: in-memory %zu bytes -> cells %d hash %016llx\n",
+                    bytes.size(), w2.cells.count,
+                    static_cast<unsigned long long>(hashw(w2)));
+        CHECK(w2.cells.count == c0);
+        CHECK(hashw(w2) == h0);
+        world_destroy(w2);
+    }
+
     std::remove(kPath);
     return astro::test::finish("test_snapshot");
 }

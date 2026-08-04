@@ -38,6 +38,15 @@ struct HudState {
 
     float fps = 0.0f;
     float frame_ms = 0.0f;
+
+    // Time scrubber (M12d). The app fills scrub_count and the selected frame's clock; the
+    // Timeline slider sets scrub_selected + scrub_seek_requested when the user rewinds, and
+    // scrub_live toggles between playing/recording and viewing a past frame.
+    int    scrub_count = 0;          // frames available in the ring (app-filled)
+    int    scrub_selected = 0;       // slider position, [0, scrub_count - 1]
+    double scrub_sel_time_s = 0.0;   // sim time of the selected frame (app-filled)
+    bool   scrub_seek_requested = false;
+    bool   scrub_live = true;        // true: playing/recording; false: viewing a past frame
 };
 
 // A scrolling history of the telemetry for the population / energy / temperature

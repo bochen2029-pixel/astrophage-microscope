@@ -203,6 +203,24 @@ void hud_draw(HudState& hud, const Stats& stats, render::Camera& cam,
     ImGui::SliderFloat("spawn charge", &hud.respawn_charge, 0.0f, 1.0f, "%.4f");
     if (ImGui::Button("respawn")) hud.respawn_requested = true;
 
+    ImGui::SeparatorText("Timeline  (M12d: rewind the run)");
+    if (hud.scrub_count <= 0) {
+        ImGui::TextDisabled("recording... rewind frames appear as the run plays");
+    } else {
+        if (hud.scrub_selected > hud.scrub_count - 1) hud.scrub_selected = hud.scrub_count - 1;
+        if (ImGui::SliderInt("frame", &hud.scrub_selected, 0, hud.scrub_count - 1)) {
+            hud.scrub_seek_requested = true;   // jump to that recorded frame (and pause there)
+            hud.scrub_live = false;
+        }
+        char tbuf[48];
+        format_sim_time(hud.scrub_sel_time_s, tbuf, sizeof(tbuf));
+        ImGui::Text("%d frames recorded; selected t = %s", hud.scrub_count, tbuf);
+        if (!hud.scrub_live) {
+            ImGui::SameLine();
+            if (ImGui::SmallButton("go live")) hud.scrub_live = true;   // resume from here
+        }
+    }
+
     ImGui::End();
 }
 

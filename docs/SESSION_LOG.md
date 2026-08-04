@@ -6,6 +6,18 @@ Format: milestone · what landed · what is pending · open questions · gotchas
 
 ---
 
+## 2026-08-03 — M12d (Ship: the time scrubber) — GREEN · **rewind through the run**
+
+**Landed.** The scrubber rewinds a live run through a rolling ring of full-state snapshots. `snapshot_to_bytes`/`from_bytes` (M12a's ASPH, in memory) so recording a frame costs no disk; `snapshot_save`/`load` are now thin wrappers over them (test_snapshot T21.4 exercises the in-memory round trip -- same INV-8 fidelity). The app records a frame every 30 ticks during live play, bounded to 256 MB (oldest evicted), and **off under --benchmark** so M1.5's fps is unperturbed; the HUD **Timeline** slider rewinds into the ring. New ADR-038. M12 re-split M12d/e/f: scrubber, then the render remainder, then package.
+
+**Seeking re-applies the motion config** (snapshot_v1 doesn't carry it, ADR-036), refreshes the HUD stats so the clock shows the rewound frame at once (not a stale HUD-rate cache), and clears the cell pick. Verified: `--scrub-to N` (headless stand-in for the slider drag) rewinds bloom/taumoeba to frame 0 -- the HUD reads the rewound tick 50, the render is the past state, exit 0. Gate green M0..M12d, incl. M1.5 (fps) + M3.2 (goldens) untouched.
+
+**The render_view_v3 finding (for M12e).** The render remainder's `render_view_v3` bump (per-cell `temp_c` → pre-ignition Thermal-IR warm-up) **cascades into `scenario_v3`**: `scenario_v2.h` includes `render_view_v2.h`, and nothing may include two versions. That multi-contract change is exactly why the render remainder wants a fresh, focused session.
+
+**Pending / next.** M12e: the render remainder (the `render_view_v3`→`scenario_v3` cascade, bloom over Petrova, cross-fade, T-field false-colour, colourblind LUT). Then M12f: package + `v1.0`.
+
+---
+
 ## 2026-08-03 — M12c (Ship: the performance pass) — GREEN · **the tick loop allocates nothing, and it is at budget**
 
 **Landed.** `test_perf` (T28/T29), split out so the perf pass stands alone (M12 re-split M12c/d/e, Iron Rule 9). **T29** is load-bearing: zero device allocation in the steady-state tick loop. A world that divides AND compacts (the scan/gather paths most likely to sneak a per-tick `cudaMalloc`) is warmed up, then stepped 500 ticks; `cudaMemGetInfo` free comes back **delta 0 KB** even as the population churns 39664 -> 76185, so all scratch really is carved once at `world_create`. **T28**: 200k cells at **2.598 ms/tick**, right at the 2.7 ms budget (the ceiling is generous -- M1.5's fps target polices the real budget with the renderer in the loop). T27 (render frame budget) stays M1.5's `--benchmark`.

@@ -132,6 +132,22 @@ Append-only. Every contradiction in the source material and every non-obvious en
 
 ---
 
+## ADR-038 — The time scrubber: an in-memory snapshot ring, bounded, with motion re-applied on seek
+
+**Status:** accepted, 2026-08-03 (M12d).
+
+**Context.** M12a made the world serialisable; M12d lets the user rewind through a run. The scrubber records recent states and jumps back to any of them. Three things had to be settled.
+
+**In-memory snapshots, not files per frame.** `snapshot_save`/`load` went through the filesystem; recording a frame every fraction of a second that way would hammer the disk. `snapshot_to_bytes` / `snapshot_from_bytes` produce and consume the exact same ASPH bytes in a `std::vector<char>`, and `snapshot_save`/`load` become thin wrappers (write/read the buffer). `test_snapshot` (T21.4) exercises the in-memory round trip directly, so the scrubber's fidelity is the same INV-8 oracle the file path already passed.
+
+**A byte-bounded rolling ring, and recording is off under `--benchmark`.** The ring caps its *total* host bytes (256 MB), evicting oldest, so a 200k-cell run (a ~40 MB snapshot) cannot exhaust memory the way a fixed frame count would. A frame is recorded every `SCRUB_RECORD_INTERVAL` ticks during live play only -- and **never under `--benchmark`**, because the full-state D2H would stall the pipeline and perturb the fps that M1.5 gates on. The record is best-effort: a failed snapshot skips that frame, never the run.
+
+**Seeking re-applies the motion config.** `snapshot_from_bytes` world_creates a fresh world with DEFAULT motion (snapshot_v1 does not carry it, ADR-036), so a naive seek would silently drop the scenario's boundaries/compaction/stage-enables and the continuation would diverge. The app captures the run's `MotionConfig` at init and re-applies it after every seek; the clock rates come back from the header, and the interop buffer was sized for this run's capacity so it still fits. A seek also refreshes the HUD stats at once (so the clock shows the rewound frame, not a stale HUD-rate cache) and clears any cell pick (the slot referred to the old world).
+
+**Consequences / the gate.** `M12d.1`: the app records and rewinds the `bloom` scenario headless (`--scrub-to N`, a headless stand-in for the mouse-drag Timeline slider) with zero GL errors; `test_snapshot` T21.4 covers ring fidelity. Deferred: recording during a scrubbed-and-resumed branch overwrites the "future" frames rather than forking a timeline -- a linear rewind, which is what a scrubber is.
+
+---
+
 ## ADR-037 — Taumoeba rendering: appended instances, a view contract, and a marker bit
 
 **Status:** accepted, 2026-08-03 (M12b).

@@ -128,7 +128,7 @@ Error snapshot_state_hash(const World& w, uint64_t& hash_out) {
     return ok();
 }
 
-Error snapshot_save(const World& w, const char* path, const char* scenario_id) {
+Error snapshot_to_bytes(const World& w, const char* scenario_id, std::vector<char>& out) {
     std::vector<char> body;
     int32_t oc = 0;
     ASTRO_TRY(serialize_body(w, body, oc));
@@ -150,45 +150,38 @@ Error snapshot_save(const World& w, const char* path, const char* scenario_id) {
     h.override_count= oc;
     h.non_canon_run = w.non_canon_run ? 1u : 0u;
     if (scenario_id) std::strncpy(h.scenario_id, scenario_id, sizeof(h.scenario_id) - 1);
-    std::strncpy(h.build_describe, "dev", sizeof(h.build_describe) - 1);   // M12c injects the real one
+    std::strncpy(h.build_describe, "dev", sizeof(h.build_describe) - 1);   // M12e injects the real one
     h.state_hash    = contract::fnv1a64(body.data(), body.size());
 
+    out.resize(sizeof(h) + body.size());
+    std::memcpy(out.data(), &h, sizeof(h));
+    if (!body.empty()) std::memcpy(out.data() + sizeof(h), body.data(), body.size());
+    return ok();
+}
+
+Error snapshot_save(const World& w, const char* path, const char* scenario_id) {
+    std::vector<char> bytes;
+    ASTRO_TRY(snapshot_to_bytes(w, scenario_id, bytes));
     std::FILE* f = std::fopen(path, "wb");
     if (!f) return fail(Status::FileIoError, "snapshot: cannot open file for write");
-    const bool wrote = std::fwrite(&h, sizeof(h), 1, f) == 1 &&
-                       (body.empty() || std::fwrite(body.data(), 1, body.size(), f) == body.size());
+    const bool wrote = std::fwrite(bytes.data(), 1, bytes.size(), f) == bytes.size();
     std::fclose(f);
     return wrote ? ok() : fail(Status::FileIoError, "snapshot: write failed");
 }
 
-Error snapshot_load(const char* path, World& w) {
-    std::FILE* f = std::fopen(path, "rb");
-    if (!f) return fail(Status::FileIoError, "snapshot: cannot open file for read");
-
+Error snapshot_from_bytes(const char* data, size_t n, World& w) {
+    if (n < sizeof(SnapshotHeader)) return fail(Status::FileIoError, "snapshot: too small");
     SnapshotHeader h{};
-    if (std::fread(&h, sizeof(h), 1, f) != 1) {
-        std::fclose(f);
-        return fail(Status::FileIoError, "snapshot: header read failed");
-    }
-    if (h.magic != contract::SNAPSHOT_MAGIC) {
-        std::fclose(f);
+    std::memcpy(&h, data, sizeof(h));
+    if (h.magic != contract::SNAPSHOT_MAGIC)
         return fail(Status::InvalidArgument, "snapshot: bad magic");
-    }
-    if (h.version != contract::SNAPSHOT_CONTRACT_VERSION) {
-        std::fclose(f);
+    if (h.version != contract::SNAPSHOT_CONTRACT_VERSION)
         return fail(Status::ContractVersionMismatch, "snapshot: version mismatch");
-    }
 
-    std::vector<char> body;
-    {
-        char buf[65536];
-        size_t r = 0;
-        while ((r = std::fread(buf, 1, sizeof(buf), f)) > 0) body.insert(body.end(), buf, buf + r);
-    }
-    std::fclose(f);
-
-    // Integrity: the body must reproduce the header's state_hash, or the file is corrupt.
-    if (contract::fnv1a64(body.data(), body.size()) != h.state_hash)
+    const char* body_data = data + sizeof(h);
+    const size_t body_len = n - sizeof(h);
+    // Integrity: the body must reproduce the header's state_hash, or the buffer is corrupt.
+    if (contract::fnv1a64(body_data, body_len) != h.state_hash)
         return fail(Status::InvalidArgument, "snapshot: state_hash mismatch (corrupt)");
 
     // Create the world sized to the header. Motion config is NOT serialised (snapshot_v1) -- it
@@ -206,8 +199,8 @@ Error snapshot_load(const char* path, World& w) {
     if (h.n_temp != w.fields.temperature.n || h.n_co2 != w.fields.co2.n || h.n_n2 != w.fields.n2.n)
         return bail(Status::InvalidArgument, "snapshot: field resolution mismatch");
 
-    const char* cur = body.data();
-    const char* end = body.data() + body.size();
+    const char* cur = body_data;
+    const char* end = body_data + body_len;
 
     // Overrides come first in the body. Apply each to its World field (ADR-035); the header's
     // non_canon_run is restored below so a tuned run can never look canon after a round trip.
@@ -257,6 +250,17 @@ Error snapshot_load(const char* path, World& w) {
         w.taumoeba.next_id = mx + 1;
     }
     return ok();
+}
+
+Error snapshot_load(const char* path, World& w) {
+    std::FILE* f = std::fopen(path, "rb");
+    if (!f) return fail(Status::FileIoError, "snapshot: cannot open file for read");
+    std::vector<char> all;
+    char buf[65536];
+    size_t r = 0;
+    while ((r = std::fread(buf, 1, sizeof(buf), f)) > 0) all.insert(all.end(), buf, buf + r);
+    std::fclose(f);
+    return snapshot_from_bytes(all.data(), all.size(), w);
 }
 
 } // namespace astro::sim
