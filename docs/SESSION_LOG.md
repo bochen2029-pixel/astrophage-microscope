@@ -6,6 +6,30 @@ Format: milestone · what landed · what is pending · open questions · gotchas
 
 ---
 
+## 2026-08-05 — M12h (Ship: render remainder -- bloom over the Petrova emission) — GREEN · **the swirling pink points of light, done right**
+
+**Landed.** The redo of the reverted attempt below, done RIGHT: bloom from a SEPARATE emission buffer
+(ADR-044). When Petrovascope is active, after the main pass the Astrophage -- instances [0, cell_count),
+the Taumoeba EXCLUDED -- are re-drawn in Petrovascope into a private FBO (the renderer's first),
+mip-blurred (`glGenerateMipmap`), and composited additively. So it haloes the EMISSION and nothing else --
+no green predator wash -- and needs no bright-pass: the buffer is black but for the emission, so even a dim
+emitter glows. New `bloom.cpp` + `--no-bloom`. Default-on, Petrovascope-only.
+
+**Honest + safe.** A non-emitting Petrovascope is a black emission buffer -> bloom adds zero, so the
+m7b_petrova golden (an awake-but-non-emitting black frame) is unmoved; goldens also pin `--no-bloom`
+(ADR-023 precedent). Render-only, so determinism (M0.4) is untouched, and it is off the M1.5 benchmark
+path (Petrovascope-only). Verified by eye against the M13b light-leash (`--auto-light --awake`, stable at
+1000 cells): awake cells emit navigating the spot and bloom haloes them into the canon pink points.
+
+**Verified.** Gate M0..M12g + **M12h.1** green (an emitting Petrovascope blooms, differs from --no-bloom,
+GL-clean -- the FBO + second draw produce zero GL errors). Every measurement golden (M3.2) unmoved.
+
+**Pending / next.** M12i (real T-field false-colour behind Thermal IR -- needs a `field_pass`
+grid->texture->LUT pass built; DELIBERATELY moves the m7b_thermal goldens), then M12j (package -> v1.0).
+Render remainder is 3/4 done.
+
+---
+
 ## 2026-08-05 — M12h attempt (bloom over the Petrova emission) — REVERTED to m12g-green · **the crude bloom is a dead end**
 
 Attempted M12h = bloom as a no-FBO whole-backbuffer mip-bloom (`glCopyTexImage2D` + `glGenerateMipmap` +

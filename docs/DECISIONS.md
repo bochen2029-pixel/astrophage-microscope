@@ -132,6 +132,17 @@ Append-only. Every contradiction in the source material and every non-obvious en
 
 ---
 
+## ADR-044 — Bloom over the Petrova emission, from a separate emission buffer
+
+**Status:** accepted, 2026-08-05 (M12h).
+**Context.** RENDERING.md Sec 5 asks for bloom on the Petrovascope emission -- the swirling points of light gaining a soft halo. A first attempt bloomed the whole backbuffer and was reverted (looking at it killed it): it blooms ANY bright pixel, so it washed out the teal Taumoeba predators instead of the emission, and the Petrova emission renders too dim to survive a bright-pass. Both failures are one mistake -- blooming the composited frame instead of the emission.
+**Decision.** Render the emission to a SEPARATE buffer and bloom that. When Petrovascope is active, after the main pass the Astrophage -- instances [0, cell_count), the Taumoeba EXCLUDED -- are re-drawn in Petrovascope into a private colour FBO. That buffer is emission magenta on black; it is mip-blurred (`glGenerateMipmap`) and composited additively over the frame. NO bright-pass: the buffer is black everywhere but the emission, so all of it can bloom and even a dim emitter glows. Petrovascope-only and default-on; `--no-bloom` disables it.
+**Why the goldens do not move.** Bloom is an APPEARANCE feature (the ADR-023 class): a non-emitting Petrovascope yields a black emission buffer, so bloom adds exactly zero -- and the m7b_petrova golden is captured on an awake-but-non-emitting culture, a black frame. As belt-and-suspenders the golden captures pin `--no-bloom` in `goldens.ps1` (as they pin `--morphology sphere`). No golden regeneration.
+**Consequences.** A second instanced cell draw (Astrophage only) per Petrovascope frame, into the renderer's first FBO. It is not on the Brightfield benchmark path (M1.5), so the fps gate is unaffected. Verified against the M13b light-leash (`--auto-light --awake`, stable at 1000 cells): the awake culture emits navigating the spot, and bloom halos it into the canon swirling-pink-points look.
+**Escape hatch.** `--no-bloom`, and a future HUD toggle + intensity slider.
+
+---
+
 ## ADR-043 — render_view_v3: per-cell temp_c for the pre-ignition Thermal-IR warm-up
 
 **Status:** accepted, 2026-08-05 (M12g).

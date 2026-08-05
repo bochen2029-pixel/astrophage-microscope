@@ -425,24 +425,28 @@ ADR-043, in the same commit. High goldens risk (the GL layout), isolated here.
 **Gate.** M12f gate + `test_contracts` green at v3 + determinism (M0.4) unmoved (temp_c is render-only) +
 measurement goldens unmoved + a half-heated dormant patch shows the warm-up gradient.
 
-### M12h — Render remainder: real T-field false-colour behind Thermal IR
+### M12h — Render remainder: bloom over the Petrova emission
+
+**Scope.** Additive bloom over the Petrovascope emission (RENDERING.md Sec 5, ADR-044) from a SEPARATE
+emission buffer: when Petrovascope is active the Astrophage (instances [0, cell_count), Taumoeba EXCLUDED)
+are re-drawn in Petrovascope into a private FBO, mip-blurred, and composited additively over the frame --
+so it haloes the emission and nothing else, and even a dim emitter glows (no bright-pass; the buffer is
+black elsewhere). Petrovascope-only, default-on; `--no-bloom` disables it. Appearance feature (ADR-023
+class): a non-emitting Petrovascope is a black buffer -> no bloom -> the m7b_petrova golden is unmoved
+(goldens also pin `--no-bloom`).
+
+**Gate.** M12g gate + an emitting Petrovascope (the M13b light-leash, stable at 1000 cells) blooms
+(differs from `--no-bloom`) + zero GL errors + every golden (M3.2) unmoved.
+
+### M12i — Render remainder: real T-field false-colour behind Thermal IR
 
 **Scope.** Replace the flat `ThermalIR` clear colour with the diffused T-field (`RenderFrame.temperature`,
-already carried) sampled through a warm LUT via `field_pass`. Deliberately MOVES the `m7b_thermal_*`
-goldens (flat wash -> spatial field); regenerate via `tools/goldgen` + a `DECISIONS.md` line (Rule 10;
-ADR-044 or a clause in 043).
+already carried) sampled through a warm LUT. The grid->texture->LUT path (`field_pass.cpp`) does NOT exist
+yet and must be built (copy the fullscreen-pass idiom from `post_pass.cpp`, or the M12h emission FBO).
+Deliberately MOVES the `m7b_thermal_*` goldens (flat wash -> spatial field); regenerate via
+`scripts/goldens.ps1 -Generate` + a `DECISIONS.md` line (Rule 10). Closes the render remainder.
 
-**Gate.** M12g gate + regenerated thermal goldens (with the ADR) + a hot plume reads as a bright region.
-
-### M12i — Render remainder: bloom over the Petrova emission
-
-**Scope.** Build `bloom.cpp` (it does not exist despite the module docs): a bright-pass (threshold 0.6) +
-4-level down/up chain over the Petrova emission, additive, Petrovascope only, intensity tied to
-`emit_power` (RENDERING.md Sec 5). Perf-sensitive: bloom lands on top of the defocus fill-rate (Sec 7).
-Closes the render remainder.
-
-**Gate.** M12h gate + a bloomed Petrovascope frame differs from no-bloom + the fps target (M1.5) still met
-+ zero GL debug errors.
+**Gate.** M12h gate + regenerated thermal goldens (with the ADR) + a hot plume reads as a bright region.
 
 ### M12j — Package and v1.0
 

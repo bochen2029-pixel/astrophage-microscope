@@ -477,6 +477,28 @@ if ($n -eq 12 -and $suffix -ge 'g') {
     }
 }
 
+# ---------------------------- M12h: bloom over the Petrova emission
+# Bloom re-draws the Astrophage (NOT the Taumoeba) in Petrovascope into a private emission buffer and adds
+# its blurred glow back (ADR-044) -- so it blooms the emission and nothing else, and is a no-op with no
+# emission (the non-emitting m7b_petrova golden, M3.2 re-run above, is byte-identical; goldens also pin
+# --no-bloom). The gate drives an awake culture to EMIT (the M13b light-leash, stable at 1000 cells) and
+# requires bloom to halo it (differ from --no-bloom); a --gl-debug run (no --screenshot, which has a benign
+# glReadPixels warning) confirms the FBO pass is clean.
+if ($n -eq 12 -and $suffix -ge 'h') {
+    Gate 'M12h.1' 'bloom halos the Petrova emission (differs from --no-bloom), GL-clean' {
+        $exe = Find-Exe 'astrophage'; $diff = Find-Exe 'imgdiff'
+        if (-not $exe -or -not $diff) { return $false }
+        $g = & $exe --auto-light --awake --charge 0.5 --cells 1000 --mode petrovascope --headless --gl-debug --frames 30 --ticks-per-frame 50 2>&1 | Out-String
+        if ($g -match 'GL debug errors') { return $false }
+        $on = Join-Path $build 'm12h_bloom.ppm'; $off = Join-Path $build 'm12h_nobloom.ppm'
+        $common = @('--auto-light', '--awake', '--charge', '0.5', '--cells', '1000', '--mode', 'petrovascope', '--headless', '--no-ui', '--frames', '30', '--ticks-per-frame', '50')
+        & $exe @common --screenshot $on *>&1 | Out-Null
+        & $exe @common --no-bloom --screenshot $off *>&1 | Out-Null
+        & $diff $on $off *>&1 | Out-Null
+        return ($LASTEXITCODE -ne 0)   # nonzero = bloom haloed the emission
+    }
+}
+
 # ---------------------------- M12j: package and v1.0
 # Scoped to the M12 ship line only (not $n -gt 12): M13 is a parallel arc branched from
 # m12e-green before packaging is built, so an M13 gate must not require the unbuilt package.ps1.

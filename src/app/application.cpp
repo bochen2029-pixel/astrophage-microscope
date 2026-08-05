@@ -558,6 +558,7 @@ Error app_init(Application& a, const Options& o) {
     // holds cells AND the Taumoeba appended after them (M12b), hence the tau capacity too.
     ASTRO_TRY(render::cells_pass_create(a.cells_pass, capacity, interop_tau));
     ASTRO_TRY(render::post_pass_create(a.post_pass));
+    ASTRO_TRY(render::bloom_pass_create(a.bloom));
 
     // A scenario already spawned its populations and set its own clock + scope; a plain run
     // spawns a uniform population and takes the clock/mode from the flags. The demo's load_act
@@ -609,6 +610,7 @@ Error app_init(Application& a, const Options& o) {
 
 void app_shutdown(Application& a) {
     render::post_pass_destroy(a.post_pass);
+    render::bloom_pass_destroy(a.bloom);
     render::cells_pass_destroy(a.cells_pass);
     render::gl_context_destroy(a.gl);
     sim::world_destroy(a.world);
@@ -773,6 +775,13 @@ int app_run(Application& a) {
                                 draw_count, a.hud.mode, a.hud.channel,
                                 a.options.morphology, a.hud.colorblind,
                                 a.hud.mode_blend_to, a.hud.mode_blend);
+        // Bloom over the Petrova emission (M12h, ADR-044): Petrovascope only. Re-draws the Astrophage
+        // (not the Taumoeba) into a private emission buffer and adds its blurred glow back, so it blooms
+        // the emission and nothing else. A no-op with no emission -> the m7b_petrova golden is unmoved;
+        // --no-bloom disables it (the golden captures pin that).
+        if (!a.options.no_bloom && a.hud.mode == contract::ViewMode::Petrovascope)
+            render::bloom_pass_apply(a.bloom, a.cells_pass, a.camera, a.gl.fb_width, a.gl.fb_height,
+                                     a.world.cells.count, 2.0f);
         // The condenser affects the field as well as the cells, so it goes after
         // them. Applied to the ILLUMINATED modes -- Brightfield and Thermal IR (the
         // film's IR view is a lit circular field) -- but not the emission modes

@@ -80,7 +80,7 @@ Five modes, **cross-faded with a slider rather than hard-cut**, so the user can 
 
 All LUTs are 256-entry tables in `luts.cpp` uploaded as 1D textures. A global colourblind-safe toggle swaps `petrova-film` for `magma`.
 
-**Bloom applies to Petrova emission only** — a 4-level downsample/upsample chain, threshold 0.6, intensity tied to `emit_power`. This is what sells the swirling-pink-points-of-light look.
+**Bloom applies to Petrova emission only** — implemented at M12h (ADR-044): the Astrophage are re-drawn in Petrovascope into a SEPARATE emission buffer (Taumoeba excluded), mip-blurred, and added back additively, so only the emission haloes (not the predators, and not any bright non-emission pixel). Petrovascope-only and default-on (`--no-bloom` disables it, and goldens pin that). This is what sells the swirling-pink-points-of-light look.
 
 ---
 

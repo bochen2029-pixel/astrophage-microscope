@@ -68,6 +68,7 @@ struct Options {
     // measurement oracles pin morphology to Sphere and the aperture to 0.
     contract::Morphology morphology = contract::Morphology::Irregular;
     float    aperture   = 0.92f;     // field diaphragm radius; 0 = full rectangle
+    bool     no_bloom   = false;     // disable the Petrovascope emission bloom (M12h); goldens pin this
 
     // Initial view mode, and whether the population spawns awake -- both needed to
     // capture the non-brightfield modes headless (an awake idle cell glows in

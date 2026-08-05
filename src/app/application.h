@@ -7,6 +7,7 @@
 #include "app/cli.h"
 #include "core/params.h"
 #include "core/result.h"
+#include "render/bloom.h"
 #include "render/camera.h"
 #include "render/cells_pass.h"
 #include "render/gl_context.h"
@@ -24,6 +25,7 @@ struct Application {
     render::GlContext  gl;
     render::CellsPass  cells_pass;
     render::PostPass   post_pass;
+    render::BloomPass  bloom;
     render::Camera     camera;
     sim::World         world;
     ui::HudState       hud;

@@ -77,7 +77,7 @@ $cases = @(
 # above overrides this deliberately.
 $common = @('--headless','--no-ui','--cells','25000','--seed','20260802',
             '--frames','8','--ticks-per-frame','50','--width','1024','--height','768',
-            '--morphology','sphere','--aperture','0')
+            '--morphology','sphere','--aperture','0','--no-bloom')
 
 New-Item -ItemType Directory -Force $goldens | Out-Null
 $candDir = Join-Path $env:TEMP 'astro_goldens'
