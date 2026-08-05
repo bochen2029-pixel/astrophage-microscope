@@ -21,6 +21,8 @@ void print_usage() {
         "  --mode NAME        brightfield | darkfield | petrovascope | thermal | analysis\n"
         "  --awake            spawn the population awake (glows in Thermal IR)\n"
         "  --colorblind       colourblind-safe LUT (magma instead of petrova-film)\n"
+        "  --mode-blend-to N  cross-fade target mode (same names as --mode)\n"
+        "  --mode-blend T     cross-fade amount 0..1 (0 = --mode only)\n"
         "  --morphology M     sphere | irregular  (appearance only; goldens pin sphere)\n"
         "  --aperture F       field diaphragm radius, 0 = full rectangle\n"
         "  --ticks-per-frame N  fixed ticks per frame, ignoring wall clock;\n"
@@ -124,6 +126,21 @@ Options parse_args(int argc, char** argv) {
                 else if (std::strcmp(m, "analysis") == 0)     o.view_mode = contract::ViewMode::Analysis;
                 else                                          o.bad = true;
             }
+        }
+        else if (want("--mode-blend-to")) {
+            if (i + 1 >= argc) { o.bad = true; }
+            else {
+                const char* m = argv[++i];   // mirrors --mode's name mapping
+                if      (std::strcmp(m, "brightfield") == 0)  o.mode_blend_to = contract::ViewMode::Brightfield;
+                else if (std::strcmp(m, "darkfield") == 0)    o.mode_blend_to = contract::ViewMode::Darkfield;
+                else if (std::strcmp(m, "petrovascope") == 0) o.mode_blend_to = contract::ViewMode::Petrovascope;
+                else if (std::strcmp(m, "thermal") == 0)      o.mode_blend_to = contract::ViewMode::ThermalIR;
+                else if (std::strcmp(m, "analysis") == 0)     o.mode_blend_to = contract::ViewMode::Analysis;
+                else                                          o.bad = true;
+            }
+        }
+        else if (want("--mode-blend")) {
+            if (i + 1 >= argc) o.bad = true; else o.mode_blend = static_cast<float>(std::atof(argv[++i]));
         }
         else if (want("--awake"))      o.awake     = true;
         else if (want("--colorblind")) o.colorblind = true;

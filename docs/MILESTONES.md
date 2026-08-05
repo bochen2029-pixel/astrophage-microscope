@@ -397,22 +397,59 @@ scenario's `scope.mode` (consistent with `--objective`), so any scenario can be 
 LUT visibly changes Petrovascope (`imgdiff` of a lit scene with/without `--colorblind` must differ) +
 a screenshot of the tolerance-coloured swarm.
 
-### M12f — The render remainder
+**The render remainder splits into M12f..M12i (Iron Rule 9), packaging becomes M12j.** Full scope is
+~530-850 LOC + 3-4 goldens across three risk profiles (a GL-layout contract bump, a from-scratch
+post-process, two shader features), so each ships as its own gated, independently-green milestone. The
+kickoff plan with per-step manifests is `_run_state/M12F_PLAN.md`.
 
-**Scope.** The **`render_view_v3` → `scenario_v3` cascade** (per-cell `temp_c` for pre-ignition
-Thermal-IR warm-up; `scenario_v2.h` includes `render_view_v2.h`, so both bump together), plus bloom
-over the Petrova emission, the cross-fade slider (`ScopeState::mode_blend`), and the real T-field
-false-colour behind Thermal IR.
+### M12f — Render remainder: the view cross-fade
 
-**Gate.** M12e gate + a screenshot of each affordance + the goldens still match (the `render_view_v3`
-bump must not move a measurement golden).
+**Scope.** The cross-fade slider (`ScopeState::mode_blend`, already carried since render_view_v2, so no
+contract change): a mode's cell appearance and its background are each a function of `ViewMode`, evaluated
+for `mode` and `mode_blend_to` and dissolved between them, so the gap between what a human sees and what
+the cell is doing becomes legible (RENDERING.md Sec 4). Blending is premultiplied-alpha; at blend 0 the
+frame is bit-identical to the primary mode alone. A HUD "blend to" combo + slider drive it;
+`--mode-blend-to`/`--mode-blend` capture it headless. This also factors the per-mode shader branch into an
+`appearance()` seam that M12g/M12h reuse.
 
-### M12g — Package and v1.0
+**Gate.** M12e gate + a blended frame differs from BOTH endpoints (`imgdiff`, the M12e.2 must-differ
+idiom) + every measurement golden unmoved (blend defaults to 0).
+
+### M12g — Render remainder: the render_view_v3 -> scenario_v3 cascade + pre-ignition warm-up
+
+**Scope.** Add per-cell `temp_c` to `CellInstance` (36 -> 40 bytes) for the continuous Thermal-IR warm-up
+of a heated-but-dormant cell (P3 made visible). `scenario_v2.h` includes `render_view_v2.h`, so both bump
+to v3 together; the interop kernel samples the T grid to fill `temp_c` (no `sim/`/`cell_store` change).
+ADR-043, in the same commit. High goldens risk (the GL layout), isolated here.
+
+**Gate.** M12f gate + `test_contracts` green at v3 + determinism (M0.4) unmoved (temp_c is render-only) +
+measurement goldens unmoved + a half-heated dormant patch shows the warm-up gradient.
+
+### M12h — Render remainder: real T-field false-colour behind Thermal IR
+
+**Scope.** Replace the flat `ThermalIR` clear colour with the diffused T-field (`RenderFrame.temperature`,
+already carried) sampled through a warm LUT via `field_pass`. Deliberately MOVES the `m7b_thermal_*`
+goldens (flat wash -> spatial field); regenerate via `tools/goldgen` + a `DECISIONS.md` line (Rule 10;
+ADR-044 or a clause in 043).
+
+**Gate.** M12g gate + regenerated thermal goldens (with the ADR) + a hot plume reads as a bright region.
+
+### M12i — Render remainder: bloom over the Petrova emission
+
+**Scope.** Build `bloom.cpp` (it does not exist despite the module docs): a bright-pass (threshold 0.6) +
+4-level down/up chain over the Petrova emission, additive, Petrovascope only, intensity tied to
+`emit_power` (RENDERING.md Sec 5). Perf-sensitive: bloom lands on top of the defocus fill-rate (Sec 7).
+Closes the render remainder.
+
+**Gate.** M12h gate + a bloomed Petrovascope frame differs from no-bloom + the fps target (M1.5) still met
++ zero GL debug errors.
+
+### M12j — Package and v1.0
 
 **Scope.** `scripts/package.ps1`: a static-runtime `.zip` that runs on a scrubbed-PATH clean machine,
 the user guide, `README.md` finalisation, and CSV `git_describe` injection.
 
-**Gate.** M12f gate + the packaged `.zip` runs on a scrubbed-PATH clean environment. Tag `v1.0`.
+**Gate.** M12i gate + the packaged `.zip` runs on a scrubbed-PATH clean environment. Tag `v1.0`.
 
 ---
 

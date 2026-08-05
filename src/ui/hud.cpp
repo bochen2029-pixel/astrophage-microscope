@@ -137,6 +137,15 @@ void hud_draw(HudState& hud, const Stats& stats, render::Camera& cam,
     int mode = static_cast<int>(hud.mode);
     if (ImGui::Combo("mode", &mode, kModeNames, IM_ARRAYSIZE(kModeNames)))
         hud.mode = static_cast<ViewMode>(mode);
+    // Cross-fade to a second mode (M12f). Astrophage is black in visible light and emits
+    // where no eye can see, so dissolving Brightfield -> Thermal -> Petrovascope is how the
+    // gap between what a human sees and what the cell is doing becomes legible.
+    int blend_to = static_cast<int>(hud.mode_blend_to);
+    if (ImGui::Combo("blend to", &blend_to, kModeNames, IM_ARRAYSIZE(kModeNames)))
+        hud.mode_blend_to = static_cast<ViewMode>(blend_to);
+    ImGui::SliderFloat("blend", &hud.mode_blend, 0.0f, 1.0f, "%.2f");
+    if (hud.mode_blend > 0.0f)
+        ImGui::TextDisabled("(cross-fading %s -> %s)", kModeNames[mode], kModeNames[blend_to]);
     // Astrophage is black in visible light and emits where no eye can see, so the
     // IR modes are dark until something makes a cell glow -- say so, or an empty
     // Petrovascope reads as a broken screen rather than as "nothing is emitting".

@@ -182,6 +182,8 @@ flat in uint v_seed;
 uniform int u_mode;       // contract::ViewMode
 uniform int u_channel;    // contract::AnalysisChannel
 uniform int u_colorblind; // ScopeState::colorblind_safe -- swaps the petrova-film LUT for magma
+uniform int u_mode_blend_to; // cross-fade target mode (M12f)
+uniform float u_blend;       // 0 = u_mode, 1 = u_mode_blend_to
 
 out vec4 frag;
 
@@ -214,6 +216,55 @@ vec3 petrova(float t) {
     vec3 c2 = vec3(1.000, 0.176, 0.584);
     if (t < 0.5) return mix(c0, c1, t / 0.5);
     return mix(c1, c2, (t - 0.5) / 0.5);
+}
+
+// M12f: one mode's cell appearance as a function of the shared optics terms. This is
+// the per-mode if/else that used to live inline in main -- factored out UNCHANGED so
+// the cross-fade can evaluate two modes and dissolve between them, and so u_blend == 0
+// reproduces the old output bit-for-bit. RENDERING.md Sec 4; docs/PHYSICS.md Sec 10.
+vec4 appearance(int mode, float contrast, float cov_a, float band, bool alive, bool awake) {
+    vec3 color;
+    float alpha;
+    if (mode == 0) {
+        // Brightfield: live Astrophage opaque black, dead cells translucent; the
+        // negative-contrast case is the bright halo just outside the edge.
+        if (contrast >= 0.0) {
+            color = alive ? vec3(0.02) : vec3(0.55);
+            alpha = contrast * (alive ? 1.0 : 0.35);
+        } else {
+            color = vec3(1.0);
+            alpha = -contrast;
+        }
+    } else if (mode == 1) {
+        // Darkfield: a bright edge shell on black, reinforced by the Becke band.
+        float shell = cov_a * (1.0 - cov_a) * 4.0;
+        float rim = max(shell, band);
+        color = alive ? vec3(0.75, 0.86, 1.0) : vec3(0.50, 0.55, 0.60);
+        alpha = rim * (alive ? 1.0 : 0.6);
+    } else if (mode == 2) {
+        // Petrovascope: the 25.984 um line only; a non-emitting cell is invisible.
+        float e = alive ? v_emit : 0.0;
+        color = (u_colorblind != 0) ? ramp(0.35 + 0.65 * e) : petrova(0.35 + 0.65 * e);
+        alpha = cov_a * e;
+    } else if (mode == 3) {
+        // Thermal IR (film grade): albedo-0 cells are black absorbers; an AWAKE cell
+        // is a heat source and takes a hot rim (the latch, ADR-003). The T-field
+        // false-colour behind it and per-cell pre-ignition warmth are M12h/M12g.
+        float hot = (alive && awake) ? 1.0 : 0.0;
+        if (contrast >= 0.0) {
+            color = mix(vec3(0.02), vec3(1.0, 0.80, 0.45), clamp(band * hot * 2.0, 0.0, 1.0));
+            alpha = max(cov_a, band * hot);
+        } else {
+            color = vec3(1.0, 0.85, 0.60);
+            alpha = -contrast;
+        }
+    } else {
+        // Analysis: flat discs coloured by the selected channel.
+        float t = (u_channel == 0) ? v_charge : v_emit;
+        color = alive ? ramp(t) : vec3(0.25);
+        alpha = cov_a * (alive ? 1.0 : 0.5);
+    }
+    return vec4(color, alpha);
 }
 
 void main() {
@@ -274,62 +325,18 @@ void main() {
         return;
     }
 
-    vec3 color;
-    float alpha;
-    if (u_mode == 0) {
-        // Brightfield. Live Astrophage is opaque black at every wavelength;
-        // dead cells go translucent (docs/PHYSICS.md Sec 10).
-        if (contrast >= 0.0) {
-            color = alive ? vec3(0.02) : vec3(0.55);
-            alpha = contrast * (alive ? 1.0 : 0.35);
-        } else {
-            color = vec3(1.0);            // lighter than the field: the halo
-            alpha = -contrast;
-        }
-    } else if (u_mode == 1) {
-        // Darkfield: light scatters at the cell's edge, so the rim is bright on a
-        // black field and the centre stays dark. The coverage falloff peaks a thin
-        // shell at the edge; the Becke band reinforces it in focus.
-        float shell = cov_a * (1.0 - cov_a) * 4.0;
-        float rim = max(shell, band);
-        color = alive ? vec3(0.75, 0.86, 1.0) : vec3(0.50, 0.55, 0.60);
-        alpha = rim * (alive ? 1.0 : 0.6);
-    } else if (u_mode == 2) {
-        // Petrovascope: the 25.984 um annihilation line only. A cell glows by how
-        // hard it emits; one that is NOT emitting is invisible -- the canon
-        // instrument. Dead cells never emit. (Bloom over this is deferred.)
-        float e = alive ? v_emit : 0.0;
-        // Colourblind-safe: the petrova-film plum->pink LUT reads poorly under deuteranopia, so
-        // swap in the perceptually-uniform magma ramp (RENDERING.md Sec 5, ScopeState.colorblind_safe).
-        color = (u_colorblind != 0) ? ramp(0.35 + 0.65 * e) : petrova(0.35 + 0.65 * e);
-        alpha = cov_a * e;
-    } else if (u_mode == 3) {
-        // Thermal IR, film grade (2026 film reference). Astrophage absorbs at EVERY
-        // wavelength (albedo 0, "super cross-sectionality"), so under IR it is a
-        // BLACK silhouette on the warm false-coloured medium -- the film's look, not
-        // a glowing thermogram. It is still the emission modes' opposite of the
-        // Petrovascope: a cell that is idle-but-warm is a dark absorber here and
-        // simply invisible there. An AWAKE cell holds its surface at the 369.565 K
-        // setpoint (the latch, ADR-003) and is a heat SOURCE, so it takes a hot rim;
-        // a dormant or dead cell is just black. The true medium false-colour is the
-        // T-field pass (deferred); the warm clear colour stands in for it, and
-        // per-cell warmth of a heated-but-dormant cell needs render_view_v3.
-        float hot = (alive && awake) ? 1.0 : 0.0;
-        if (contrast >= 0.0) {
-            color = mix(vec3(0.02), vec3(1.0, 0.80, 0.45), clamp(band * hot * 2.0, 0.0, 1.0));
-            alpha = max(cov_a, band * hot);
-        } else {
-            color = vec3(1.0, 0.85, 0.60);   // warm halo just outside the edge
-            alpha = -contrast;
-        }
-    } else {
-        // Analysis: flat discs coloured by the selected channel.
-        float t = (u_channel == 0) ? v_charge : v_emit;
-        color = alive ? ramp(t) : vec3(0.25);
-        alpha = cov_a * (alive ? 1.0 : 0.5);
-    }
-
-    alpha *= v_alpha_scale;
+    // M12f: the cross-fade. A mode's cell appearance is a function of the shared optics
+    // terms, so it is evaluated for the primary mode AND the blend target and dissolved
+    // between them. Blending in PREMULTIPLIED alpha is load-bearing: a cell invisible in
+    // one mode (Petrovascope at emit 0) must add no colour to the mix, only its zero
+    // coverage. At u_blend == 0, a1 == a0 and this reduces to the primary mode exactly --
+    // every measurement golden is captured at blend 0, so none can move.
+    vec4 a0 = appearance(u_mode, contrast, cov_a, band, alive, awake);
+    vec4 a1 = (u_blend > 0.0) ? appearance(u_mode_blend_to, contrast, cov_a, band, alive, awake) : a0;
+    float apre = mix(a0.a, a1.a, u_blend);
+    vec3  pm   = mix(a0.rgb * a0.a, a1.rgb * a1.a, u_blend);
+    vec3  color = (apre > 0.0) ? pm / apre : vec3(0.0);
+    float alpha = apre * v_alpha_scale;
     if (alpha <= 0.002) discard;          // a heavily defocused cell is a whisper
     frag = vec4(color, clamp(alpha, 0.0, 1.0));
 }
@@ -351,6 +358,19 @@ unsigned int compile(unsigned int type, const char* const* srcs, int n, const ch
         return 0;
     }
     return s;
+}
+
+// The mode's flat background clear colour. Extracted so the cross-fade can lerp between
+// two modes' backgrounds (M12f); at blend 0 it is exactly the old per-mode clear, so the
+// goldens are unmoved.
+void mode_clear_color(ViewMode mode, float rgb[3]) {
+    switch (mode) {
+        case ViewMode::Brightfield:  rgb[0] = 0.961f; rgb[1] = 0.941f; rgb[2] = 0.902f; break;
+        case ViewMode::Darkfield:    rgb[0] = 0.020f; rgb[1] = 0.020f; rgb[2] = 0.030f; break;
+        case ViewMode::Petrovascope: rgb[0] = 0.000f; rgb[1] = 0.000f; rgb[2] = 0.000f; break;
+        case ViewMode::ThermalIR:    rgb[0] = 0.502f; rgb[1] = 0.106f; rgb[2] = 0.180f; break;
+        default:                     rgb[0] = 0.055f; rgb[1] = 0.055f; rgb[2] = 0.070f; break;
+    }
 }
 
 } // namespace
@@ -390,6 +410,8 @@ Error cells_pass_create(CellsPass& p, int32_t cell_capacity, int32_t tau_capacit
     p.u_immersion      = glGetUniformLocation(p.program, "u_immersion");
     p.u_morphology     = glGetUniformLocation(p.program, "u_morphology");
     p.u_colorblind     = glGetUniformLocation(p.program, "u_colorblind");
+    p.u_mode_blend_to  = glGetUniformLocation(p.program, "u_mode_blend_to");
+    p.u_blend          = glGetUniformLocation(p.program, "u_blend");
 
     glGenVertexArrays(1, &p.vao);
     glGenBuffers(1, &p.instance_vbo);
@@ -431,18 +453,19 @@ void cells_pass_destroy(CellsPass& p) {
 
 void cells_pass_draw(const CellsPass& p, const Camera& cam, int fb_w, int fb_h,
                      int32_t count, ViewMode mode, AnalysisChannel channel,
-                     contract::Morphology morphology, bool colorblind) {
-    // The background is part of the mode: brightfield is lamp-white, the IR modes
-    // are near-black so a faint glow reads, and Analysis is a neutral dark grey.
-    switch (mode) {
-        case ViewMode::Brightfield:  glClearColor(0.961f, 0.941f, 0.902f, 1.0f); break;
-        case ViewMode::Darkfield:    glClearColor(0.020f, 0.020f, 0.030f, 1.0f); break;
-        case ViewMode::Petrovascope: glClearColor(0.000f, 0.000f, 0.000f, 1.0f); break;
-        // Warm false-colour medium: the 2026 film's pink/red IR grade, against which
-        // the albedo-0 cells read as black silhouettes.
-        case ViewMode::ThermalIR:    glClearColor(0.502f, 0.106f, 0.180f, 1.0f); break;
-        default:                     glClearColor(0.055f, 0.055f, 0.070f, 1.0f); break;
-    }
+                     contract::Morphology morphology, bool colorblind,
+                     ViewMode mode_blend_to, float mode_blend) {
+    // The background is part of the mode: brightfield is lamp-white, the IR modes are
+    // near-black so a faint glow reads, and Analysis is a neutral dark grey. The
+    // cross-fade lerps between the primary and target mode backgrounds (M12f); at
+    // mode_blend 0 this is exactly the primary mode's clear colour, so goldens are unmoved.
+    float bg0[3], bg1[3];
+    mode_clear_color(mode, bg0);
+    mode_clear_color(mode_blend_to, bg1);
+    const float tb = mode_blend;
+    glClearColor(bg0[0] + (bg1[0] - bg0[0]) * tb,
+                 bg0[1] + (bg1[1] - bg0[1]) * tb,
+                 bg0[2] + (bg1[2] - bg0[2]) * tb, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
     if (count <= 0) return;
 
@@ -466,6 +489,8 @@ void cells_pass_draw(const CellsPass& p, const Camera& cam, int fb_w, int fb_h,
     glUniform1f(p.u_immersion, static_cast<float>(obj.immersion));
     glUniform1i(p.u_morphology, static_cast<int>(morphology));
     glUniform1i(p.u_colorblind, colorblind ? 1 : 0);
+    glUniform1i(p.u_mode_blend_to, static_cast<int>(mode_blend_to));
+    glUniform1f(p.u_blend, mode_blend);
 
     glBindVertexArray(p.vao);
     glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, count);

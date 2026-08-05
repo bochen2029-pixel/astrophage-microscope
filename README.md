@@ -7,7 +7,7 @@ A sealed 4 mm chamber of water. Cells 10 μm across, black at every wavelength, 
 Deliberately **not** the interstellar scale — no ships, no Petrova arc, no Tau Ceti. Just what you would see down the eyepiece.
 
 ```
-Status:  M12e green · M14b demo  ·  C++20 + CUDA 13.1  ·  sm_89  ·  Windows 11
+Status:  M12f green · M14b demo  ·  C++20 + CUDA 13.1  ·  sm_89  ·  Windows 11
          All five signature phenomena, predation and the Taumoeba-82.5
          evolution arc, and eight self-verifying scenarios are live. The
          culture is now mouse-interactive — heat the slide to ignite it,
@@ -207,8 +207,11 @@ Without `-App`, the core library and the full test suite build with **no network
 | M12c | Ship: performance pass — zero steady-state allocation + throughput (T28/T29) | ✅ `m12c-green` |
 | M12d | Ship: time scrubber — rewind a run through an in-memory snapshot ring | ✅ `m12d-green` |
 | M12e | Ship: render legibility — Taumoeba tolerance colour + colourblind LUT | ✅ `m12e-green` |
-| M12f | Ship: render remainder (`render_view_v3`, bloom, cross-fade, T-field) | ☐ |
-| M12g | Ship: packaging (clean-machine `.zip`), user guide, `v1.0` | ☐ |
+| M12f | Ship: render remainder — the view cross-fade slider | ✅ `m12f-green` |
+| M12g | Ship: render remainder — `render_view_v3` + pre-ignition Thermal-IR warm-up | ☐ |
+| M12h | Ship: render remainder — real T-field false-colour behind Thermal IR | ☐ |
+| M12i | Ship: render remainder — bloom over the Petrova emission | ☐ |
+| M12j | Ship: packaging (clean-machine `.zip`), user guide, `v1.0` | ☐ |
 | M13a | Interaction: field-brush toolset — poke the culture to ignite (heat/chill/CO₂/N₂) | ✅ `m13a-green` |
 | M13b | Interaction: the light-leash + optical tweezers — herd the culture, tow a cell | ✅ `m13b-green` |
 | M14a | Demo mode: the living-screensaver act engine + `--demo` loop | ✅ `m14a-green` |

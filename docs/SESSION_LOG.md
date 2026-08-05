@@ -6,6 +6,32 @@ Format: milestone · what landed · what is pending · open questions · gotchas
 
 ---
 
+## 2026-08-05 — M12f (Ship: render remainder -- the view cross-fade) — GREEN · **modes dissolve, not hard-cut**
+
+**Landed.** The first of the four render-remainder steps (split M12f..M12i; kickoff in
+`_run_state/M12F_PLAN.md`). The **cross-fade slider**: each mode's cell appearance and its background is a
+function of `ViewMode`, so the fragment shader evaluates it for `mode` AND `mode_blend_to` and dissolves
+between them. A HUD "blend to" combo + slider drive it; `--mode-blend-to` / `--mode-blend` capture it
+headless. `ScopeState::mode_blend` was already carried (render_view_v2) -- **no contract change**. Also
+factors the per-mode if/else into an `appearance()` seam M12g/M12h reuse.
+
+**Honest + safe.** Blending is **premultiplied alpha**, so a cell invisible in one mode (Petrovascope at
+emit 0) adds no colour to the mix, only its zero coverage. At blend 0 the frame is bit-identical to the
+primary mode -- goldens (M3.2) unmoved, determinism (M0.4) unmoved (render-only). Verified by eye: a
+Petrovascope->Brightfield 0.5 blend is a grey field with half-strength silhouettes, P5 still passing.
+
+**Split + renumber.** M12f (the whole render remainder) split into M12f (cross-fade) / M12g
+(render_view_v3 + temp_c) / M12h (T-field false-colour) / M12i (bloom); packaging moved **M12g -> M12j**
+(gate.ps1 takes one trailing letter). MILESTONES/README/RENDERING/MODULE reconciled in the same commit.
+
+**Verified.** Gate M0..M12e + **M12f.1** green: a blended frame differs from both endpoints (imgdiff),
+every measurement golden unmoved. M13a+b + M14a+b were pushed this session; **M12f is unpushed**.
+
+**Pending / next.** M12g -- the `render_view_v3 -> scenario_v3` cascade + pre-ignition `temp_c` warm-up
+(ADR-043), the highest-structural-risk step -- then M12h, M12i, M12j -> `v1.0`.
+
+---
+
 ## 2026-08-04 — M14b (Presentation: the demo comes alive) — GREEN · **captions, drift, an idle yield, the light-leash on autopilot**
 
 **Landed.** Four render-independent additions that finish the M14a screensaver. (1) A **caption overlay**

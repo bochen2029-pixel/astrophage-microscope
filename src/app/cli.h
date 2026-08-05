@@ -76,6 +76,10 @@ struct Options {
     bool     view_mode_set = false;  // was --mode given (so it overrides a scenario's scope.mode)
     bool     awake      = false;
     bool     colorblind = false;     // colourblind-safe LUT (M12e); also a HUD toggle
+    // Cross-fade (M12f), so a blended frame is capturable headless for the gate. mode_blend 0
+    // renders `view_mode` alone (every golden is at 0); mode_blend_to defaults to Brightfield.
+    contract::ViewMode mode_blend_to = contract::ViewMode::Brightfield;
+    float    mode_blend = 0.0f;
 
     bool     help       = false;
     bool     bad        = false;

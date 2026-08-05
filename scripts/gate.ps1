@@ -433,11 +433,33 @@ if (($n -gt 14) -or ($n -eq 14 -and $suffix -ge 'b')) {
     }
 }
 
-# ---------------------------- M12g: package and v1.0
+# ---------------------------- M12f: the view cross-fade
+# Scoped to the M12 ship line only (not $n -gt 12): M13/M14 branched from m12e-green before the render
+# remainder, so their gates must not require it. The cross-fade dissolves between two view modes; a
+# blended frame must differ from BOTH endpoints (the M12e.2 must-differ idiom). Default blend 0 renders
+# the primary mode bit-for-bit, so the M3.2 measurement goldens above are unmoved.
+if ($n -eq 12 -and $suffix -ge 'f') {
+    Gate 'M12f.1' 'the cross-fade blends between two modes (differs from both endpoints)' {
+        $exe = Find-Exe 'astrophage'; $diff = Find-Exe 'imgdiff'
+        if (-not $exe -or -not $diff) { return $false }
+        $a = Join-Path $build 'm12f_petro.ppm'
+        $b = Join-Path $build 'm12f_blend.ppm'
+        $c = Join-Path $build 'm12f_bright.ppm'
+        $common = @('--scenario', 'shadow-garden', '--headless', '--frames', '12', '--ticks-per-frame', '20')
+        & $exe @common --mode petrovascope --screenshot $a *>&1 | Out-Null
+        & $exe @common --mode petrovascope --mode-blend-to brightfield --mode-blend 0.5 --screenshot $b *>&1 | Out-Null
+        & $exe @common --mode brightfield --screenshot $c *>&1 | Out-Null
+        & $diff $a $b *>&1 | Out-Null; $ab = ($LASTEXITCODE -ne 0)
+        & $diff $c $b *>&1 | Out-Null; $cb = ($LASTEXITCODE -ne 0)
+        return ($ab -and $cb)   # the blend must differ from both endpoints
+    }
+}
+
+# ---------------------------- M12j: package and v1.0
 # Scoped to the M12 ship line only (not $n -gt 12): M13 is a parallel arc branched from
 # m12e-green before packaging is built, so an M13 gate must not require the unbuilt package.ps1.
-if ($n -eq 12 -and $suffix -ge 'g') {
-    Gate 'M12g.1' 'clean-environment package' {
+if ($n -eq 12 -and $suffix -ge 'j') {
+    Gate 'M12j.1' 'clean-environment package' {
         & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'scripts\package.ps1') -Verify *>&1 | Out-Null
         return ($LASTEXITCODE -eq 0)
     }

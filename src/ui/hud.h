@@ -24,6 +24,10 @@ struct HudState {
     contract::ViewMode        mode    = contract::ViewMode::Brightfield;
     contract::AnalysisChannel channel = contract::AnalysisChannel::Charge;
     bool colorblind = false;   // swap the petrova-film LUT for magma (M12e)
+    // Cross-fade (M12f): dissolve the view toward mode_blend_to. 0 = mode only, so an
+    // untouched run renders exactly as before (every golden is captured at blend 0).
+    contract::ViewMode        mode_blend_to = contract::ViewMode::Brightfield;
+    float                     mode_blend    = 0.0f;
 
     // Interactive tools (M13a). The active tool, the brush geometry, and the pending poke the
     // input handler sets from the cursor -- applied at a tick boundary by the app, because
