@@ -54,6 +54,9 @@ of scenario "acts" (`DEMO_PLAYLIST`) cycled with camera + view-mode choreography
 Each act rebuilds the world (`load_act` = `world_destroy` + `scenario_instantiate`, the respawn/scrub
 teardown); the one interop VBO is pre-sized in `app_init` to the playlist's max capacity
 (`sim::scenario_capacities`) so every act fits. Default-off, so a normal run is byte-for-byte M13b.
+M14b adds a caption overlay, camera drift (not just zoom), an idle-yield (input holds the current act,
+quiet resumes cycling), and a **Herding** act (`demo-herd.json`) that steers a moving light spot via the
+HUD light state so `apply_light` runs the M13b light-leash on autopilot — awake cells chase it.
 
 Notes for whoever extends this:
 

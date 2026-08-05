@@ -414,6 +414,25 @@ if (($n -gt 14) -or ($n -eq 14 -and $suffix -ge 'a')) {
     }
 }
 
+# ---------------------------- M14b: the demo comes alive (herd act, caption, idle-yield, drift)
+# Adds a sixth act -- the light-leash herding cells on a loop (demo-herd.json) -- plus a caption
+# overlay, camera drift, and idle-aware auto-advance. The gate confirms the full six-act cycle headless
+# (the always-idle path); the caption and the herd are eyeballed by screenshot, input-pause is a HUD
+# toggle. Default-off still, so determinism (M0.4) + goldens (M3.2) above are unmoved.
+if (($n -gt 14) -or ($n -eq 14 -and $suffix -ge 'b')) {
+    Gate 'M14b.1' 'the demo cycles all six acts incl. the herd act headless' {
+        $exe = Find-Exe 'astrophage'
+        if (-not $exe) { return $false }
+        # 70 frames x 500 ticks = 35000 ticks, more than one full loop of the ~30500-tick playlist.
+        $out = & $exe --demo --headless --gl-debug --frames 70 --ticks-per-frame 500 2>&1 | Out-String
+        if ($out -match 'GL debug errors') { return $false }
+        foreach ($act in @('first-light', 'three-percent-line', 'bloom', 'taumoeba', 'shadow-garden', 'demo-herd')) {
+            if ($out -notmatch "\[demo\] act.*$act") { return $false }
+        }
+        return $true
+    }
+}
+
 # ---------------------------- M12g: package and v1.0
 # Scoped to the M12 ship line only (not $n -gt 12): M13 is a parallel arc branched from
 # m12e-green before packaging is built, so an M13 gate must not require the unbuilt package.ps1.

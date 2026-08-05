@@ -479,12 +479,28 @@ camera keyframes are deterministic for a fixed seed+timeline even though the liv
 **Gate.** `--demo` advances through the full playlist headless with zero GL errors and a screenshot
 per act; determinism (M0.4) + goldens (M3.2) unmoved (demo mode is default-off).
 
-### M14b — View choreography + idle-trigger screensaver
+### M14b — The demo comes alive: captions, camera drift, an idle yield, and the light-leash act
 
-**Scope.** Per-act view-mode cross-fades (Brightfield → Thermal IR → Petrovascope → Analysis,
-reusing the `render_view_v2` `mode_blend`) timed to what each act shows best, and a true
-screensaver trigger: start the demo after N seconds of no input, exit on any input. A gentle
-title/caption per act ("Ignition", "The 3% line", "Selection").
+**Scope.** Four render-independent additions that make the M14a demo read as a finished screensaver.
+(1) A **caption overlay** per act — a gentle fade-in title ("Ignition", "The 3% line", "Selection")
+drawn like the scale bar. (2) The scope **drifts** (a slow pan) as well as zooms across each act. (3)
+**Idle-aware auto-advance:** user input pauses cycling (hold the current act to look or interact with
+the tools); after N seconds idle it resumes — a screensaver that yields to the mouse. (4) A new
+**"Herding" act:** awake cells (a thermal-off sandbox, `demo-herd.json`) chase a moving spotlight —
+the M13b light-leash on autopilot (P4), reusing `apply_light`. Cross-fades stay out (they need the
+M12f render `mode_blend`, unbuilt); see M14c.
 
-**Gate.** The idle trigger arms and disarms headless (simulated idle), a cross-fade renders clean,
+**Gate.** `--demo` cycles the full playlist including the herd act headless — the always-idle
+auto-advance path — with zero GL errors; a screenshot shows an act caption and the herd. Input-pause
+is a HUD toggle, verified interactively (a headless run has no input to pause it).
+
+### M14c — Cross-fades and the cold-start screensaver trigger (optional)
+
+**Scope.** Per-act view-mode **cross-fades** (Brightfield → Thermal IR → Petrovascope → Analysis),
+which need the `render_view_v2` `mode_blend` wired through the cells shader — that render work lives in
+the **M12f** remainder, so M14c waits on it. And a **true cold-start trigger:** from a normal session,
+start the demo after N seconds of no input and restore the prior view on any input — which needs the
+interop sized for the playlist up front and the pre-demo world restored, i.e. runtime enable/disable.
+
+**Gate.** A cross-fade renders clean; the cold-start trigger arms after idle and restores on input,
 zero GL errors.

@@ -122,4 +122,9 @@ void draw_cursor_ring(const render::Camera& cam, int active_tool, float brush_ra
 // is. Drawn inline in the scope panel, under the focal-plane slider.
 void draw_focus_gauge(const render::Camera& cam, double chamber_d);
 
+// The demo act caption (M14b): a large fade-in title near the top, over the chamber, drawn on the
+// foreground list like the scale bar. `alpha` in [0,1] fades it in at the act's start and out at its
+// end. A no-op at alpha <= 0 or a null caption.
+void draw_demo_caption(const char* caption, float alpha);
+
 } // namespace astro::ui

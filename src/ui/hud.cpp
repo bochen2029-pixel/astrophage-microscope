@@ -332,4 +332,20 @@ void draw_cursor_ring(const render::Camera& cam, int active_tool, float brush_ra
     dl->AddLine(ImVec2(p.x, p.y - 5), ImVec2(p.x, p.y + 5), col, 1.5f);
 }
 
+void draw_demo_caption(const char* caption, float alpha) {
+    if (!caption || alpha <= 0.0f) return;
+    if (alpha > 1.0f) alpha = 1.0f;
+    const ImGuiIO& io = ImGui::GetIO();
+    ImDrawList* dl = ImGui::GetForegroundDrawList();
+    ImFont* font = ImGui::GetFont();
+    const float size = 34.0f;
+    const ImVec2 ts = font->CalcTextSizeA(size, 10000.0f, 0.0f, caption);
+    const float x = (io.DisplaySize.x - ts.x) * 0.5f;
+    const float y = io.DisplaySize.y * 0.08f;
+    const ImU32 shadow = IM_COL32(0, 0, 0, static_cast<int>(180.0f * alpha));
+    const ImU32 ink    = IM_COL32(240, 245, 255, static_cast<int>(235.0f * alpha));
+    dl->AddText(font, size, ImVec2(x + 2.0f, y + 2.0f), shadow, caption);
+    dl->AddText(font, size, ImVec2(x, y), ink, caption);
+}
+
 } // namespace astro::ui

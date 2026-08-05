@@ -7,7 +7,7 @@ A sealed 4 mm chamber of water. Cells 10 μm across, black at every wavelength, 
 Deliberately **not** the interstellar scale — no ships, no Petrova arc, no Tau Ceti. Just what you would see down the eyepiece.
 
 ```
-Status:  M12e green · M14a demo  ·  C++20 + CUDA 13.1  ·  sm_89  ·  Windows 11
+Status:  M12e green · M14b demo  ·  C++20 + CUDA 13.1  ·  sm_89  ·  Windows 11
          All five signature phenomena, predation and the Taumoeba-82.5
          evolution arc, and eight self-verifying scenarios are live. The
          culture is now mouse-interactive — heat the slide to ignite it,
@@ -212,7 +212,8 @@ Without `-App`, the core library and the full test suite build with **no network
 | M13a | Interaction: field-brush toolset — poke the culture to ignite (heat/chill/CO₂/N₂) | ✅ `m13a-green` |
 | M13b | Interaction: the light-leash + optical tweezers — herd the culture, tow a cell | ✅ `m13b-green` |
 | M14a | Demo mode: the living-screensaver act engine + `--demo` loop | ✅ `m14a-green` |
-| M14b | Demo mode: view cross-fades + idle-trigger screensaver | ☐ |
+| M14b | Demo mode: captions, camera drift, an idle yield, and the light-leash herding act | ✅ `m14b-green` |
+| M14c | Demo mode: view cross-fades + cold-start screensaver trigger (needs M12f) | ☐ |
 
 **M7 was the line where all five signature phenomena came live.** Everything after it adds behaviour and content on top of a physics core that is now complete.
 

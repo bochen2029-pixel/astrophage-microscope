@@ -6,6 +6,33 @@ Format: milestone · what landed · what is pending · open questions · gotchas
 
 ---
 
+## 2026-08-04 — M14b (Presentation: the demo comes alive) — GREEN · **captions, drift, an idle yield, the light-leash on autopilot**
+
+**Landed.** Four render-independent additions that finish the M14a screensaver. (1) A **caption overlay**
+per act (`draw_demo_caption` -- a large fade-in title over the chamber). (2) The scope **drifts** (a slow
+pan) as well as zooms across each act. (3) **Idle-aware auto-advance:** recent mouse input holds the
+current act -- look, or use the tools -- and after 2.5 s of quiet the demo resumes; headless has no input
+so it always advances (the gate path). (4) A new **"Herding" act**: awake near-neutral cells
+(`demo-herd.json`, thermal-off so it can't hit the M13b density instability) chase a WIDE spotlight the
+demo circles -- the M13b light-leash on autopilot (P4). The spot is driven through the HUD light state,
+so `apply_light` parks it at a tick boundary exactly as a mouse drag would.
+
+**Honest + safe.** Nothing scripts a cell -- the herd is the existing Feed run-and-tumble climbing a real
+moving gradient. `demo-herd` is thermal-off + moderate count, so herding can't overrun the explicit thermal
+solver. Default-off (no --demo -> byte-for-byte M13b): goldens M3.2 + determinism M0.4 unmoved. Cross-fades
++ a true cold-start idle trigger are split to **M14c** (they need the M12f render `mode_blend` + runtime
+enable).
+
+**Verified.** `--demo --headless` cycles all SIX acts incl. demo-herd and loops, zero GL errors (the gate
+path takes no --screenshot, so no glReadPixels warning). Screenshot of the herd act: 1500 awake cells
+clumped into a swarm chasing the moving spot, the "Herding" caption over them, medium a stable 20 C. Gate
+M0..M14a + M14b.1 green.
+
+**Pending / next.** M14c (cross-fades after M12f + the cold-start trigger), the M12 ship line (M12f/g ->
+v1.0), or M13c. M13a+b + M14a+b all unpushed.
+
+---
+
 ## 2026-08-04 — M14a (Presentation: the living-screensaver demo) — GREEN · **the slide, alive, on a loop**
 
 **Landed.** The M14 arc opens (ADR-042) -- the demo/screensaver Bo asked for. `--demo` cycles a playlist of

@@ -32,6 +32,10 @@ namespace {
 double g_scroll_y = 0.0;
 void scroll_callback(GLFWwindow*, double, double yoff) { g_scroll_y += yoff; }
 
+// Wall-clock time of the last user input (M14b). The demo yields to the mouse: recent input holds the
+// current act; after DEMO_IDLE_RESUME_S of quiet it resumes cycling. Updated in handle_input.
+double g_last_input_time = 0.0;
+
 Error spawn_population(sim::World& w, int32_t count, float charge, uint64_t seed,
                        bool awake = false) {
     sim::SpawnParams p;
@@ -302,22 +306,37 @@ struct DemoAct {
     const char*        scenario;
     int                duration_ticks;
     contract::ViewMode mode;
-    int                objective;      // 0 = 10x, 1 = 40x, 2 = 100x
-    float              zoom_start, zoom_end;
+    int                objective;             // 0 = 10x, 1 = 40x, 2 = 100x
+    float              zoom_start, zoom_end;  // scope zoom eased across the act
+    float              pan_x_um, pan_y_um;    // scope drifts from centre toward here over the act
+    bool               actor_herd;            // demo_update drives a moving light spot (the light-leash)
     const char*        caption;
 };
 
 // Curated for variety and aliveness: ignition, buoyancy sorting, a population bloom, the predation +
-// Taumoeba-82.5 selection arc, and absolute shadows. Durations are in ticks -- a fixed wall-time per
-// act, since one tick is always DT_PHYSICS of wall time whatever the scenario's clock (ADR-027).
+// Taumoeba-82.5 selection arc, absolute shadows, and the light-leash herding cells on a loop (M14b).
+// Durations are in ticks -- a fixed wall-time per act, since one tick is always DT_PHYSICS of wall
+// time whatever the scenario's clock (ADR-027).
 const DemoAct DEMO_PLAYLIST[] = {
-    {"first-light",        5000, contract::ViewMode::ThermalIR,    0, 0.85f, 1.8f, "Ignition"},
-    {"three-percent-line", 4500, contract::ViewMode::Brightfield,  1, 0.60f, 1.1f, "The 3% line"},
-    {"bloom",              5500, contract::ViewMode::Analysis,      0, 0.55f, 1.4f, "Bloom"},
-    {"taumoeba",           6000, contract::ViewMode::Brightfield,   1, 0.70f, 1.5f, "Predation & selection"},
-    {"shadow-garden",      4500, contract::ViewMode::Petrovascope,  1, 0.60f, 1.2f, "Absolute shadows"},
+    {"first-light",        5000, contract::ViewMode::ThermalIR,    0, 0.85f, 1.8f,   0.0f,    0.0f, false, "Ignition"},
+    {"three-percent-line", 4500, contract::ViewMode::Brightfield,  1, 0.60f, 1.1f,   0.0f, -320.0f, false, "The 3% line"},
+    {"bloom",              5500, contract::ViewMode::Analysis,      0, 0.55f, 1.4f,   0.0f,    0.0f, false, "Bloom"},
+    {"taumoeba",           6000, contract::ViewMode::Brightfield,   1, 0.70f, 1.5f, 220.0f,  160.0f, false, "Predation & selection"},
+    {"shadow-garden",      4500, contract::ViewMode::Petrovascope,  1, 0.60f, 1.2f, 260.0f,    0.0f, false, "Absolute shadows"},
+    {"demo-herd",          5000, contract::ViewMode::Brightfield,   0, 0.72f, 0.92f,  0.0f,    0.0f, true,  "Herding"},
 };
 constexpr int DEMO_ACT_COUNT = static_cast<int>(sizeof(DEMO_PLAYLIST) / sizeof(DEMO_PLAYLIST[0]));
+
+// The demo's "Herding" act (M14b): a bright spot circles the chamber and awake cells chase it -- the
+// M13b light-leash on autopilot (P4). The spot is wide (covers most of the chamber) so the whole
+// culture leans toward the moving centre; demo-herd.json is thermal-off with a moderate count, clear
+// of the density instability M13b noted. The spot is driven through the HUD light state, so apply_light
+// applies it at a tick boundary exactly as a mouse drag would (never a device write from here).
+constexpr double DEMO_IDLE_RESUME_S   = 2.5;        // quiet this long -> the demo resumes cycling
+constexpr double HERD_CIRCLE_RADIUS_M = 700.0e-6;   // the spot centre's orbit radius [m]
+constexpr float  HERD_SPOT_RADIUS_UM  = 2200.0f;    // the spot's own (1-t^2)^2 falloff radius [um]
+constexpr float  HERD_STRENGTH        = 0.6f;       // ~240 W/m^2 at LIGHT_SPOT_MAX; charges negligibly
+constexpr double HERD_OMEGA           = 0.0025;     // rad/tick: ~2 orbits over the 5000-tick act
 
 // Load demo act `idx`: tear down the world and instantiate the act's scenario (the same teardown the
 // respawn/scrub paths use), then point the scope at it. The interop VBO was sized to the playlist's
@@ -351,21 +370,42 @@ Error load_act(Application& a, int idx) {
     return ok();
 }
 
-// Advance the demo each frame (M14a): when the current act's ticks elapse (world.tick counts from 0
-// after each rebuild), load the next and loop; otherwise ease the scope zoom across the act. The world
-// rebuild happens here, between frames -- never mid tick-loop.
+// Advance the demo each frame: when the current act's ticks elapse (world.tick counts from 0 after
+// each rebuild), load the next and loop; otherwise ease the scope across the act and, on the Herding
+// act, steer the light. The world rebuild happens here, between frames -- never mid tick-loop.
+// Idle-aware (M14b): recent user input holds the current act (look, or use the tools); after
+// DEMO_IDLE_RESUME_S of quiet it resumes. Headless has no input, so it always advances (the gate path).
 void demo_update(Application& a) {
     if (!a.demo.active || a.demo.act < 0) return;
     const DemoAct& act = DEMO_PLAYLIST[a.demo.act];
+
+    const bool idle = a.options.headless ||
+                      (glfwGetTime() - g_last_input_time) > DEMO_IDLE_RESUME_S;
     const bool elapsed = a.world.tick >= static_cast<uint64_t>(act.duration_ticks);
-    if (a.demo.advance_requested || (elapsed && !a.demo.paused)) {
+    if (a.demo.advance_requested || (elapsed && !a.demo.paused && idle)) {
         a.demo.advance_requested = false;
-        load_act(a, (a.demo.act + 1) % DEMO_ACT_COUNT);   // a fresh act starts at zoom_start
+        load_act(a, (a.demo.act + 1) % DEMO_ACT_COUNT);   // a fresh act starts at zoom_start, centred
         return;
     }
+
+    // Ease the scope across the act: zoom in, and drift toward the act's pan target.
     const double t = astro::clamp(static_cast<double>(a.world.tick) /
                                   static_cast<double>(act.duration_ticks), 0.0, 1.0);
     a.camera.zoom = static_cast<float>(act.zoom_start + (act.zoom_end - act.zoom_start) * t);
+    a.camera.center_x = static_cast<double>(act.pan_x_um) * 1e-6 * t;
+    a.camera.center_y = static_cast<double>(act.pan_y_um) * 1e-6 * t;
+
+    // The Herding act (M14b): steer a wide bright spot in a circle through the HUD light state; the
+    // tick loop's apply_light then parks it, and awake cells chase it (the light-leash on autopilot).
+    if (act.actor_herd) {
+        a.hud.active_tool = ui::TOOL_LIGHT;
+        a.hud.light_active = true;
+        const double ang = static_cast<double>(a.world.tick) * HERD_OMEGA;
+        a.hud.poke_x = HERD_CIRCLE_RADIUS_M * std::cos(ang);
+        a.hud.poke_y = HERD_CIRCLE_RADIUS_M * std::sin(ang);
+        a.hud.brush_radius_um = HERD_SPOT_RADIUS_UM;
+        a.hud.brush_strength = HERD_STRENGTH;
+    }
 }
 
 void handle_input(Application& a) {
@@ -418,6 +458,10 @@ void handle_input(Application& a) {
             try_pick(a, press_x, press_y);
         larmed = false; ldrag = false;
     }
+    // Any mouse activity is input: it wakes the demo's idle timer, so an unattended run resumes
+    // cycling while an attended one holds the current act (M14b).
+    if (ldown || rdown || g_scroll_y != 0.0 || mx != last_x || my != last_y)
+        g_last_input_time = glfwGetTime();
     last_x = mx; last_y = my;
 
     if (g_scroll_y != 0.0 && !io.WantCaptureMouse) {
@@ -777,6 +821,16 @@ int app_run(Application& a) {
             ui::draw_scale_bar(a.camera, a.gl.fb_width, a.gl.fb_height);
             ui::draw_cursor_ring(a.camera, a.hud.active_tool, a.hud.brush_radius_um,
                                  a.gl.fb_width, a.gl.fb_height);
+            // The demo act caption (M14b): fade in at the act's start, hold, fade out at its end.
+            if (a.demo.active && a.demo.act >= 0) {
+                const DemoAct& dact = DEMO_PLAYLIST[a.demo.act];
+                const double dt = astro::clamp(static_cast<double>(a.world.tick) /
+                                               static_cast<double>(dact.duration_ticks), 0.0, 1.0);
+                float cap_alpha = 1.0f;
+                if (dt < 0.12)      cap_alpha = static_cast<float>(dt / 0.12);
+                else if (dt > 0.85) cap_alpha = static_cast<float>((1.0 - dt) / 0.15);
+                ui::draw_demo_caption(dact.caption, cap_alpha);
+            }
         }
 
         render::gl_context_render_ui(a.gl);
