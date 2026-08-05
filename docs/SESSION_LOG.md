@@ -6,6 +6,21 @@ Format: milestone · what landed · what is pending · open questions · gotchas
 
 ---
 
+## 2026-08-05 — M12h attempt (bloom over the Petrova emission) — REVERTED to m12g-green · **the crude bloom is a dead end**
+
+Attempted M12h = bloom as a no-FBO whole-backbuffer mip-bloom (`glCopyTexImage2D` + `glGenerateMipmap` +
+an additive bright-pass). It compiled clean, but LOOKING at the output killed it (meta-lesson 11): a
+whole-frame bright-pass cannot isolate "Petrova emission only" -- on taumoeba it washes out the bright
+green PREDATORS instead of the emission -- and the Petrova emission itself renders too dim to clear the
+bright threshold in other scenes, so it is a no-op where it isn't wrong. Reverted to m12g-green (clean,
+already pushed); no code shipped, contracts/tests/goldens untouched. **Doing bloom right needs the Petrova
+emission on a SEPARATE additive target** (RENDERING.md Sec 2 already shows it as its own pipeline input)
+and a brighter emission -- a render-architecture task, not a post-process tweak. Full do-it-right plan is
+in `_run_state/NEXT_SESSION.md` (M12i bullet). Left the render remainder recommendation on M12h (T-field),
+which is more tractable.
+
+---
+
 ## 2026-08-05 — M12g (Ship: render remainder -- render_view_v3 + the pre-ignition warm-up) — GREEN · **watch a cell warm toward ignition**
 
 **Landed.** The second render-remainder step, and the highest structural risk (the contract cascade).

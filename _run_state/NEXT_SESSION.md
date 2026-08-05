@@ -27,8 +27,10 @@
 Pick any. 32 tests, 12 goldens, **43 ADRs**. (M13/M14 gates re-run M0..M14b but NOT M12f+, which is scoped
 to the M12 ship line only -- M13/M14 branched from m12e-green before the render remainder.)
 
-**Recommended next: M12h.** It is the only render-remainder step that DELIBERATELY moves a golden, so it
-wants care (ADR-044 + `tools/goldgen` regen of the m7b_thermal goldens). Then M12i, M12j.
+**Recommended next: M12h** (the T-field) -- it is more tractable than M12i (bloom), which needs a real
+emission-buffer render pass (see below; a crude whole-frame bloom was tried 2026-08-05 and reverted). M12h
+deliberately moves the m7b_thermal goldens, so it wants care (a fresh ADR + `scripts/goldens.ps1 -Generate`).
+Then M12i, M12j.
 
 ## Start here
 
@@ -40,14 +42,23 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/gate.ps1 -Milestone 
 Then `CONTINUATION_PROMPT.md`, `M12F_PLAN.md`, and the chosen milestone's section of `docs/MILESTONES.md`.
 
 - **M12h (T-field false-colour, RECOMMENDED)** -- replace the flat `ThermalIR` clear colour with the
-  diffused T-field. `RenderFrame.temperature` is already a live device pointer and `field_pass.cpp`
-  already does grid -> R32F -> LUT, so the plumbing exists; wire it as the ThermalIR background under the
-  M12f cross-fade background seam. DELIBERATELY moves the `m7b_thermal_*` goldens (flat wash -> spatial
-  field): regenerate via `tools/goldgen` + a `DECISIONS.md` line (Rule 10; ADR-044). `src/render/field_pass.cpp`,
-  `cells_pass.cpp`/compose, `luts.cpp`.
-- **M12i (bloom)** -- build `src/render/bloom.cpp` (it does NOT exist despite MODULE.md): bright-pass 0.6 +
-  4-level down/up over the Petrova emission, additive, Petrovascope only. Perf-sensitive (stacks on the
-  defocus fill-rate, RENDERING.md Sec 7); re-check the M1.5 fps gate.
+  diffused T-field. `RenderFrame.temperature` is already a live device pointer, but **`field_pass.cpp` does
+  NOT exist** (the module docs list it aspirationally, like bloom.cpp) -- so the grid -> R32F texture -> LUT
+  path must be BUILT (copy the fullscreen-pass idiom from `post_pass.cpp`). Wire it as the ThermalIR
+  background under the M12f cross-fade background seam. DELIBERATELY moves the `m7b_thermal_*` goldens (flat
+  wash -> spatial field): regenerate via `scripts/goldens.ps1 -Generate` + a `DECISIONS.md` line (Rule 10;
+  a fresh ADR). New `src/render/field_pass.cpp`, `cells_pass.cpp`/compose, `luts.cpp`.
+- **M12i (bloom) -- ATTEMPTED 2026-08-05 and REVERTED; read this before retrying.** A crude
+  whole-backbuffer mip-bloom (glCopyTexImage2D + glGenerateMipmap + an additive bright-pass, no FBO) is a
+  DEAD END, for two reasons found by looking at the output: (1) it cannot isolate "Petrova emission only" --
+  it blooms ANY bright pixel, so on the taumoeba scene it blooms the bright green PREDATORS into a wash, not
+  the emission; (2) the Petrova emission renders too DIM (below any sane bright threshold) to bloom in most
+  scenes, so it is a no-op everywhere else. Do it RIGHT: render the Petrova EMISSION to a SEPARATE additive
+  target (RENDERING.md Sec 2 already shows "petrova emission lobes, additive" as its own pipeline input) and
+  bloom THAT -- excluding the cell silhouettes and the teal Taumoeba -- and brighten the emission so it
+  clears the threshold. `bloom.cpp` does not exist. Goldens stay safe by capturing `--no-bloom` (the ADR-023
+  appearance precedent; the m7b_petrova golden is a non-emitting black frame anyway). This is a real
+  render-architecture task (an emission buffer), NOT a post-process tweak -- give it fresh context.
 - **M12j (package -> v1.0)** -- `scripts/package.ps1`, clean-machine `.zip`, tag `v1.0`.
 - **M14c / M13c** -- the parallel arcs; M14c's cross-fades are unblocked by M12f.
 
