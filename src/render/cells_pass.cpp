@@ -31,6 +31,7 @@ layout(location = 0) in vec4  a_pos_radius;   // x, y, z, radius   [um]
 layout(location = 1) in vec2  a_state;        // charge, emit_power_norm
 layout(location = 2) in uvec2 a_flags;        // flags_packed, dir_packed
 layout(location = 3) in uint  a_shape_seed;   // stable per-cell silhouette seed
+layout(location = 4) in float a_temp_c;       // per-cell temperature [C] (v3, ADR-043)
 
 uniform vec2  u_center_um;
 uniform vec2  u_half_extent_um;
@@ -51,6 +52,7 @@ out float v_polarity;     // +1 above focus, -1 below -- inverts the ring
 out float v_alpha_scale;  // sub-pixel compensation
 out float v_charge;
 out float v_emit;
+out float v_temp_c;       // per-cell temperature [C], for the Thermal-IR warm-up (M12g)
 out float v_shape_w;      // how much silhouette survives the blur, [0,1]
 flat out uint v_flags;
 flat out uint v_seed;
@@ -111,6 +113,7 @@ void main() {
     v_polarity  = dz >= 0.0 ? 1.0 : -1.0;
     v_charge    = a_state.x;
     v_emit      = a_state.y;
+    v_temp_c    = a_temp_c;
     v_flags     = a_flags.x;
 }
 )GLSL";
@@ -175,6 +178,7 @@ in float v_polarity;
 in float v_alpha_scale;
 in float v_charge;
 in float v_emit;
+in float v_temp_c;
 in float v_shape_w;
 flat in uint v_flags;
 flat in uint v_seed;
@@ -184,6 +188,7 @@ uniform int u_channel;    // contract::AnalysisChannel
 uniform int u_colorblind; // ScopeState::colorblind_safe -- swaps the petrova-film LUT for magma
 uniform int u_mode_blend_to; // cross-fade target mode (M12f)
 uniform float u_blend;       // 0 = u_mode, 1 = u_mode_blend_to
+uniform float u_setpoint_c;  // canon setpoint [C]; the Thermal-IR warm-up ceiling (M12g)
 
 out vec4 frag;
 
@@ -247,13 +252,16 @@ vec4 appearance(int mode, float contrast, float cov_a, float band, bool alive, b
         color = (u_colorblind != 0) ? ramp(0.35 + 0.65 * e) : petrova(0.35 + 0.65 * e);
         alpha = cov_a * e;
     } else if (mode == 3) {
-        // Thermal IR (film grade): albedo-0 cells are black absorbers; an AWAKE cell
-        // is a heat source and takes a hot rim (the latch, ADR-003). The T-field
-        // false-colour behind it and per-cell pre-ignition warmth are M12h/M12g.
-        float hot = (alive && awake) ? 1.0 : 0.0;
+        // Thermal IR (film grade): albedo-0 cells are black absorbers. An AWAKE cell holds the
+        // setpoint and takes a full hot rim (the latch, ADR-003 -- warm 1.0, BIT-IDENTICAL to the
+        // old binary rim). A dormant cell warms CONTINUOUSLY toward the setpoint as it is heated
+        // (v_temp_c, ADR-043, M12g -- the pre-ignition warm-up, P3 made visible); a corpse stays
+        // black. Warm floor 20 C = room temperature. The T-field false-colour behind cells is M12h.
+        float warm = (alive && awake) ? 1.0
+                   : (alive ? clamp((v_temp_c - 20.0) / (u_setpoint_c - 20.0), 0.0, 1.0) : 0.0);
         if (contrast >= 0.0) {
-            color = mix(vec3(0.02), vec3(1.0, 0.80, 0.45), clamp(band * hot * 2.0, 0.0, 1.0));
-            alpha = max(cov_a, band * hot);
+            color = mix(vec3(0.02), vec3(1.0, 0.80, 0.45), clamp(band * warm * 2.0, 0.0, 1.0));
+            alpha = max(cov_a, band * warm);
         } else {
             color = vec3(1.0, 0.85, 0.60);
             alpha = -contrast;
@@ -412,6 +420,7 @@ Error cells_pass_create(CellsPass& p, int32_t cell_capacity, int32_t tau_capacit
     p.u_colorblind     = glGetUniformLocation(p.program, "u_colorblind");
     p.u_mode_blend_to  = glGetUniformLocation(p.program, "u_mode_blend_to");
     p.u_blend          = glGetUniformLocation(p.program, "u_blend");
+    p.u_setpoint_c     = glGetUniformLocation(p.program, "u_setpoint_c");
 
     glGenVertexArrays(1, &p.vao);
     glGenBuffers(1, &p.instance_vbo);
@@ -435,6 +444,9 @@ Error cells_pass_create(CellsPass& p, int32_t cell_capacity, int32_t tau_capacit
     glEnableVertexAttribArray(3);
     glVertexAttribIPointer(3, 1, GL_UNSIGNED_INT, stride, reinterpret_cast<void*>(32));
     glVertexAttribDivisor(3, 1);
+    glEnableVertexAttribArray(4);
+    glVertexAttribPointer(4, 1, GL_FLOAT, GL_FALSE, stride, reinterpret_cast<void*>(36));
+    glVertexAttribDivisor(4, 1);
     glBindVertexArray(0);
 
     p.capacity = cell_capacity;   // the app reads this as the cell capacity (see header)
@@ -491,6 +503,7 @@ void cells_pass_draw(const CellsPass& p, const Camera& cam, int fb_w, int fb_h,
     glUniform1i(p.u_colorblind, colorblind ? 1 : 0);
     glUniform1i(p.u_mode_blend_to, static_cast<int>(mode_blend_to));
     glUniform1f(p.u_blend, mode_blend);
+    glUniform1f(p.u_setpoint_c, static_cast<float>(canon::CELL_TEMP_SETPOINT - 273.15));
 
     glBindVertexArray(p.vao);
     glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, count);

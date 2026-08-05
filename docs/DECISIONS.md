@@ -132,6 +132,17 @@ Append-only. Every contradiction in the source material and every non-obvious en
 
 ---
 
+## ADR-043 — render_view_v3: per-cell temp_c for the pre-ignition Thermal-IR warm-up
+
+**Status:** accepted, 2026-08-05 (M12g).
+**Context.** Thermal IR could only read the binary `AWAKE` latch (ADR-003, ADR-029), so a heated-but-dormant cell was a flat black silhouette right up to the instant it ignited — the *approach* to ignition, the most dramatic beat of P3, was invisible. Showing it needs a per-cell temperature in the render instance, which `render_view_v2::CellInstance` does not carry.
+**Decision.** Bump `render_view_v2 -> v3`: `CellInstance` gains `float temp_c` (degrees C), 36 -> 40 bytes. The interop kernel fills it render-side from `CellStoreView::temp_cell` (already exposed, refreshed each tick by the thermal stage) — so there is **no `sim/` or `cell_store` change**. The Thermal-IR shader glows a dormant cell continuously by `clamp((temp_c - 20)/(setpoint - 20), 0, 1)`; an awake cell is forced to `warm = 1.0`, bit-identical to the old latch rim.
+**The cascade.** `scenario_v2.h` includes `render_view_v2.h`, and no translation unit may include two contract versions (same types, same namespace), so `scenario_v2 -> v3` bumps in lockstep and all ~12 live consumers swap their includes in the same commit. `render_view_v2.h`/`scenario_v2.h` join `_v1` as frozen.
+**Consequences.** temp_c is render-only, so INV-8 determinism is untouched (M0.4). Measurement goldens are Brightfield/Sphere and never read temp_c, and awake/dormant-cold cells render exactly as before, so no golden moves. The GL vertex layout is now 40 bytes — the attribute binding in `cells_pass.cpp` (location 4, offset 36) and the `test_contracts` `sizeof == 40` change in the same commit.
+**Escape hatch.** None needed; the field is additive and default-inert for every mode but Thermal IR.
+
+---
+
 ## ADR-042 — The living-screensaver demo: a playlist of self-driving scenario acts, cycled with camera choreography
 
 **Status:** accepted, 2026-08-04 (M14a). Opens the M14 presentation arc.

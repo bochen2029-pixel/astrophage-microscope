@@ -7,7 +7,7 @@
 
 #include <cstdint>
 
-#include "contracts/scenario_v2.h"
+#include "contracts/scenario_v3.h"
 #include "contracts/telemetry_v1.h"
 #include "core/canon_generated.h"
 #include "core/result.h"

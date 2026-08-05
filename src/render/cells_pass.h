@@ -3,7 +3,7 @@
 
 #include <cstdint>
 
-#include "contracts/render_view_v2.h"
+#include "contracts/render_view_v3.h"
 #include "core/result.h"
 #include "render/camera.h"
 #include "render/interop.cuh"
@@ -22,6 +22,7 @@ struct CellsPass {
     int u_mode = -1, u_channel = -1, u_focal_plane_um = -1;
     int u_na = -1, u_immersion = -1, u_morphology = -1, u_colorblind = -1;
     int u_mode_blend_to = -1, u_blend = -1;   // cross-fade target + amount (M12f)
+    int u_setpoint_c = -1;   // canon setpoint in degrees C, for the Thermal-IR warm-up (M12g)
 };
 
 // The instance buffer holds cells AND the Taumoeba appended after them (M12b), so it is sized

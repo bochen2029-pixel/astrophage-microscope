@@ -6,7 +6,7 @@
 
 #include <cstdint>
 
-#include "contracts/render_view_v2.h"
+#include "contracts/render_view_v3.h"
 #include "contracts/telemetry_v1.h"
 #include "render/camera.h"
 

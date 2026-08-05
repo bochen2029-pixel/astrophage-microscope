@@ -187,7 +187,8 @@ src/ui       hud.cpp, inspector_panel.cpp, params_panel.cpp, instrument_panel.cp
 src/app      main.cpp, application.cpp, cli.cpp
 tools        headless.cpp, goldgen.cpp
 contracts    cell_store_v1.h, taumoeba_view_v1.h, fields_v1.h, render_view_v1.h,
-             render_view_v2.h, scenario_v1.h, scenario_v2.h, telemetry_v1.h, snapshot_v1.h
+             render_view_v2.h, render_view_v3.h, scenario_v1.h, scenario_v2.h,
+             scenario_v3.h, telemetry_v1.h, snapshot_v1.h
 ```
 
 Each `src/<module>/MODULE.md` states: purpose, owned files, contracts consumed and produced, invariants it is responsible for, current milestone status, and known gaps.

@@ -6,6 +6,30 @@ Format: milestone · what landed · what is pending · open questions · gotchas
 
 ---
 
+## 2026-08-05 — M12g (Ship: render remainder -- render_view_v3 + the pre-ignition warm-up) — GREEN · **watch a cell warm toward ignition**
+
+**Landed.** The second render-remainder step, and the highest structural risk (the contract cascade).
+`CellInstance` gains `float temp_c` -> **render_view_v3**, which cascades **scenario_v2 -> v3** (scenario
+includes render_view, and no TU may include two contract versions); ~12 live consumers swapped includes,
+v2 joins v1 as frozen. ADR-043. The interop kernel fills temp_c from `CellStoreView::temp_cell` (already
+exposed) -- **no sim or cell_store change**. Thermal IR now glows a dormant cell CONTINUOUSLY as it warms
+toward the setpoint (P3 made visible), then holds the awake rim.
+
+**Honest + safe.** temp_c is render-only. Awake cells are forced `warm = 1.0` (bit-identical to the old
+binary latch rim) and dormant-cold cells give `warm ~ 0`, so ONLY the previously-black dormant-warm state
+changes -- determinism (M0.4), Brightfield measurement goldens (M3.2), AND the m7b_thermal goldens all
+unmoved. Verified by eye: a heated dormant culture (awake 0, medium max 91 C) shows a gold warm rim on the
+central cells and black silhouettes at the cold edges.
+
+**Verified.** Gate M0..M12f + **M12g.1** green (a heated dormant culture glows in Thermal IR and stays
+dormant); test_contracts pins sizeof(CellInstance)==40 + the v3 versions. M12g is unpushed.
+
+**Pending / next.** M12h (real T-field false-colour behind Thermal IR -- reuses field_pass +
+RenderFrame.temperature; DELIBERATELY moves the m7b_thermal goldens, needs ADR-044 + goldgen), then M12i
+(bloom, from scratch), M12j (package -> v1.0).
+
+---
+
 ## 2026-08-05 — M12f (Ship: render remainder -- the view cross-fade) — GREEN · **modes dissolve, not hard-cut**
 
 **Landed.** The first of the four render-remainder steps (split M12f..M12i; kickoff in

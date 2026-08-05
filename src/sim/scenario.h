@@ -1,6 +1,6 @@
 // src/sim/scenario.h -- load scenarios/*.json into a World. docs/SCENARIOS.md (M11a).
 //
-// A scenario is data (contracts/scenario_v2.h, frozen). The loader parses the JSON
+// A scenario is data (contracts/scenario_v3.h, frozen). The loader parses the JSON
 // (src/sim/json.h, hand-rolled) into the Scenario struct and instantiates a World from
 // it. It lives in sim because it builds a World, and both the headless runner and the
 // app link sim (snapshot.cpp is here for the same reason). Host-only; no GL.
@@ -12,7 +12,7 @@
 
 #include <string>
 
-#include "contracts/scenario_v2.h"
+#include "contracts/scenario_v3.h"
 #include "core/result.h"
 #include "sim/world.cuh"
 

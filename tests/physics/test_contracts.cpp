@@ -7,8 +7,8 @@
 
 #include "contracts/cell_store_v1.h"
 #include "contracts/fields_v1.h"
-#include "contracts/render_view_v2.h"
-#include "contracts/scenario_v2.h"
+#include "contracts/render_view_v3.h"
+#include "contracts/scenario_v3.h"
 #include "contracts/snapshot_v1.h"
 #include "contracts/telemetry_v1.h"
 #include "core/canon_generated.h"
@@ -32,7 +32,7 @@ static_assert(std::is_trivially_copyable_v<Stimulus>);   // v2 driving script (A
 
 // The GL vertex-attribute contract. Changing this means changing the bindings in
 // render/cells_pass.cpp in the same commit.
-static_assert(sizeof(CellInstance) == 36);
+static_assert(sizeof(CellInstance) == 40);
 static_assert(std::is_standard_layout_v<CellInstance>);
 
 // Snapshots are written to disk; the header must be layout-stable.
@@ -41,10 +41,10 @@ static_assert(std::is_standard_layout_v<SnapshotHeader>);
 int main() {
     CHECK(CELL_STORE_CONTRACT_VERSION == 1);
     CHECK(FIELDS_CONTRACT_VERSION == 1);
-    CHECK(RENDER_VIEW_CONTRACT_VERSION == 2);
+    CHECK(RENDER_VIEW_CONTRACT_VERSION == 3);
     CHECK(TELEMETRY_CONTRACT_VERSION == 1);
     CHECK(SNAPSHOT_CONTRACT_VERSION == 1);
-    CHECK(SCENARIO_CONTRACT_VERSION == 2);
+    CHECK(SCENARIO_CONTRACT_VERSION == 3);
 
     // 'ASPH' little-endian, so a snapshot is identifiable in a hex dump.
     CHECK(SNAPSHOT_MAGIC == 0x48505341u);

@@ -455,6 +455,28 @@ if ($n -eq 12 -and $suffix -ge 'f') {
     }
 }
 
+# ---------------------------- M12g: render_view_v3 + the pre-ignition Thermal-IR warm-up
+# The render_view_v3 -> scenario_v3 cascade adds per-cell temp_c (ADR-043). A heated but still
+# DORMANT culture now glows continuously in Thermal IR, where before it stayed black until ignition.
+# The gate heats a dormant culture, confirms it is still dormant (awake 0), and requires the Thermal
+# render to differ from the cold baseline -- the warm-up. temp_c is render-only, so determinism (M0.4)
+# and the Brightfield measurement goldens (M3.2) above are unmoved, and test_contracts (M0.3) pins the
+# 40-byte layout + the v3 versions.
+if ($n -eq 12 -and $suffix -ge 'g') {
+    Gate 'M12g.1' 'pre-ignition warm-up: a heated dormant culture glows in Thermal IR' {
+        $exe = Find-Exe 'astrophage'; $diff = Find-Exe 'imgdiff'
+        if (-not $exe -or -not $diff) { return $false }
+        $cold = Join-Path $build 'm12g_cold.ppm'
+        $warm = Join-Path $build 'm12g_warm.ppm'
+        $common = @('--cells', '3000', '--charge', '0.05', '--mode', 'thermal', '--headless', '--no-ui', '--frames', '4', '--ticks-per-frame', '15')
+        & $exe @common --screenshot $cold *>&1 | Out-Null
+        $out = & $exe @common --auto-poke heat --screenshot $warm 2>&1 | Out-String
+        if ($out -match 'awake (\d+)') { if ([int]$Matches[1] -ne 0) { return $false } } else { return $false }
+        & $diff $cold $warm *>&1 | Out-Null
+        return ($LASTEXITCODE -ne 0)   # nonzero = the warm-up changed the Thermal render
+    }
+}
+
 # ---------------------------- M12j: package and v1.0
 # Scoped to the M12 ship line only (not $n -gt 12): M13 is a parallel arc branched from
 # m12e-green before packaging is built, so an M13 gate must not require the unbuilt package.ps1.

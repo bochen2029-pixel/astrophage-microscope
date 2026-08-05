@@ -1,6 +1,6 @@
 # MODULE: render
 
-**Depends on: `core`, `contracts`.** Reads `contracts/render_view_v2.h` — **never `src/sim/`**.
+**Depends on: `core`, `contracts`.** Reads `contracts/render_view_v3.h` — **never `src/sim/`**.
 
 ## Purpose
 
@@ -11,7 +11,7 @@ Everything that produces pixels: GL context, CUDA-GL interop, the single instanc
 | File | Owns | Milestone |
 |---|---|---|
 | `gl_context.cpp` | ✅ GL 4.6 core context, debug output, ImGui bootstrap | M1 |
-| `interop.cu` | ✅ `cudaGraphicsGLRegisterBuffer`; the kernels that write `CellInstance` for cells and, appended after them in one map, the Taumoeba (M12b, ADR-037) | M1 |
+| `interop.cu` | ✅ `cudaGraphicsGLRegisterBuffer`; the kernels that write `CellInstance` for cells and, appended after them in one map, the Taumoeba (M12b, ADR-037); per-cell `temp_c` from `temp_cell` (M12g, ADR-043) | M1 |
 | `cells_pass.cpp` | ✅ instanced disc draw, SDF fragment shader; the predator branch on the render-only marker bit (M12b), coloured by N2 tolerance + the colourblind-safe Petrova LUT (M12e, ADR-039); the per-mode `appearance()` seam + the view cross-fade (M12f) | M1 |
 | `camera.h` | ✅ scope pan/zoom/focal plane, objective presets (header-only, so it is host-testable) | M1 |
 | `optics.h` | ✅ circle of confusion, energy-conserving opacity, Becke amplitude, DOF — header-only, host-testable | M3 |
@@ -23,7 +23,7 @@ Everything that produces pixels: GL context, CUDA-GL interop, the single instanc
 
 ## Contracts
 
-Consumes `render_view_v2.h`, `fields_v1.h`, `telemetry_v1.h`. Produces none.
+Consumes `render_view_v3.h`, `fields_v1.h`, `telemetry_v1.h`. Produces none.
 
 ## Things that will bite you
 
@@ -44,9 +44,10 @@ is the 2026 film's *absorption* view (albedo-0 cells are black silhouettes on a 
 pink/red false-colour field, with a hot rim on awake heat-sources -- the `AWAKE` latch is
 exact for that, no per-cell temperature needed). Plus Darkfield (edge-scatter) and Analysis.
 A `m7b_thermal_awake` vs `m7b_petrova_awake` must-differ golden pins that the two read
-differently. **Still deferred:** bloom over the Petrova emission, the real T-field
-false-colour behind Thermal, and pre-ignition warm-up of a heated dormant cell (needs
-`temp_cell` -> `render_view_v3`).
+differently. **Now at M12g (ADR-043):** the pre-ignition warm-up of a heated dormant cell, via per-cell
+`temp_c` (render_view_v3) -- it glows continuously toward the setpoint, then holds the awake rim.
+**Still deferred:** bloom over the Petrova emission (M12i), and the real T-field false-colour
+behind Thermal (M12h).
 
 ### The one hazard specific to this module
 

@@ -3,7 +3,7 @@
 
 #include <cstdint>
 
-#include "contracts/render_view_v2.h"
+#include "contracts/render_view_v3.h"
 
 namespace astro::app {
 

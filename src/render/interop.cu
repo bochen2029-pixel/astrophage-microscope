@@ -46,6 +46,10 @@ __global__ void fill_instances(CellInstance* out, CellStoreView v, int32_t count
     const uint32_t seed = static_cast<uint32_t>(splitmix64(v.id[i]) >> 32);
     inst.shape_seed = seed | 1u;
 
+    // v3 (ADR-043): temperature for the Thermal-IR pre-ignition warm-up, in Celsius (the
+    // instance's display unit). temp_cell is refreshed each tick by the thermal stage.
+    inst.temp_c = static_cast<float>(v.temp_cell[i] - 273.15);
+
     out[i] = inst;
 }
 
@@ -73,6 +77,7 @@ __global__ void fill_taumoeba(CellInstance* out, TaumoebaView t, int32_t count, 
 
     const uint32_t seed = static_cast<uint32_t>(splitmix64(t.id[i]) >> 32);
     inst.shape_seed = seed | 1u;                                     // an irregular blob
+    inst.temp_c = 0.0f;                                             // unused: the predator branch ignores it
 
     out[offset + i] = inst;
 }
