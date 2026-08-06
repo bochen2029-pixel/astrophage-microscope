@@ -184,7 +184,7 @@ src/render   gl_context.cpp, interop.cu, cells_pass.cpp, field_pass.cpp,
              optics.cpp, morphology.h, post_pass.cpp, bloom.cpp, luts.cpp, camera.cpp
 src/ui       hud.cpp, inspector_panel.cpp, params_panel.cpp, instrument_panel.cpp,
              chart_panel.cpp, scenario_panel.cpp
-src/app      main.cpp, application.cpp, cli.cpp
+src/app      main.cpp, application.cpp, cli.cpp, exe_path.cpp
 tools        headless.cpp, goldgen.cpp
 contracts    cell_store_v1.h, taumoeba_view_v1.h, fields_v1.h, render_view_v1.h,
              render_view_v2.h, render_view_v3.h, scenario_v1.h, scenario_v2.h,

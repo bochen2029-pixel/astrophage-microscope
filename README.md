@@ -7,11 +7,12 @@ A sealed 4 mm chamber of water. Cells 10 μm across, black at every wavelength, 
 Deliberately **not** the interstellar scale — no ships, no Petrova arc, no Tau Ceti. Just what you would see down the eyepiece.
 
 ```
-Status:  M12i green · M14b demo  ·  C++20 + CUDA 13.1  ·  sm_89  ·  Windows 11
+Status:  v1.0 · M14b demo  ·  C++20 + CUDA 13.1  ·  sm_89  ·  Windows 11
          All five signature phenomena, predation and the Taumoeba-82.5
          evolution arc, and eight self-verifying scenarios are live. The
          culture is now mouse-interactive — heat the slide to ignite it,
-         just as in the novel. Render polish and packaging remain.
+         just as in the novel. Render polish and packaging are done: v1.0
+         ships as a self-contained .zip (see docs/USER_GUIDE.md).
 ```
 
 ![Astrophage at the 40× working objective](docs/images/brightfield-40x.png)
@@ -211,7 +212,7 @@ Without `-App`, the core library and the full test suite build with **no network
 | M12g | Ship: render remainder — `render_view_v3` + pre-ignition Thermal-IR warm-up | ✅ `m12g-green` |
 | M12h | Ship: render remainder — bloom over the Petrova emission | ✅ `m12h-green` |
 | M12i | Ship: render remainder — real T-field false-colour behind Thermal IR | ✅ `m12i-green` |
-| M12j | Ship: packaging (clean-machine `.zip`), user guide, `v1.0` | ☐ |
+| M12j | Ship: packaging (clean-machine `.zip`), user guide, `v1.0` | ✅ `v1.0` |
 | M13a | Interaction: field-brush toolset — poke the culture to ignite (heat/chill/CO₂/N₂) | ✅ `m13a-green` |
 | M13b | Interaction: the light-leash + optical tweezers — herd the culture, tow a cell | ✅ `m13b-green` |
 | M14a | Demo mode: the living-screensaver act engine + `--demo` loop | ✅ `m14a-green` |

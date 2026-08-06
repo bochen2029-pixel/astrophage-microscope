@@ -6,6 +6,30 @@ Format: milestone · what landed · what is pending · open questions · gotchas
 
 ---
 
+## 2026-08-05 — M12j (Ship: package and v1.0) — GREEN · **v1.0: the whole thing ships**
+
+**Landed.** The final ship-line milestone. New `scripts/package.ps1`: stages the static exe + scenarios +
+docs (USER_GUIDE.md, README, LICENSE, NOTICE) into `dist/astrophage-<ver>.zip`, and `-Verify` extracts it,
+scrubs PATH to the bare Windows system dirs, and runs it headless from a NEUTRAL cwd -- proving no DLL/PATH
+dependency (the exe is fully static: CUDA_RUNTIME Static + MSVC_RUNTIME MultiThreaded) and that scenarios
+resolve relative to the exe. That last part needed a fix: new `src/app/exe_path.cpp` (isolated from the
+CUDA headers -- <windows.h> + <filesystem> in a CCCL TU trips /WX via a NOMINMAX redefine) resolves
+`<exe_dir>/scenarios` first, so a shipped bundle is self-contained; a dev build with no adjacent scenarios
+falls back to the compile-time source path. New `docs/USER_GUIDE.md`.
+
+**Verified.** Gate M0..M12i + **M12j.1** green (the packaged .zip runs on a scrubbed PATH and finds its
+scenarios). Render/sim/tests untouched -- packaging + a resource-path helper only.
+
+**THE PROJECT IS COMPLETE.** Physics (P1-P5 + Taumoeba-82.5), eight self-verifying scenarios, the live
+inspector/objective/param panels, snapshot+scrubber, perf, the full render remainder (cross-fade, warm-up,
+bloom, T-field), interaction, the demo, and now a clean-machine package. Tagged **`v1.0`** (and m12j-green).
+
+**Pending / next (post-1.0, all optional).** M14c (view cross-fades + cold-start trigger), M13c (record
+interactions), and polish: a HUD bloom/field toggle + slider, the CSV git_describe injection (still a
+placeholder), a scenario-adaptive T-field range.
+
+---
+
 ## 2026-08-05 — M12i (Ship: render remainder -- real T-field false-colour behind Thermal IR) — GREEN · **the medium's heat, made visible**
 
 **Landed.** The LAST render-remainder step. Thermal IR now draws the diffused temperature field as its

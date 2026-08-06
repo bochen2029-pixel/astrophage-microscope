@@ -18,6 +18,8 @@
 #include "sim/snapshot.h"
 #include "ui/params_panel.h"
 
+#include "app/exe_path.h"
+
 #ifndef ASTRO_SCENARIOS_DIR
 #define ASTRO_SCENARIOS_DIR "scenarios"
 #endif
@@ -35,6 +37,14 @@ void scroll_callback(GLFWwindow*, double, double yoff) { g_scroll_y += yoff; }
 // Wall-clock time of the last user input (M14b). The demo yields to the mouse: recent input holds the
 // current act; after DEMO_IDLE_RESUME_S of quiet it resumes cycling. Updated in handle_input.
 double g_last_input_time = 0.0;
+
+// Resolve the scenarios directory: prefer a `scenarios` folder next to the executable, so a shipped
+// package (astrophage.exe + scenarios/) is self-contained and needs no source tree (M12j); fall back to
+// the compile-time source path for a dev build run from the tree.
+std::string scenarios_dir() {
+    const std::string next = scenarios_beside_exe();   // exe_path.cpp: "" if none, else exe_dir/scenarios
+    return next.empty() ? std::string(ASTRO_SCENARIOS_DIR) : next;
+}
 
 Error spawn_population(sim::World& w, int32_t count, float charge, uint64_t seed,
                        bool awake = false) {
@@ -344,7 +354,7 @@ constexpr double HERD_OMEGA           = 0.0025;     // rad/tick: ~2 orbits over 
 Error load_act(Application& a, int idx) {
     const DemoAct& act = DEMO_PLAYLIST[idx];
     sim::world_destroy(a.world);
-    const std::string path = std::string(ASTRO_SCENARIOS_DIR) + "/" + act.scenario + ".json";
+    const std::string path = scenarios_dir() + "/" + act.scenario + ".json";
     if (Error e = sim::scenario_load(path, a.scenario)) {
         std::printf("[demo] act '%s' load failed: %s\n", act.scenario, status_str(e.status));
         return e;
@@ -506,7 +516,7 @@ Error app_init(Application& a, const Options& o) {
         // Pre-pass: the one interop VBO must fit the LARGEST act, since the world is rebuilt per act.
         for (int i = 0; i < DEMO_ACT_COUNT; ++i) {
             const std::string path =
-                std::string(ASTRO_SCENARIOS_DIR) + "/" + DEMO_PLAYLIST[i].scenario + ".json";
+                scenarios_dir() + "/" + DEMO_PLAYLIST[i].scenario + ".json";
             contract::Scenario tmp;
             if (sim::scenario_load(path, tmp)) continue;   // a missing act is skipped, not fatal
             int32_t cc = 0, tc = 0;
@@ -519,7 +529,7 @@ Error app_init(Application& a, const Options& o) {
         const std::string id = o.scenario;
         const bool is_path = id.size() > 5 && id.compare(id.size() - 5, 5, ".json") == 0;
         const std::string path = is_path ? id
-                                         : (std::string(ASTRO_SCENARIOS_DIR) + "/" + id + ".json");
+                                         : (scenarios_dir() + "/" + id + ".json");
         if (Error e = sim::scenario_load(path, a.scenario)) {
             std::printf("[app] scenario load failed (%s): %s\n", path.c_str(), status_str(e.status));
             return e;

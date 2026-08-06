@@ -524,8 +524,11 @@ if ($n -eq 12 -and $suffix -ge 'i') {
 # Scoped to the M12 ship line only (not $n -gt 12): M13 is a parallel arc branched from
 # m12e-green before packaging is built, so an M13 gate must not require the unbuilt package.ps1.
 if ($n -eq 12 -and $suffix -ge 'j') {
-    Gate 'M12j.1' 'clean-environment package' {
-        & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'scripts\package.ps1') -Verify *>&1 | Out-Null
+    # package.ps1 stages the static exe + scenarios + docs into a .zip, then -Verify extracts it, scrubs
+    # PATH to the bare Windows system dirs, and runs it headless from a NEUTRAL cwd -- proving no DLL/PATH
+    # dependency and exe-relative scenario resolution. -SkipBuild reuses the M0.2 clean build above.
+    Gate 'M12j.1' 'the packaged .zip runs on a scrubbed-PATH clean environment' {
+        & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'scripts\package.ps1') -Verify -SkipBuild *>&1 | Out-Null
         return ($LASTEXITCODE -eq 0)
     }
 }
