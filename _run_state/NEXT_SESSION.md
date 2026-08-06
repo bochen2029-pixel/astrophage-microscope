@@ -9,69 +9,71 @@
 
 ## Where the build stands
 
-**Three arcs, all branched off `m12e-green`. The ship line is one step from packaging.** Believe the tags.
+**The render remainder is COMPLETE. One milestone from `v1.0`.** Believe `git tag --list`.
 
-- **The ship line (M12) -> v1.0. Last green: `m12h-green`.** The render remainder is **3/4 done** (kickoff +
-  per-step manifests in [`M12F_PLAN.md`](M12F_PLAN.md)): **M12f** = the view cross-fade (premultiplied
-  dissolve, no contract change); **M12g** = `render_view_v3` (`CellInstance` +`temp_c`, 36->40) + the
-  pre-ignition Thermal-IR warm-up (ADR-043); **M12h** = bloom over the Petrova emission from a SEPARATE
-  emission buffer (ADR-044). **Remaining: M12i** (real T-field false-colour behind Thermal IR), then
-  **M12j** (package -> `v1.0`).
+- **The ship line (M12) -> v1.0. Last green: `m12i-green`. The render remainder is DONE** (M12f/g/h/i):
+  **M12f** view cross-fade; **M12g** `render_view_v3` + pre-ignition warm-up (ADR-043); **M12h** bloom over
+  the Petrova emission from a separate emission buffer (ADR-044); **M12i** the real T-field false-colour
+  behind Thermal IR (ADR-045). **Remaining: M12j** -- package to a clean-machine `.zip`, the user guide,
+  `README` finalisation, CSV `git_describe` injection, then tag **`v1.0`**.
 - **The presentation arc (M14). Last green: `m14b-green`.** The living-screensaver demo. **Next: M14c**
-  (view cross-fades + a cold-start trigger) -- M12f's `mode_blend` shader path is what its cross-fades need.
+  (view cross-fades + a cold-start trigger) -- now fully unblocked: M12f's `mode_blend` shader path is the
+  cross-fade, and the render is complete.
 - **The interaction arc (M13). Last green: `m13b-green`.** Brushes + light-leash + tweezers. **Next: M13c**
   (record interactions to the snapshot ring) -- *optional*.
 
-Pick any. 32 tests, 12 goldens, **44 ADRs**. (M13/M14 gates re-run M0..M14b but NOT M12f+, which is scoped
-to the M12 ship line only -- M13/M14 branched from m12e-green before the render remainder.)
+Pick any. 32 tests, 12 goldens, **45 ADRs**. (M13/M14 gates re-run M0..M14b but NOT M12f+, which is scoped
+to the M12 ship line only.)
 
-**Recommended next: M12i** (the T-field) -- the last render-remainder step, then M12j packages `v1.0`.
+**Recommended next: M12j -- ship `v1.0`.** The render is done; only packaging stands between here and the
+first release.
 
 ## Start here
 
 ```bash
 git -C C:\Astrophage tag --list
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/gate.ps1 -Milestone M12h
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/gate.ps1 -Milestone M12i
 ```
 
 Then `CONTINUATION_PROMPT.md`, `M12F_PLAN.md`, and the chosen milestone's section of `docs/MILESTONES.md`.
 
-- **M12i (T-field false-colour, RECOMMENDED)** -- replace the flat `ThermalIR` clear colour with the
-  diffused T-field. `RenderFrame.temperature` is already a live device pointer, but **`field_pass.cpp` does
-  NOT exist** (the module docs list it aspirationally) -- so the grid -> R32F texture -> LUT path must be
-  BUILT. Copy the fullscreen-pass idiom from `post_pass.cpp`, or better the **M12h emission-FBO idiom in
-  `bloom.cpp`** (render a field into an FBO, sample it). Wire it as the ThermalIR background under the M12f
-  cross-fade background seam. DELIBERATELY moves the `m7b_thermal_*` goldens (flat wash -> spatial field):
-  regenerate via `scripts/goldens.ps1 -Generate` + a `DECISIONS.md` line (Rule 10; a fresh ADR-045).
-- **M12j (package -> v1.0)** -- `scripts/package.ps1`, clean-machine `.zip`, user guide, tag `v1.0`.
-- **M14c / M13c** -- the parallel arcs; M14c's cross-fades are unblocked by M12f.
+- **M12j (package -> v1.0, RECOMMENDED)** -- `scripts/package.ps1` (does NOT exist; build it): a
+  static-runtime `.zip` that runs on a scrubbed-PATH clean machine, the user guide, `README` finalisation,
+  and the CSV `git_describe` header injection (currently a placeholder). The M12j gate is scoped to the M12
+  ship line only (`$n -eq 12 -and $suffix -ge 'j'`) and already exists in `gate.ps1`, calling
+  `package.ps1 -Verify`. Tag `v1.0` on green.
+- **M14c** -- the crowd-pleaser; the render is complete so nothing blocks it now.
+- **M13c** -- small; record poke/light/grab events alongside the M12d ring.
+
+## Render pipeline note (post-M12i)
+
+The renderer now has **two texture paths**, both reusable for future overlays (the CO2/N2/irradiance field
+overlays in RENDERING.md Sec 4 would copy the field idiom):
+- **`bloom.cpp`** (M12h): an FBO the Astrophage are re-drawn into (`cells_pass_draw` with `count =
+  cell_count`, Taumoeba excluded), mip-blurred, additively composited. The first FBO.
+- **`field_pass.cpp`** (M12i): the app `grid_download`s a field to a host buffer and hands render a raw
+  `float*`; the pass uploads an R32F texture and samples it camera-mapped through a LUT. `cells_pass_draw`
+  takes `clear=false` so a background pass can own the clear.
 
 ## Contracts state
 
-Live contracts are **`render_view_v3.h`** + **`scenario_v3.h`** (v1/v2 frozen). `CellInstance` is 40 bytes
-(x/y/z, radius, charge, emit, flags, dir, shape_seed, temp_c); the vertex bindings in `cells_pass.cpp` run
-locations 0-4. Any further per-cell render field is a `render_view_v4` bump + the same ~12-consumer cascade.
-
-## Render pipeline note (post-M12h)
-
-`bloom.cpp` introduced the renderer's **first FBO**. Pattern to reuse (M12i wants it): a `BloomPass`-style
-struct owns an FBO + a colour texture; `bloom_pass_apply` binds the FBO, re-draws content into it
-(bloom re-draws the Astrophage via `cells_pass_draw` with `count = cell_count`, so the Taumoeba are
-excluded), then samples it in an additive/textured fullscreen pass. The composite pass is the
-`post_pass.cpp` fullscreen-triangle idiom.
+Live contracts are **`render_view_v3.h`** + **`scenario_v3.h`** (v1/v2 frozen). `CellInstance` is 40 bytes.
 
 ## Loose ends (non-blocking)
 
-- **Everything is pushed through `m12h-green`** (remote `origin` =
+- **Everything is pushed through `m12i-green`** (remote `origin` =
   github.com/bochen2029-pixel/astrophage-microscope). Ask Bo before pushing future work.
-- **Bloom is Petrovascope-only + default-on**, intensity 2.0 (a hardcoded arg in `application.cpp`; a HUD
-  intensity slider + toggle is a nice future tweak). A crude whole-backbuffer bloom was tried first and
-  reverted -- do NOT revisit it; the emission-buffer approach (ADR-044) is the right one.
-- **`--gl-debug` + `--screenshot` together emit one benign glReadPixels GL-debug warning** (pre-existing).
-  Gates never combine them.
-- **Thermal-density gotcha (M13b):** herding a LARGE awake culture (~2000+ cells) into a tight pile drives
-  the explicit thermal solver to blow up (`--auto-light --awake` at 3000 cells ran the medium to 8e6 K;
-  1000 cells is stable at the setpoint -- the M12h/M13b gates use 1000). Keep interaction piles modest.
-- The M12 ship loose ends still stand (snapshot has no next_taumoeba_id/motion, ADR-036; scenario
-  `param_overrides` unapplied, ADR-035). Demo caveats: interop sized at init (ADR-042).
+- **Golden tolerance:** a full `goldens.ps1 -Generate` rewrites the m3_* Brightfield oracles by a
+  sub-tolerance ULP (the M12f cross-fade `pm/apre` round-trip; within M3.2 tolerance, so every gate
+  passes). When regenerating for a REAL golden change, revert the spurious m3_* and commit only the
+  intended golden -- as M12i did for m7b_thermal_awake.
+- **Render toggles:** `--no-bloom` (M12h) and `--no-field` (M12i) fall back to the pre-feature look;
+  goldens pin `--no-bloom` but capture the T-field (M12i's golden moved). Bloom intensity (2.0) and the
+  T-field range (0-100 C) are hardcoded in `application.cpp`; HUD toggles/sliders are a nice future tweak.
+- **`--gl-debug` + `--screenshot` together emit one benign glReadPixels warning** (pre-existing). Gates
+  never combine them.
+- **Thermal-density gotcha (M13b):** herding a LARGE awake culture (~2000+ cells) into a tight pile blows
+  up the explicit thermal solver; 1000 cells is stable (the M12h gate uses 1000). Keep piles modest.
+- Other M12 loose ends stand (snapshot has no next_taumoeba_id/motion, ADR-036; scenario `param_overrides`
+  unapplied, ADR-035). Demo caveats: interop sized at init (ADR-042).
 - A stray `carlquist_MASTER_v2.pdf` sits untracked in the repo root (not ours; leave it).

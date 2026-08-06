@@ -499,6 +499,27 @@ if ($n -eq 12 -and $suffix -ge 'h') {
     }
 }
 
+# ---------------------------- M12i: real T-field false-colour behind Thermal IR
+# Thermal IR now draws the diffused temperature field as its background (ADR-045) instead of a flat warm
+# clear -- so a heated plume reads as a bright region. The gate heats a culture and requires the T-field
+# background to differ from the --no-field flat clear (isolating M12i, since the cells are identical), and a
+# --gl-debug run (no --screenshot) confirms the field pass is clean. The m7b_thermal_awake golden was
+# regenerated WITH the field (M3.2, re-run above, matches the new golden).
+if ($n -eq 12 -and $suffix -ge 'i') {
+    Gate 'M12i.1' 'the T-field false-colour shows a heated plume (differs from --no-field), GL-clean' {
+        $exe = Find-Exe 'astrophage'; $diff = Find-Exe 'imgdiff'
+        if (-not $exe -or -not $diff) { return $false }
+        $g = & $exe --cells 3000 --charge 0.05 --mode thermal --auto-poke heat --headless --gl-debug --frames 20 --ticks-per-frame 20 2>&1 | Out-String
+        if ($g -match 'GL debug errors') { return $false }
+        $field = Join-Path $build 'm12i_field.ppm'; $flat = Join-Path $build 'm12i_flat.ppm'
+        $common = @('--cells', '3000', '--charge', '0.05', '--mode', 'thermal', '--auto-poke', 'heat', '--headless', '--no-ui', '--frames', '20', '--ticks-per-frame', '20')
+        & $exe @common --screenshot $field *>&1 | Out-Null
+        & $exe @common --no-field --screenshot $flat *>&1 | Out-Null
+        & $diff $field $flat *>&1 | Out-Null
+        return ($LASTEXITCODE -ne 0)   # nonzero = the field background differs from the flat clear
+    }
+}
+
 # ---------------------------- M12j: package and v1.0
 # Scoped to the M12 ship line only (not $n -gt 12): M13 is a parallel arc branched from
 # m12e-green before packaging is built, so an M13 gate must not require the unbuilt package.ps1.

@@ -466,19 +466,22 @@ void cells_pass_destroy(CellsPass& p) {
 void cells_pass_draw(const CellsPass& p, const Camera& cam, int fb_w, int fb_h,
                      int32_t count, ViewMode mode, AnalysisChannel channel,
                      contract::Morphology morphology, bool colorblind,
-                     ViewMode mode_blend_to, float mode_blend) {
+                     ViewMode mode_blend_to, float mode_blend, bool clear) {
     // The background is part of the mode: brightfield is lamp-white, the IR modes are
     // near-black so a faint glow reads, and Analysis is a neutral dark grey. The
     // cross-fade lerps between the primary and target mode backgrounds (M12f); at
     // mode_blend 0 this is exactly the primary mode's clear colour, so goldens are unmoved.
-    float bg0[3], bg1[3];
-    mode_clear_color(mode, bg0);
-    mode_clear_color(mode_blend_to, bg1);
-    const float tb = mode_blend;
-    glClearColor(bg0[0] + (bg1[0] - bg0[0]) * tb,
-                 bg0[1] + (bg1[1] - bg0[1]) * tb,
-                 bg0[2] + (bg1[2] - bg0[2]) * tb, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
+    // clear=false leaves the background to the caller -- M12i draws the real T-field behind Thermal IR.
+    if (clear) {
+        float bg0[3], bg1[3];
+        mode_clear_color(mode, bg0);
+        mode_clear_color(mode_blend_to, bg1);
+        const float tb = mode_blend;
+        glClearColor(bg0[0] + (bg1[0] - bg0[0]) * tb,
+                     bg0[1] + (bg1[1] - bg0[1]) * tb,
+                     bg0[2] + (bg1[2] - bg0[2]) * tb, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+    }
     if (count <= 0) return;
 
     double hx, hy;

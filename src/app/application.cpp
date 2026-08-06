@@ -559,6 +559,7 @@ Error app_init(Application& a, const Options& o) {
     ASTRO_TRY(render::cells_pass_create(a.cells_pass, capacity, interop_tau));
     ASTRO_TRY(render::post_pass_create(a.post_pass));
     ASTRO_TRY(render::bloom_pass_create(a.bloom));
+    ASTRO_TRY(render::field_pass_create(a.field));
 
     // A scenario already spawned its populations and set its own clock + scope; a plain run
     // spawns a uniform population and takes the clock/mode from the flags. The demo's load_act
@@ -611,6 +612,7 @@ Error app_init(Application& a, const Options& o) {
 void app_shutdown(Application& a) {
     render::post_pass_destroy(a.post_pass);
     render::bloom_pass_destroy(a.bloom);
+    render::field_pass_destroy(a.field);
     render::cells_pass_destroy(a.cells_pass);
     render::gl_context_destroy(a.gl);
     sim::world_destroy(a.world);
@@ -771,10 +773,24 @@ int app_run(Application& a) {
             return 1;
         }
 
+        // Thermal IR (M12i, ADR-045): draw the real diffused T-field as the false-colour background, then
+        // the cells on top of it. Pure Thermal IR only (a cross-fade keeps the M12f flat approximation);
+        // --no-field falls back to the flat clear. The app grid_download's the T grid to a host buffer and
+        // hands render a raw float* -- render/ never touches sim/.
+        const bool thermal_field = (a.hud.mode == contract::ViewMode::ThermalIR &&
+                                    a.hud.mode_blend == 0.0f && !a.options.no_field);
+        if (thermal_field) {
+            const auto& tg = a.world.fields.temperature;
+            const size_t nn = static_cast<size_t>(tg.n) * static_cast<size_t>(tg.n);
+            if (a.field_host.size() < nn) a.field_host.resize(nn);
+            fields::grid_download(tg, a.field_host.data());
+            render::field_pass_draw(a.field, a.camera, a.gl.fb_width, a.gl.fb_height,
+                                    a.field_host.data(), tg.n, tg.extent, 273.15f, 373.15f);
+        }
         render::cells_pass_draw(a.cells_pass, a.camera, a.gl.fb_width, a.gl.fb_height,
                                 draw_count, a.hud.mode, a.hud.channel,
                                 a.options.morphology, a.hud.colorblind,
-                                a.hud.mode_blend_to, a.hud.mode_blend);
+                                a.hud.mode_blend_to, a.hud.mode_blend, /*clear=*/!thermal_field);
         // Bloom over the Petrova emission (M12h, ADR-044): Petrovascope only. Re-draws the Astrophage
         // (not the Taumoeba) into a private emission buffer and adds its blurred glow back, so it blooms
         // the emission and nothing else. A no-op with no emission -> the m7b_petrova golden is unmoved;

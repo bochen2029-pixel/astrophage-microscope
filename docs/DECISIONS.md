@@ -132,6 +132,17 @@ Append-only. Every contradiction in the source material and every non-obvious en
 
 ---
 
+## ADR-045 — Thermal IR shows the real T-field, not a flat warm clear
+
+**Status:** accepted, 2026-08-05 (M12i).
+**Context.** Thermal IR (ADR-029) drew the medium as a single flat warm clear colour -- a stand-in for the real temperature field. So a warmed plume, a chilled corner, the thermal halo around an awake culture -- none of it was visible; the medium looked uniform however the physics stirred it.
+**Decision.** Draw the diffused temperature field as the Thermal-IR background. The app `grid_download`s the T grid to a host buffer and hands a render `field_pass` a raw `float*` (render/ never touches sim/); the pass uploads it to an R32F texture and samples it, mapped through the camera window into the chamber, via a warm IR LUT (cold near-black -> the old resting warm -> hot toward white). It replaces the flat clear for PURE Thermal IR (a cross-fade keeps the flat approximation); `cells_pass_draw(clear=false)` then draws the cells on top. `--no-field` restores the flat clear.
+**The golden moves, deliberately.** m7b_thermal_awake is an awake culture, which pins the medium near the setpoint -- so with the field it shows the real warm structure, not a flat wash. The golden is regenerated via `scripts/goldens.ps1 -Generate` (Rule 10). Only m7b_thermal_awake changes; every other golden is a non-Thermal mode and is byte-identical. Render-only, so determinism (INV-8) is untouched.
+**Consequences.** A ~1 MB D2H of the T grid per frame in Thermal IR (off the Brightfield benchmark path, M1.5). The field pass is the renderer's second texture path (after M12h's bloom FBO). The false-colour range is a fixed 0-100 C display window; a scenario-adaptive range is a possible future tweak.
+**Escape hatch.** `--no-field`.
+
+---
+
 ## ADR-044 — Bloom over the Petrova emission, from a separate emission buffer
 
 **Status:** accepted, 2026-08-05 (M12h).

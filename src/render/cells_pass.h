@@ -40,6 +40,7 @@ void cells_pass_draw(const CellsPass& p, const Camera& cam, int fb_w, int fb_h,
                      contract::Morphology morphology = contract::Morphology::Irregular,
                      bool colorblind = false,
                      contract::ViewMode mode_blend_to = contract::ViewMode::Brightfield,
-                     float mode_blend = 0.0f);
+                     float mode_blend = 0.0f,
+                     bool clear = true);   // false: caller owns the background (M12i T-field)
 
 } // namespace astro::render

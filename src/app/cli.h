@@ -69,6 +69,7 @@ struct Options {
     contract::Morphology morphology = contract::Morphology::Irregular;
     float    aperture   = 0.92f;     // field diaphragm radius; 0 = full rectangle
     bool     no_bloom   = false;     // disable the Petrovascope emission bloom (M12h); goldens pin this
+    bool     no_field   = false;     // Thermal IR falls back to the flat warm clear, not the real T-field (M12i)
 
     // Initial view mode, and whether the population spawns awake -- both needed to
     // capture the non-brightfield modes headless (an awake idle cell glows in

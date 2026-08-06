@@ -6,6 +6,31 @@ Format: milestone · what landed · what is pending · open questions · gotchas
 
 ---
 
+## 2026-08-05 — M12i (Ship: render remainder -- real T-field false-colour behind Thermal IR) — GREEN · **the medium's heat, made visible**
+
+**Landed.** The LAST render-remainder step. Thermal IR now draws the diffused temperature field as its
+false-colour background (ADR-045) instead of a flat warm clear -- so a heated plume reads as a bright
+region and the medium's structure shows. New `field_pass.cpp` (the renderer's second texture path, after
+M12h's bloom FBO): the app `grid_download`s the T grid to a host buffer and hands render a raw float*
+(render/ never touches sim/); the pass uploads it to an R32F texture and samples it, camera-mapped into
+the chamber, through a warm IR LUT. `cells_pass_draw` gained a `clear=false` so the field owns the
+background and the cells draw on top. Pure Thermal IR only (a cross-fade keeps the flat approximation);
+`--no-field` restores the flat clear.
+
+**The golden moved, deliberately.** m7b_thermal_awake (an awake culture pins the medium near the setpoint)
+now shows the real warm structure -- regenerated via `goldens.ps1 -Generate` (Rule 10, ADR-045). ONLY that
+golden changed; a full -Generate also rewrote the m3_* Brightfield oracles by a sub-tolerance ULP (the
+M12f cross-fade round-trip -- within M3.2 tolerance, NOT an M12i effect), so those were reverted and kept
+as the M3 references. Render-only, so determinism (M0.4) is untouched.
+
+**Verified.** Gate M0..M12h + **M12i.1** green (a heated Thermal IR shows a plume, differs from --no-field,
+GL-clean). M3.2 matches the regenerated golden + the original m3_* within tolerance.
+
+**Pending / next.** **The render remainder is COMPLETE** (M12f/g/h/i). Only **M12j** remains: package to a
+clean-machine .zip + tag `v1.0`. Then the parallel arcs M14c / M13c.
+
+---
+
 ## 2026-08-05 — M12h (Ship: render remainder -- bloom over the Petrova emission) — GREEN · **the swirling pink points of light, done right**
 
 **Landed.** The redo of the reverted attempt below, done RIGHT: bloom from a SEPARATE emission buffer

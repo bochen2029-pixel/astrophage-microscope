@@ -10,6 +10,7 @@
 #include "render/bloom.h"
 #include "render/camera.h"
 #include "render/cells_pass.h"
+#include "render/field_pass.h"
 #include "render/gl_context.h"
 #include "render/post_pass.h"
 #include "sim/accept.h"
@@ -26,6 +27,8 @@ struct Application {
     render::CellsPass  cells_pass;
     render::PostPass   post_pass;
     render::BloomPass  bloom;
+    render::FieldPass  field;              // T-field false-colour behind Thermal IR (M12i)
+    std::vector<float> field_host;         // T-grid D2H scratch for the field pass
     render::Camera     camera;
     sim::World         world;
     ui::HudState       hud;

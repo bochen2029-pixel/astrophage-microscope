@@ -24,6 +24,7 @@ void print_usage() {
         "  --mode-blend-to N  cross-fade target mode (same names as --mode)\n"
         "  --mode-blend T     cross-fade amount 0..1 (0 = --mode only)\n"
         "  --no-bloom         disable the Petrovascope emission bloom (M12h)\n"
+        "  --no-field         Thermal IR uses the flat warm clear, not the real T-field (M12i)\n"
         "  --morphology M     sphere | irregular  (appearance only; goldens pin sphere)\n"
         "  --aperture F       field diaphragm radius, 0 = full rectangle\n"
         "  --ticks-per-frame N  fixed ticks per frame, ignoring wall clock;\n"
@@ -146,6 +147,7 @@ Options parse_args(int argc, char** argv) {
         else if (want("--awake"))      o.awake     = true;
         else if (want("--colorblind")) o.colorblind = true;
         else if (want("--no-bloom"))   o.no_bloom   = true;
+        else if (want("--no-field"))   o.no_field   = true;
         else if (want("--headless"))   o.headless  = true;
         else if (want("--gl-debug"))   o.gl_debug  = true;
         else if (want("--benchmark"))  o.benchmark = true;

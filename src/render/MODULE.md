@@ -17,7 +17,7 @@ Everything that produces pixels: GL context, CUDA-GL interop, the single instanc
 | `optics.h` | ✅ circle of confusion, energy-conserving opacity, Becke amplitude, DOF — header-only, host-testable | M3 |
 | `morphology.h` | ✅ area-preserving irregular silhouettes, core/rim profile — header-only, host-testable (ADR-023) | M8b |
 | `post_pass.cpp` | ✅ condenser vignette (multiply-blended fullscreen triangle, no FBO) | M3 |
-| `field_pass.cpp` | grid → R32F texture, LUT mapping, overlays | M5 |
+| `field_pass.cpp` | ✅ the T-field false-colour background behind Thermal IR -- host T grid → R32F texture → warm IR LUT, camera-mapped; `--no-field` falls back to the flat clear (M12i, ADR-045) | M12i |
 | `luts.cpp` | the five colour tables | M5 |
 | `bloom.cpp` | ✅ additive bloom over the Petrovascope emission from a SEPARATE emission FBO (Astrophage re-drawn, Taumoeba excluded, mip-blurred); default-on, `--no-bloom` for goldens (M12h, ADR-044) | M12h |
 
@@ -47,8 +47,9 @@ A `m7b_thermal_awake` vs `m7b_petrova_awake` must-differ golden pins that the tw
 differently. **Now at M12g (ADR-043):** the pre-ignition warm-up of a heated dormant cell, via per-cell
 `temp_c` (render_view_v3) -- it glows continuously toward the setpoint, then holds the awake rim.
 **M12h (ADR-044):** additive bloom over the Petrovascope emission, from a separate emission buffer -- it
-haloes the emission, not the predators. **Still deferred:** the real T-field false-colour behind Thermal
-(M12i).
+haloes the emission, not the predators. **M12i (ADR-045):** the real T-field false-colour behind Thermal
+IR -- the diffused temperature field sampled through a warm IR LUT, so a heated plume reads as a bright
+region. The render remainder is complete; only packaging (`v1.0`) remains.
 
 ### The one hazard specific to this module
 
